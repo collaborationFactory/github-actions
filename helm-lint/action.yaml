@@ -1,0 +1,28 @@
+name: 'collaboration Factory toolset'
+description: 'Github Action our collaboration Factory repositories'
+author: 'collaboration Factory AG'
+branding:
+  icon: 'command'
+  color: 'blue'
+inputs:
+  chart:
+    description: 'chart to run linter on'
+    required: true
+  region:
+    description: 'AWS region'
+    required: false
+    default: 'eu-west-1'
+  aws_access_key_id:
+    description: 'AWS IAM access key id'
+    required: true
+  aws_secret_access_key:
+    description: 'AWS IAM secret access key'
+    required: true
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.chart }}
+    - ${{ inputs.aws_access_key_id }}
+    - ${{ inputs.aws_secret_access_key }}
+    - ${{ inputs.region }}
