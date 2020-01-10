@@ -10,5 +10,8 @@ AWS_ACCESS_KEY_ID=$INPUT_AWS_ACCESS_KEY_ID
 AWS_SECRET_ACCESS_KEY=$INPUT_AWS_SECRET_ACCESS_KEY
 AWS_DEFAULT_REGION=$INPUT_AWS_DEFAULT_REGION
 
-helm plugin install https://github.com/hypnoglow/helm-s3.git
+if ! helm plugin list | grep -q s3; then
+    helm plugin install https://github.com/hypnoglow/helm-s3.git
+fi
+
 helm repo add $REPO $S3_BUCKET
