@@ -14,4 +14,6 @@ if ! helm plugin list | grep -q s3; then
     helm plugin install https://github.com/hypnoglow/helm-s3.git
 fi
 
-helm repo add $REPO $S3_BUCKET
+if ! helm repo list | grep -q $REPO; then
+    helm repo add $REPO $S3_BUCKET
+fi
