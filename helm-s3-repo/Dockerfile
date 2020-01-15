@@ -6,3 +6,7 @@ RUN python -m pip install awscli
 
 RUN helm plugin install https://github.com/hypnoglow/helm-s3.git
 RUN apk del build-dependencies
+
+COPY entrypoint.sh /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
