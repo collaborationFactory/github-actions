@@ -11,7 +11,7 @@ export AWS_SECRET_ACCESS_KEY=$INPUT_AWS_SECRET_ACCESS_KEY
 export AWS_DEFAULT_REGION=$INPUT_AWS_REGION
 
 if ! helm plugin list | grep -q s3; then
-    helm plugin install https://github.com/hypnoglow/helm-s3.git
+    helm plugin install https://github.com/hypnoglow/helm-s3.git --version 0.9.1
 fi
 
 if ! helm repo list | grep -q $REPO; then
