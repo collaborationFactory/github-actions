@@ -11,8 +11,15 @@ if (!/\b[0-9a-f]{5,40}\b/.test(base)) base = 'origin/' + base;
 
 const projects = getAffectedProjects(target, jobIndex, jobCount, base);
 
+const runManyProjectsCmd = `./node_modules/.bin/nx run-many --target=${target} --projects=${projects}`;
+let cmd = `${runManyProjectsCmd} --parallel --prod`;
+
+if (target.includes('e2e')) {
+  cmd = `./node_modules/.bin/percy exec -- ${runManyProjectsCmd} -c ci`;
+}
+
 if (projects.length > 0) {
-  execSync(`./node_modules/.bin/nx run-many --target=${target} --projects=${projects} --parallel --prod`, {
+  execSync(cmd, {
     stdio: [0, 1, 2],
   });
 }

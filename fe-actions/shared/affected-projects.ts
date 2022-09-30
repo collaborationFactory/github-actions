@@ -1,9 +1,9 @@
 import { execSync } from 'child_process';
 
 export function getAffectedProjects(target: string, jobIndex: number, jobCount: number, base: string) {
-
-  console.log(`./node_modules/.bin/nx print-affected --base=${base} --target=${target}`);
-  const affected = execSync(`./node_modules/.bin/nx print-affected --base=${base} --target=${target}`).toString('utf-8');
+  const cmd = `./node_modules/.bin/nx print-affected --base=${base} --target=${target}`;
+  console.log(cmd);
+  const affected = execSync(cmd).toString('utf-8');
   const array = JSON.parse(affected)
     .tasks.map((t) => t.target.project)
     .slice()

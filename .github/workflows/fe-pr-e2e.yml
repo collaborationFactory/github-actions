@@ -35,8 +35,13 @@ jobs:
       - name: Install Cypress Binary
         run: npx cypress install
 
-      - name: Affected Regession Tests
-        run: node_modules/.bin/ts-node ./tools/nx/run-e2e.ts ${{ matrix.target }} ${{ matrix.jobIndex }} ${{ env.jobCount }} ${{ github.event.pull_request.base.ref }}
+      - name: Affected Regression Tests
+        uses: collaborationFactory/github-actions/fa-actions/run-many/action.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+        with:
+          target: ${{ matrix.target }}
+          jobIndex: ${{ matrix.jobIndex }}
+          jobCount: ${{ env.jobCount }}
+          base: ${{ github.event.pull_request.base.ref }}
         env:
           PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
           PERCY_PARTIAL_BUILD: 1
