@@ -1,0 +1,20 @@
+name: 'Nx Run Many Action'
+description: 'Github Action to run Nx command for many Nx projects'
+inputs:
+  target:
+    description: 'Nx command'
+    required: true
+  jobIndex:
+    description: 'Matrix job index'
+    required: true
+  jobCount:
+    description: 'Matrix job count'
+    required: true
+  base:
+    description: 'Base branch'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - run: npx ts-node ../shared/run-many.ts ${{ inputs.target }} ${{ inputs.jobIndex }} ${{ inputs.jobCount }} ${{ inputs.base }}
+      shell: bash

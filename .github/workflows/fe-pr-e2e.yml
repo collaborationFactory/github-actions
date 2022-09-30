@@ -1,0 +1,42 @@
+name: Frontend PR E2E Workflow
+
+on:
+  workflow_call:
+    secrets:
+      PERCY_TOKEN:
+        required: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: ['e2e']
+        jobIndex: [1, 2, 3, 4]
+    env:
+      jobCount: 4
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '14'
+
+      - name: Cache Node Modules
+        id: npm-cache
+        uses: actions/cache@v2
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install Cypress Binary
+        run: npx cypress install
+
+      - name: Affected Regession Tests
+        run: node_modules/.bin/ts-node ./tools/nx/run-e2e.ts ${{ matrix.target }} ${{ matrix.jobIndex }} ${{ env.jobCount }} ${{ github.event.pull_request.base.ref }}
+        env:
+          PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
+          PERCY_PARTIAL_BUILD: 1

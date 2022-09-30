@@ -1,0 +1,38 @@
+name: Frontend PR Build Workflow
+
+on:
+  workflow_call
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: ['build-storybook-run', 'build']
+        jobIndex: [1, 2]
+    env:
+      jobCount: 2
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '14'
+
+      - name: Cache Node Modules
+        id: npm-cache
+        uses: actions/cache@v2
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Build and Storybook
+        uses: collaborationFactory/github-actions/fa-actions/run-many/action.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+        with:
+          target: ${{ matrix.target }}
+          jobIndex: ${{ matrix.jobIndex }}
+          jobCount: ${{ env.jobCount }}
+          base: ${{ github.event.pull_request.base.ref }}

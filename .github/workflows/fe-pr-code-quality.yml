@@ -1,0 +1,33 @@
+name: Frontend PR Code Quality Workflow
+
+on:
+  workflow_call
+
+jobs:
+  code-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '14'
+
+      - name: Cache Node Modules
+        id: npm-cache
+        uses: actions/cache@v2
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Formatter
+        run: node_modules/.bin/nx format:check --base=origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Linter
+        run: node_modules/.bin/nx affected:lint --parallel --configuration=dev --base=origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Unit Tests
+        run: node_modules/.bin/nx affected:test --parallel --configuration=dev --base=origin/${{ github.event.pull_request.base.ref }}
