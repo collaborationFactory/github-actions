@@ -37,7 +37,7 @@ jobs:
         run: npx cypress install
 
       - name: Affected Regression Tests
-        uses: ./run-many/action.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+        uses: collaborationFactory/github-actions/.github/actions/run-many@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
         with:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}

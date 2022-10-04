@@ -30,7 +30,7 @@ jobs:
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
 
       - name: Build and Storybook
-        uses: ./run-many/action.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+        uses: collaborationFactory/github-actions/.github/actions/run-many@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
         with:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}
