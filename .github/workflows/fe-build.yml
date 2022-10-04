@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: ['build-storybook-run', 'build']
+        target: ['build-storybook', 'build']
         jobIndex: [1, 2]
     env:
       jobCount: 2
