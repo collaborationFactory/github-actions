@@ -2,10 +2,9 @@ name: Frontend PR Install Dependencies Workflow
 
 on:
   workflow_call:
-    inputs:
+    secrets:
       DOT_NPMRC:
         required: true
-        type: string
 
 jobs:
   install-deps:
@@ -35,7 +34,7 @@ jobs:
       - name: Use .npmrc
         uses: bduff9/use-npmrc@v1.1
         with:
-          dot-npmrc: ${{ inputs.DOT_NPMRC }}
+          dot-npmrc: ${{ secrets.DOT_NPMRC }}
 
       - name: Install modules
         if: steps.npm-cache.outputs.cache-hit != 'true'
