@@ -10,17 +10,17 @@ env:
 
 jobs:
   install-deps:
-    uses: collaborationFactory/github-actions/workflows/fe-install-deps.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+    uses: collaborationFactory/github-actions/.github/workflows/fe-install-deps.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
     secrets:
       DOT_NPMRC: ${{ secrets.DOT_NPMRC }}
 
   build:
-    uses: collaborationFactory/github-actions/workflows/fe-build.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+    uses: collaborationFactory/github-actions/.github/workflows/fe-build.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
 
   code-quality:
-    uses: collaborationFactory/github-actions/workflows/fe-pr-code-quality.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+    uses: collaborationFactory/github-actions/.github/workflows/fe-pr-code-quality.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
 
   e2e:
-    uses: collaborationFactory/github-actions/workflows/fe-e2e.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+    uses: collaborationFactory/github-actions/.github/workflows/fe-e2e.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
     secrets:
       PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
