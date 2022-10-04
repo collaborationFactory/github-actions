@@ -16,5 +16,5 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - run: npx ts-node ../shared/run-many.ts ${{ inputs.target }} ${{ inputs.jobIndex }} ${{ inputs.jobCount }} ${{ inputs.base }}
+    - run: npx ts-node ../scripts/run-many.ts ${{ inputs.target }} ${{ inputs.jobIndex }} ${{ inputs.jobCount }} ${{ inputs.base }}
       shell: bash
