@@ -17,7 +17,7 @@ jobs:
       DOT_NPMRC: ${{ secrets.DOT_NPMRC }}
 
   build:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-build.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflowswith
+    uses: collaborationFactory/github-actions/.github/workflows/fe-build.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
     with:
       GHA_REF: ${{ github.event.pull_request.head.ref }}
       GHA_BASE: ${{ github.event.pull_request.base.ref }}
