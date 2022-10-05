@@ -18,6 +18,7 @@ runs:
   steps:
     - run: echo $(pwd)
       shell: bash
-    - name: Test 3
+    - run: echo "$GITHUB_ACTION_PATH/../../../fe-actions/scripts/run-many"
       shell: bash
-      run: echo "Test $GITHUB_ACTION_PATH."
+    - run: ls -ll "$GITHUB_ACTION_PATH/../../../fe-actions/scripts/run-many"
+      shell: bash
