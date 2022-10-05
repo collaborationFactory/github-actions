@@ -16,5 +16,7 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - run: npx ts-node ${GITHUB_ACTION_REPOSITORY}/fe-actions/scripts/run-many.ts ${{ inputs.target }} ${{ inputs.jobIndex }} ${{ inputs.jobCount }} ${{ inputs.base }}
+    - run: pwd
+      shell: bash
+    - run: echo ${GITHUB_ACTION_REPOSITORY}
       shell: bash
