@@ -16,7 +16,7 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - run: pwd
+    - run: echo $(pwd)
       shell: bash
-    - run: echo ${GITHUB_ACTION_REPOSITORY}
+    - run: echo "$GITHUB_ACTION_REPOSITORY"
       shell: bash
