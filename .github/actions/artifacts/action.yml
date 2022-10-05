@@ -1,0 +1,9 @@
+name: 'Frontend Artifacts Handler Action'
+description: 'Github Action to handle frontend artifacts'
+runs:
+  using: 'composite'
+  steps:
+    - run: printenv
+      shell: bash
+    - run: npx ts-node "$GITHUB_ACTION_PATH/../../../tools/scripts/artifacts/main.ts"
+      shell: bash

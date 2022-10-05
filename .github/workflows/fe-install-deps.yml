@@ -1,4 +1,4 @@
-name: Frontend PR Install Dependencies Workflow
+name: Frontend Install Dependencies Workflow
 
 on:
   workflow_call:

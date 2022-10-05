@@ -1,4 +1,4 @@
-name: Frontend PR E2E Workflow
+name: Frontend E2E Workflow
 
 on:
   workflow_call:
@@ -10,6 +10,7 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    needs: install-deps
     strategy:
       matrix:
         target: ['e2e']

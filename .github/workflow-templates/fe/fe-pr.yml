@@ -15,15 +15,12 @@ jobs:
       DOT_NPMRC: ${{ secrets.DOT_NPMRC }}
 
   build:
-    needs: install-deps
     uses: collaborationFactory/github-actions/.github/workflows/fe-build.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
 
   code-quality:
-    needs: install-deps
-    uses: collaborationFactory/github-actions/.github/workflows/fe-pr-code-quality.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+    uses: collaborationFactory/github-actions/.github/workflows/fe-code-quality.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
 
   e2e:
-    needs: install-deps
     uses: collaborationFactory/github-actions/.github/workflows/fe-e2e.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
     secrets:
       PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}

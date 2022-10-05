@@ -1,10 +1,11 @@
-name: Frontend PR Build Workflow
+name: Frontend Build Workflow
 
 on:
   workflow_call
 
 jobs:
   build:
+    needs: install-deps
     runs-on: ubuntu-latest
     strategy:
       matrix:
