@@ -1,0 +1,17 @@
+name: Frontend Pull Request Close Workflow
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - '**'
+
+jobs:
+  remove-artifacts:
+    uses: collaborationFactory/github-actions/.github/workflows/fe-pr-close.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+    with:
+      GHA_BASE: ${{ github.event.pull_request.base.ref }}
+    secrets:
+      JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
+      JFROG_URL: ${{ secrets.JFROG_URL }}
+      JFROG_USER: ${{ secrets.JFROG_USER }}
+      DOT_NPMRC: ${{ secrets.DOT_NPMRC }}
