@@ -1,7 +1,14 @@
 name: Frontend Build Workflow
 
 on:
-  workflow_call
+  workflow_call:
+    inputs:
+      GHA_REF:
+        type: string
+        required: true
+      GHA_BASE:
+        type: string
+        required: true
 
 jobs:
   build:
@@ -16,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ inputs.GHA_REF }}
           fetch-depth: 0
 
       - uses: actions/setup-node@v1
@@ -36,4 +43,4 @@ jobs:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}
           jobCount: ${{ env.jobCount }}
-          base: ${{ github.event.pull_request.base.ref }}
+          base: ${{ inputs.GHA_BASE }}

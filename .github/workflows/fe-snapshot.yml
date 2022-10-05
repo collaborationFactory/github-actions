@@ -2,6 +2,13 @@ name: Frontend Snapshot Workflow
 
 on:
   workflow_call:
+    inputs:
+      GHA_REF:
+        type: string
+        required: true
+      GHA_BASE:
+        type: string
+        required: true
     secrets:
       JFROG_BASE64_TOKEN:
         required: true
@@ -19,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
-          ref: main
+          ref: ${{ inputs.GHA_REF }}
           fetch-depth: 0
           token: ${{ secrets.GH_ACTION_BOT }}
 
@@ -36,5 +43,5 @@ jobs:
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}
           JFROG_USER: ${{ secrets.JFROG_USER }}
-          BASE: ${{ github.event.before }}
+          BASE: ${{ inputs.GHA_BASE }}
           SNAPSHOT: true

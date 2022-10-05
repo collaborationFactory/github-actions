@@ -1,4 +1,4 @@
-name: 'Main'
+name: 'Frontend Main CI'
 on:
   push:
     branches:
@@ -12,19 +12,30 @@ env:
 jobs:
   install-deps:
     uses: collaborationFactory/github-actions/workflows/fe-install-deps.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+    with:
+      GHA_REF: ''
     secrets:
       DOT_NPMRC: ${{ secrets.DOT_NPMRC }}
 
   e2e-tests:
     uses: collaborationFactory/github-actions/workflows/fe-e2e.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+    with:
+      GHA_REF: ''
+      GHA_BASE: ${{ github.event.before }}
     secrets:
       PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
 
   build:
     uses: collaborationFactory/github-actions/workflows/fe-build.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+    with:
+      GHA_REF: ''
+      GHA_BASE: ${{ github.event.before }}
 
   snapshot:
     uses: collaborationFactory/github-actions/workflows/fe-snapshot.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+    with:
+      GHA_REF: ''
+      GHA_BASE: ${{ github.event.before }}
     secrets:
       JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
       JFROG_URL: ${{ secrets.JFROG_URL }}
