@@ -18,7 +18,7 @@ runs:
   steps:
     - run: echo $(pwd)
       shell: bash
-    - run: echo "$GITHUB_ACTION_PATH/../../../fe-actions/scripts/run-many"
+    - run: echo "$GITHUB_ACTION_PATH/../../../fe-actions/scripts"
       shell: bash
-    - run: ls -ll "$GITHUB_ACTION_PATH/../../../fe-actions/scripts/run-many"
+    - run: ls -ll "$GITHUB_ACTION_PATH/../../../fe-actions/scripts"
       shell: bash
