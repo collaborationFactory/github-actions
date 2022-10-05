@@ -4,7 +4,7 @@ import * as path from 'path';
 
 import { ArtifactsHandler, TASK } from './artifacts-handler';
 import { NxProject, NxProjectKind, VERSION_BUMP } from './nx-project';
-import { Version } from './Version';
+import { Version } from './version';
 
 export class Utils {
   public static readonly PULL_REQUEST = 'pull_request';
