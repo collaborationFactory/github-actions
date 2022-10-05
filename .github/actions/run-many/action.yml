@@ -20,3 +20,12 @@ runs:
       shell: bash
     - run: echo "$GITHUB_ACTION_REPOSITORY"
       shell: bash
+    - name: Test 1
+      shell: bash
+      run: echo "Test $env:GITHUB_ACTION_REPOSITORY."
+    - name: Test 2
+      shell: bash
+      run: echo "Test $GITHUB_ACTION_REPOSITORY."
+    - name: Test 3
+      shell: bash
+      run: echo "Test $GITHUB_WORKSPACE."
