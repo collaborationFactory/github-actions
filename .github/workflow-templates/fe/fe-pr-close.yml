@@ -1,4 +1,4 @@
-name: Frontend Pull Request Close Workflow
+name: 'Frontend Pull Request Close CI'
 on:
   pull_request:
     types: [closed]
