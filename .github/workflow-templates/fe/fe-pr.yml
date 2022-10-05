@@ -17,15 +17,18 @@ jobs:
       DOT_NPMRC: ${{ secrets.DOT_NPMRC }}
 
   build:
+    needs: install-deps
     uses: collaborationFactory/github-actions/.github/workflows/fe-build.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
     with:
       GHA_REF: ${{ github.event.pull_request.head.ref }}
       GHA_BASE: ${{ github.event.pull_request.base.ref }}
 
   code-quality:
+    needs: install-deps
     uses: collaborationFactory/github-actions/.github/workflows/fe-code-quality.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
 
   e2e:
+    needs: install-deps
     uses: collaborationFactory/github-actions/.github/workflows/fe-e2e.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
     with:
       GHA_REF: ${{ github.event.pull_request.head.ref }}

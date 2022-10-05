@@ -5,7 +5,6 @@ on:
 
 jobs:
   code-quality:
-    needs: install-deps
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
