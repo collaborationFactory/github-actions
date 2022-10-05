@@ -11,7 +11,7 @@ env:
 
 jobs:
   install-deps:
-    uses: collaborationFactory/github-actions/workflows/fe-install-deps.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+    uses: collaborationFactory/github-actions/.github/workflows/fe-install-deps.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
     with:
       GHA_REF: ''
     secrets:
@@ -19,7 +19,7 @@ jobs:
 
   e2e-tests:
     needs: install-deps
-    uses: collaborationFactory/github-actions/workflows/fe-e2e.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+    uses: collaborationFactory/github-actions/.github/workflows/fe-e2e.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
     with:
       GHA_REF: ''
       GHA_BASE: ${{ github.event.before }}
@@ -28,14 +28,14 @@ jobs:
 
   build:
     needs: install-deps
-    uses: collaborationFactory/github-actions/workflows/fe-build.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+    uses: collaborationFactory/github-actions/.github/workflows/fe-build.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
     with:
       GHA_REF: ''
       GHA_BASE: ${{ github.event.before }}
 
   snapshot:
     needs: build
-    uses: collaborationFactory/github-actions/workflows/fe-snapshot.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+    uses: collaborationFactory/github-actions/.github/workflows/fe-snapshot.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
     with:
       GHA_REF: ''
       GHA_BASE: ${{ github.event.before }}

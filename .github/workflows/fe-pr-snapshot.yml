@@ -13,8 +13,6 @@ on:
         required: true
       JFROG_USER:
         required: true
-      GITHUB_TOKEN:
-        required: true
       DOT_NPMRC:
         required: true
 

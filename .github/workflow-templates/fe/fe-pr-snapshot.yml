@@ -7,12 +7,11 @@ on:
 
 jobs:
   publish-pr-snapshot:
-    uses: collaborationFactory/github-actions/workflows/fe-pr-snapshot.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+    uses: collaborationFactory/github-actions/.github/workflows/fe-pr-snapshot.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
     with:
       GHA_BASE: ${{ github.event.pull_request.base.ref }}
     secrets:
       JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
       JFROG_URL: ${{ secrets.JFROG_URL }}
       JFROG_USER: ${{ secrets.JFROG_USER }}
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       DOT_NPMRC: ${{ secrets.DOT_NPMRC }}
