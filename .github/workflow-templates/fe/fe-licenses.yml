@@ -13,7 +13,6 @@ jobs:
   check-licenses:
     uses: collaborationFactory/github-actions/.github/workflows/fe-licenses.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
     with:
-      FOSS_TMP: dist/fossTmp
-      FOSS_DIST: dist/foss.json
+      FOSS_DIST: dist
     secrets:
       DOT_NPMRC: ${{ secrets.DOT_NPMRC }}
