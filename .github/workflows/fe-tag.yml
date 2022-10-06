@@ -16,7 +16,7 @@ on:
         required: true
       JFROG_USER:
         required: true
-      GH_ACTION_BOT:
+      GIT_USER_TOKEN:
         required: true
       GIT_USER_EMAIL:
         required: true
@@ -31,7 +31,7 @@ jobs:
         with:
           ref: ${{ inputs.GHA_REF }}
           fetch-depth: 0
-          token: ${{ secrets.GH_ACTION_BOT }}
+          token: ${{ secrets.GIT_USER_TOKEN }}
 
       - uses: actions/setup-node@v1
         with:
