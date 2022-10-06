@@ -2,6 +2,13 @@ name: Frontend Install Dependencies Workflow
 
 on:
   workflow_call:
+    inputs:
+      FOSS_TMP:
+        required: true
+        type: string
+      FOSS_DIST:
+        required: true
+        type: string
     secrets:
       DOT_NPMRC:
         required: true
@@ -47,14 +54,14 @@ jobs:
 
       - name: Check Licenses Remote
         if: steps.localLicenseChecker.outcome == 'failure'
-        run: node node_modules/@cplace-next/cf-frontend-licenses/main.js check dist/libs/cf-frontend-licenses/fossTmp
+        run: node node_modules/@cplace-next/cf-frontend-licenses/main.js check ${{ inputs.FOSS_TMP }}
 
       - name: Run Diff
-        run: diff -a --suppress-common-lines -y ./foss-list.json ./dist/libs/cf-frontend-licenses/foss-list.json
+        run: diff -a --suppress-common-lines -y ./foss-list.json ${{ inputs.FOSS_DIST }}
 
       - name: Read fossTmp
         id: readFossTmp
-        run: echo "::set-output name=foss_status::$(cat dist/libs/cf-frontend-licenses/fossTmp)"
+        run: echo "::set-output name=foss_status::$(cat ${{ inputs.FOSS_TMP }})"
 
       - name: Check fossTmp
         if: steps.readFossTmp.outputs.foss_status == '1'
