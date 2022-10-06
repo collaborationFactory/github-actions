@@ -1,0 +1,16 @@
+name: 'Frontend Licenses CI'
+on:
+  pull_request:
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+
+env:
+  NX_BRANCH: ${{ github.event.number }}
+  NX_RUN_GROUP: ${{ github.run_id }}
+
+jobs:
+  check-licenses:
+    uses: collaborationFactory/github-actions/.github/workflows/fe-licenses.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+    secrets:
+      DOT_NPMRC: ${{ secrets.DOT_NPMRC }}
