@@ -57,6 +57,7 @@ jobs:
         run: node node_modules/@cplace-next/cf-frontend-licenses/main.js check ${{ inputs.FOSS_DIST }} ${{ inputs.CUSTOM_LICENSES_JSON }}
 
       - name: Run Diff
+        continue-on-error: true
         run: diff -a --suppress-common-lines -y ./foss-list.json ${{ inputs.FOSS_DIST }}/foss-list.json
 
       - name: Read fossTmp
