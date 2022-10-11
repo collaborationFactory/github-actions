@@ -46,7 +46,7 @@ jobs:
         uses: dawidd6/action-get-tag@v1
 
       - name: Build and Push to Jfrog NPM Registry
-        uses: collaborationFactory/github-actions/.github/actions/artifacts@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+        uses: collaborationFactory/github-actions/.github/actions/artifacts@master
         env:
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}

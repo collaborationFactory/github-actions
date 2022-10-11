@@ -10,7 +10,7 @@ env:
 
 jobs:
   release-version:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-release.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+    uses: collaborationFactory/github-actions/.github/workflows/fe-release.yml@master
     secrets:
       JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
       JFROG_URL: ${{ secrets.JFROG_URL }}
