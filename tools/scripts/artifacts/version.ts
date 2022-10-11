@@ -7,7 +7,10 @@ export class Version {
   public patch: number = -1;
   public uniqueIdentifier: string = '';
 
-  constructor(versionString: string = ArtifactsHandler.SNAPSHOT_VERSION, public customSuffix: string = '') {
+  constructor(
+    versionString: string = ArtifactsHandler.SNAPSHOT_VERSION,
+    public customSuffix: string = ''
+  ) {
     if (versionString.match(ArtifactsHandler.SEMVER_REGEX)) {
       this.major = Number.parseInt(versionString.split('.')[0]);
       this.minor = Number.parseInt(versionString.split('.')[1]);

@@ -9,7 +9,8 @@ import { Version } from './version';
 export class Utils {
   public static readonly PULL_REQUEST = 'pull_request';
   public static readonly GITHUB_COMMENTS_FILE = 'githubCommentsForPR.txt';
-  public static readonly EMPTY_GITHUB_COMMENTS = 'No snapshots of projects have been published (probably no project is affected)';
+  public static readonly EMPTY_GITHUB_COMMENTS =
+    'No snapshots of projects have been published (probably no project is affected)';
 
   public static getAffectedNxProjects(
     base: string,
@@ -19,9 +20,15 @@ export class Utils {
     scope: string = ''
   ): NxProject[] {
     const affectedString = execSync(
-      `npx nx affected:${nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs'} --base=${base} --plain`
+      `npx nx affected:${
+        nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs'
+      } --base=${base} --plain`
     ).toString();
-    console.log(`Affected ${nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs'}: ` + affectedString);
+    console.log(
+      `Affected ${
+        nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs'
+      }: ` + affectedString
+    );
     let affectedNames: string[] = affectedString
       .trim()
       .split(' ')
@@ -35,7 +42,11 @@ export class Utils {
     return apps;
   }
 
-  public static getAllNxProjects(task: TASK = TASK.MAIN_SNAPSHOT, version: Version = new Version(), scope: string = ''): NxProject[] {
+  public static getAllNxProjects(
+    task: TASK = TASK.MAIN_SNAPSHOT,
+    version: Version = new Version(),
+    scope: string = ''
+  ): NxProject[] {
     const libsStr = execSync('npx nx affected:libs --all --plain').toString();
     const appsStr = execSync('npx nx affected:apps --all --plain').toString();
 
@@ -44,27 +55,46 @@ export class Utils {
 
     const projects = [...libs, ...apps];
     const nxProjects: NxProject[] = projects
-        .filter((project) => !project[0].includes('e2e'))
-        .filter((project) => !project[0].startsWith('api-'))
-        .map((project) => {
-          return new NxProject(project, libs.includes(project) ? NxProjectKind.Library : NxProjectKind.Application, task, version, scope);
-        });
-    console.log('All Projects: ' + nxProjects.map((nxProject) => nxProject.name));
+      .filter((project) => !project[0].includes('e2e'))
+      .filter((project) => !project[0].startsWith('api-'))
+      .map((project) => {
+        return new NxProject(
+          project,
+          libs.includes(project)
+            ? NxProjectKind.Library
+            : NxProjectKind.Application,
+          task,
+          version,
+          scope
+        );
+      });
+    console.log(
+      'All Projects: ' + nxProjects.map((nxProject) => nxProject.name)
+    );
     return nxProjects;
   }
 
-  public static getListOfProjectsFromProjectsString(projectsString: string | undefined) {
+  public static getListOfProjectsFromProjectsString(
+    projectsString: string | undefined
+  ) {
     if (projectsString?.length) {
       return projectsString.trim().split(' ');
     }
     return [];
   }
 
-  public static getLatestTagForReleaseBranch(branch: string, versionOfBranch: Version): Version {
+  public static getLatestTagForReleaseBranch(
+    branch: string,
+    versionOfBranch: Version
+  ): Version {
     let tags: Version[] = [];
     if (branch.startsWith(ArtifactsHandler.RELEASE_BRANCH_PREFIX)) {
       tags = this.getAllVersionTagsInAscendingOrder()
-        .filter((version) => version.major === versionOfBranch.major && version.minor === versionOfBranch.minor)
+        .filter(
+          (version) =>
+            version.major === versionOfBranch.major &&
+            version.minor === versionOfBranch.minor
+        )
         .sort((r1, r2) => {
           return r2.compareTo(r1);
         });
@@ -75,7 +105,10 @@ export class Utils {
 
   public static calculateNewVersion(branch: string): Version {
     const versionOfBranch: Version = Utils.getVersionFromReleaseBranch(branch);
-    const latestExistingTag = Utils.getLatestTagForReleaseBranch(branch, versionOfBranch);
+    const latestExistingTag = Utils.getLatestTagForReleaseBranch(
+      branch,
+      versionOfBranch
+    );
     if (!latestExistingTag.isValid()) {
       versionOfBranch.patch = 1;
       return versionOfBranch;
@@ -92,7 +125,13 @@ export class Utils {
       .toString()
       .split(/\r?\n/)
       .filter((i) => i !== '' && i.includes(ArtifactsHandler.VERSION_PREFIX))
-      .map((i) => i.substring(i.indexOf(ArtifactsHandler.VERSION_PREFIX) + ArtifactsHandler.VERSION_PREFIX.length, i.length));
+      .map((i) =>
+        i.substring(
+          i.indexOf(ArtifactsHandler.VERSION_PREFIX) +
+            ArtifactsHandler.VERSION_PREFIX.length,
+          i.length
+        )
+      );
     console.log(`The following tags were found ${tags}`);
     return tags
       .map((tag) => new Version(tag, ''))
@@ -113,7 +152,10 @@ export class Utils {
     // On a PR:
     // GITHUB_EVENT_NAME=pull_request
     // GITHUB_HEAD_REF=feature/PFM-ISSUE-1234-add-awesome-feature
-    if (process.env.GITHUB_EVENT_NAME && process.env.GITHUB_EVENT_NAME.toLocaleLowerCase() === Utils.PULL_REQUEST) {
+    if (
+      process.env.GITHUB_EVENT_NAME &&
+      process.env.GITHUB_EVENT_NAME.toLocaleLowerCase() === Utils.PULL_REQUEST
+    ) {
       return process.env.GITHUB_HEAD_REF || '';
     } else {
       // On push of a commit
@@ -124,7 +166,13 @@ export class Utils {
   }
 
   public static getVersionFromReleaseBranch(releaseBranch: string): Version {
-    return new Version(releaseBranch.trim().replace(ArtifactsHandler.RELEASE_BRANCH_PREFIX, '').concat('.0'), '');
+    return new Version(
+      releaseBranch
+        .trim()
+        .replace(ArtifactsHandler.RELEASE_BRANCH_PREFIX, '')
+        .concat('.0'),
+      ''
+    );
   }
 
   public static getUniqueSnapshotIdentifier() {
@@ -132,19 +180,31 @@ export class Utils {
   }
 
   public static getPRVersion(branch: string, prNumber: string): string {
-    return `-${branch.substring(0, 50).replace(/[^0-9A-Za-z-.@]/g, '-')}-${prNumber}`;
+    return `-${branch
+      .substring(0, 50)
+      .replace(/[^0-9A-Za-z-.@]/g, '-')}-${prNumber}`;
   }
 
   public static getHashedTimestamp(): string {
     const date = new Date();
-    return `${(+date).toString(36)}-${date.getFullYear()}${('0' + (date.getMonth() + 1)).slice(-2)}${+('0' + date.getDate()).slice(-2)}`;
+    return `${(+date).toString(36)}-${date.getFullYear()}${(
+      '0' +
+      (date.getMonth() + 1)
+    ).slice(-2)}${+('0' + date.getDate()).slice(-2)}`;
   }
 
-  public static getAllSnapshotVersionsOfPackage(packageName: string, projectDistDir: string): string[] {
+  public static getAllSnapshotVersionsOfPackage(
+    packageName: string,
+    projectDistDir: string
+  ): string[] {
     const snapshotVersions = JSON.parse(
-      execSync(`npm view @cplace-next/${packageName} --json`, { cwd: projectDistDir }).toString()
+      execSync(`npm view @cplace-next/${packageName} --json`, {
+        cwd: projectDistDir,
+      }).toString()
     ).versions;
-    return snapshotVersions.filter((version: string) => version.toLowerCase().includes('snapshot'));
+    return snapshotVersions.filter((version: string) =>
+      version.toLowerCase().includes('snapshot')
+    );
   }
 
   public static getVersionFromSnapshotString(snapshot: string): Version {
@@ -165,8 +225,16 @@ export class Utils {
     if (!fs.existsSync(gitHubCommentsFile)) {
       fs.writeFileSync(gitHubCommentsFile, `${message}\n`);
     } else {
-      if (fs.readFileSync(gitHubCommentsFile).toString().includes(Utils.EMPTY_GITHUB_COMMENTS)) {
-        fs.writeFileSync(gitHubCommentsFile, `:tada: Snapshots of the following projects have been published: \n`);
+      if (
+        fs
+          .readFileSync(gitHubCommentsFile)
+          .toString()
+          .includes(Utils.EMPTY_GITHUB_COMMENTS)
+      ) {
+        fs.writeFileSync(
+          gitHubCommentsFile,
+          `:tada: Snapshots of the following projects have been published: \n`
+        );
       }
       fs.appendFileSync(gitHubCommentsFile, `${message}\n`);
     }
@@ -175,14 +243,21 @@ export class Utils {
   public static parseScopeFromPackageJson(): string {
     const gitRootDir = Utils.getRootDir();
     const pathToRootPackageJson = path.join(gitRootDir, NxProject.PACKAGEJSON);
-    const packageJsonContent = JSON.parse(fs.readFileSync(pathToRootPackageJson).toString());
+    console.log(fs.readFileSync(pathToRootPackageJson));
+    const packageJsonContent = JSON.parse(
+      fs.readFileSync(pathToRootPackageJson).toString()
+    );
     const name = packageJsonContent.name;
     let scope = (name.match(/@[\S]+\//) || '')[0]?.replace('/', '');
     if (!scope || scope === '') {
-      console.error(`No scope could be found, please provide a scope in root package.json (e.g. @YourScope/yourAppOrLib)`);
+      console.error(
+        `No scope could be found, please provide a scope in root package.json (e.g. @YourScope/yourAppOrLib)`
+      );
       process.exit(1);
     }
-    console.log(`Found scope ${scope} in package.json ${pathToRootPackageJson}`);
+    console.log(
+      `Found scope ${scope} in package.json ${pathToRootPackageJson}`
+    );
     return scope;
   }
 }

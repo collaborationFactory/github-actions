@@ -25,8 +25,8 @@ runs:
   using: 'docker'
   image: 'Dockerfile'
   args:
-    - "-e \"REPO=${{ inputs.repo }}\""
-    - "-e \"S3_BUCKET=${{ inputs.s3_bucket }}\""
-    - "-e \"AWS_ACCESS_KEY_ID=${{ inputs.aws_access_key_id }}\""
-    - "-e \"AWS_SECRET_ACCESS_KEY=${{ inputs.aws_secret_access_key }}\""
-    - "-e \"AWS_DEFAULT_REGION=${{ inputs.aws_region }}\""
+    - '-e "REPO=${{ inputs.repo }}"'
+    - '-e "S3_BUCKET=${{ inputs.s3_bucket }}"'
+    - '-e "AWS_ACCESS_KEY_ID=${{ inputs.aws_access_key_id }}"'
+    - '-e "AWS_SECRET_ACCESS_KEY=${{ inputs.aws_secret_access_key }}"'
+    - '-e "AWS_DEFAULT_REGION=${{ inputs.aws_region }}"'

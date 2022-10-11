@@ -1,8 +1,8 @@
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { request } from "https";
-import { IncomingMessage } from "http";
+import { request } from 'https';
+import { IncomingMessage } from 'http';
 
 import { Utils } from './utils';
 import { ArtifactsHandler, TASK } from './artifacts-handler';
@@ -18,7 +18,7 @@ interface PackageJson {
     registry: string;
     access: string;
     tag: string;
-  }
+  };
 }
 
 export enum NxProjectKind {
@@ -32,7 +32,8 @@ export enum VERSION_BUMP {
 }
 
 export class NxProject {
-  public static readonly REGISTRY_DOWNLOAD_URL = 'https://cplace.jfrog.io/ui/repos/tree/NpmInfo/cplace-npm-local';
+  public static readonly REGISTRY_DOWNLOAD_URL =
+    'https://cplace.jfrog.io/ui/repos/tree/NpmInfo/cplace-npm-local';
   public static readonly PACKAGEJSON = 'package.json';
   private _npmrcContent = '';
   private _packageJsonContent: any = {};
@@ -49,8 +50,11 @@ export class NxProject {
     if (this.nxProjectKind === NxProjectKind.Library) {
       if (fs.existsSync(this.getPackageJsonPathInSource())) {
         this.hasPackageJsonInSource = true;
-        this.packageJsonContent = JSON.parse(fs.readFileSync(this.getPackageJsonPathInSource()).toString());
-        if (this.packageJsonContent.publishable === true) this.isPublishable = true;
+        this.packageJsonContent = JSON.parse(
+          fs.readFileSync(this.getPackageJsonPathInSource()).toString()
+        );
+        if (this.packageJsonContent.publishable === true)
+          this.isPublishable = true;
       }
     } else {
       this.isPublishable = true;
@@ -62,7 +66,9 @@ export class NxProject {
   }
 
   public getJfrogUrl(): string {
-    return `${NxProject.REGISTRY_DOWNLOAD_URL}/${this.scope}/${this.name}/-/${this.scope}/${this.name}-${this.version.toString()}.tgz`;
+    return `${NxProject.REGISTRY_DOWNLOAD_URL}/${this.scope}/${this.name}/-/${
+      this.scope
+    }/${this.name}-${this.version.toString()}.tgz`;
   }
 
   public getMarkdownLink(): string {
@@ -77,9 +83,13 @@ export class NxProject {
             cwd: `${this.getPathToProjectInDist()}`,
           }).toString()
         );
-        Utils.writePublishedProjectToGithubCommentsFile(`${this.getMarkdownLink()}`);
+        Utils.writePublishedProjectToGithubCommentsFile(
+          `${this.getMarkdownLink()}`
+        );
       } catch (error: any) {
-        console.error(`An error ocurred while publishing the artifact: ${error}`);
+        console.error(
+          `An error ocurred while publishing the artifact: ${error}`
+        );
         if (error.status !== 0) process.exit(1);
       }
     }
@@ -87,25 +97,46 @@ export class NxProject {
 
   public build() {
     console.log(
-      execSync(`npx nx build ${this.name} --prod ${this.nxProjectKind === NxProjectKind.Application ? '--sourceMap=true' : ''}`).toString()
+      execSync(
+        `npx nx build ${this.name} --prod ${
+          this.nxProjectKind === NxProjectKind.Application
+            ? '--sourceMap=true'
+            : ''
+        }`
+      ).toString()
     );
   }
 
   public async deleteSnapshots(jfrogCredentials: JfrogCredentials) {
-    const snapshots = Utils.getAllSnapshotVersionsOfPackage(this.name, this.getPathToProjectInDist());
+    const snapshots = Utils.getAllSnapshotVersionsOfPackage(
+      this.name,
+      this.getPathToProjectInDist()
+    );
     console.log('The following snapshots have been found and will be removed');
     console.log(...snapshots);
     for (const snapshot of snapshots) {
-      await this.deleteArtifact(jfrogCredentials, Utils.getVersionFromSnapshotString(snapshot));
+      await this.deleteArtifact(
+        jfrogCredentials,
+        Utils.getVersionFromSnapshotString(snapshot)
+      );
     }
   }
 
-  public async deleteArtifact(jfrogCredentials: JfrogCredentials, version: Version) {
+  public async deleteArtifact(
+    jfrogCredentials: JfrogCredentials,
+    version: Version
+  ) {
     return new Promise(async (resolve, reject) => {
-      console.log(`About to delete artifact from Jfrog: ${this.name}@${version.toString()}`);
+      console.log(
+        `About to delete artifact from Jfrog: ${
+          this.name
+        }@${version.toString()}`
+      );
       const options = {
         hostname: 'cplace.jfrog.io',
-        path: `/artifactory/cplace-npm-local/${this.scope}/${this.name}/-/${this.scope}/${this.name}-${version.toString()}.tgz`,
+        path: `/artifactory/cplace-npm-local/${this.scope}/${this.name}/-/${
+          this.scope
+        }/${this.name}-${version.toString()}.tgz`,
         method: 'DELETE',
         headers: {
           Authorization: 'Basic ' + jfrogCredentials.base64Token,
@@ -114,7 +145,9 @@ export class NxProject {
       const req = request(options, (res: IncomingMessage) => {
         console.log(`Http-StatusCode of Delete request: ${res.statusCode}`);
         req.on('error', (error: any) => {
-          console.error(`An error ocurred while deleting the artifact: ${error}`);
+          console.error(
+            `An error ocurred while deleting the artifact: ${error}`
+          );
           reject();
         });
         resolve(res.statusCode);
@@ -125,9 +158,17 @@ export class NxProject {
 
   public writeNPMRCInDist(jfrogCredentials: JfrogCredentials, scope: string) {
     this.npmrcContent = `${scope}:registry=${jfrogCredentials.url} \n`;
-    this.npmrcContent = this.npmrcContent + `${jfrogCredentials.getJfrogUrlNoHttp()}:_auth=${jfrogCredentials.base64Token} \n`;
-    this.npmrcContent = this.npmrcContent + `${jfrogCredentials.getJfrogUrlNoHttp()}:always-auth=true \n`;
-    this.npmrcContent = this.npmrcContent + `${jfrogCredentials.getJfrogUrlNoHttp()}:email=${jfrogCredentials.user}`;
+    this.npmrcContent =
+      this.npmrcContent +
+      `${jfrogCredentials.getJfrogUrlNoHttp()}:_auth=${
+        jfrogCredentials.base64Token
+      } \n`;
+    this.npmrcContent =
+      this.npmrcContent +
+      `${jfrogCredentials.getJfrogUrlNoHttp()}:always-auth=true \n`;
+    this.npmrcContent =
+      this.npmrcContent +
+      `${jfrogCredentials.getJfrogUrlNoHttp()}:email=${jfrogCredentials.user}`;
     console.log(this.npmrcContent + '\n\n');
     fs.writeFileSync(this.getNpmrcPathInDist(), this.npmrcContent);
     console.log('wrote .npmrc to:  ' + this.getNpmrcPathInDist());
@@ -136,7 +177,9 @@ export class NxProject {
   public setVersionOrGeneratePackageJsonInDist(version: Version) {
     if (this.hasPackageJsonInSource) {
       try {
-        this.packageJsonContent = JSON.parse(fs.readFileSync(this.getPackageJsonPathInSource()).toString());
+        this.packageJsonContent = JSON.parse(
+          fs.readFileSync(this.getPackageJsonPathInSource()).toString()
+        );
         this.packageJsonContent.author = 'squad-fe';
         this.packageJsonContent.version = version.toString();
         this.packageJsonContent.license = `MIT`;
@@ -158,10 +201,14 @@ export class NxProject {
           registry: ArtifactsHandler.REGISTRY,
           access: 'restricted',
           tag: this.getTag(),
-        }
+        },
       };
     }
-    fs.writeFileSync(this.getPackageJsonPathInDist(), this.getPrettyPackageJson(), { encoding: 'utf-8' });
+    fs.writeFileSync(
+      this.getPackageJsonPathInDist(),
+      this.getPrettyPackageJson(),
+      { encoding: 'utf-8' }
+    );
 
     console.log('wrote package.json to: ' + this.getPackageJsonPathInDist());
     console.log(this.getPrettyPackageJson() + '\n\n');
@@ -178,11 +225,18 @@ export class NxProject {
   }
 
   public getPathToProjectInDist(): string {
-    return path.resolve('dist', this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs', this.name);
+    return path.resolve(
+      'dist',
+      this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs',
+      this.name
+    );
   }
 
   public getPathToProjectInSource(): string {
-    return path.resolve(this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs', this.name);
+    return path.resolve(
+      this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs',
+      this.name
+    );
   }
 
   public getNpmrcPathInDist() {

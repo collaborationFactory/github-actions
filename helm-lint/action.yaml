@@ -22,7 +22,7 @@ runs:
   using: 'docker'
   image: 'Dockerfile'
   args:
-    - "-e \"CHART=${{ inputs.chart }}\""
-    - "-e \"AWS_ACCESS_KEY_ID=${{ inputs.aws_access_key_id }}\""
-    - "-e \"AWS_SECRET_ACCESS_KEY=${{ inputs.aws_secret_access_key }}\""
-    - "-e \"AWS_DEFAULT_REGION=${{ inputs.region }}\""
+    - '-e "CHART=${{ inputs.chart }}"'
+    - '-e "AWS_ACCESS_KEY_ID=${{ inputs.aws_access_key_id }}"'
+    - '-e "AWS_SECRET_ACCESS_KEY=${{ inputs.aws_secret_access_key }}"'
+    - '-e "AWS_DEFAULT_REGION=${{ inputs.region }}"'
