@@ -7,7 +7,7 @@ on:
 
 jobs:
   remove-artifacts:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-pr-close.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+    uses: collaborationFactory/github-actions/.github/workflows/fe-pr-close.yml@master
     with:
       GHA_BASE: ${{ github.event.pull_request.base.ref }}
     secrets:
