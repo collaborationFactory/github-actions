@@ -1,0 +1,55 @@
+name: Frontend E2E Workflow
+
+on:
+  workflow_call:
+    secrets:
+      PERCY_TOKEN:
+        required: true
+    inputs:
+      GHA_REF:
+        type: string
+        required: true
+      GHA_BASE:
+        type: string
+        required: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      matrix:
+        target: ['e2e']
+        jobIndex: [1, 2, 3, 4]
+    env:
+      jobCount: 4
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ inputs.GHA_REF }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '14'
+
+      - name: Cache Node Modules
+        id: npm-cache
+        uses: actions/cache@v2
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install Cypress Binary
+        run: npx cypress install
+
+      - name: Affected Regression Tests
+        uses: collaborationFactory/github-actions/.github/actions/run-many@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+        with:
+          target: ${{ matrix.target }}
+          jobIndex: ${{ matrix.jobIndex }}
+          jobCount: ${{ env.jobCount }}
+          base: ${{ inputs.GHA_BASE }}
+        env:
+          PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
+          PERCY_PARTIAL_BUILD: 1

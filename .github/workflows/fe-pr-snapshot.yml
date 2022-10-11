@@ -1,0 +1,64 @@
+name: Frontend Pull Request Snapshot Workflow
+
+on:
+  workflow_call:
+    inputs:
+      GHA_BASE:
+        type: string
+        required: true
+    secrets:
+      JFROG_BASE64_TOKEN:
+        required: true
+      JFROG_URL:
+        required: true
+      JFROG_USER:
+        required: true
+      DOT_NPMRC:
+        required: true
+
+jobs:
+  publish-pr-snapshot:
+    if: contains(github.event.pull_request.labels.*.name, 'snapshot')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '14'
+
+      - name: Cache Node Modules
+        id: npm-cache
+        uses: actions/cache@v2
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Use .npmrc
+        uses: bduff9/use-npmrc@v1.1
+        with:
+          dot-npmrc: ${{ secrets.DOT_NPMRC }}
+
+      - name: Install modules
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Build and Push to Jfrog NPM Registry
+        uses: collaborationFactory/github-actions/.github/actions/artifacts@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+        env:
+          JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
+          JFROG_URL: ${{ secrets.JFROG_URL }}
+          JFROG_USER: ${{ secrets.JFROG_USER }}
+          BASE: ${{ inputs.GHA_BASE }}
+          PR_NUMBER: ${{ github.event.number }}
+
+      - name: comment published Artifacts on PR
+        uses: machine-learning-apps/pr-comment@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          path: githubCommentsForPR.txt

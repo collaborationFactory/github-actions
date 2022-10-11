@@ -1,0 +1,54 @@
+name: Frontend Release Workflow
+
+on:
+  workflow_call:
+    secrets:
+      JFROG_BASE64_TOKEN:
+        required: true
+      JFROG_URL:
+        required: true
+      JFROG_USER:
+        required: true
+      DOT_NPMRC:
+        required: true
+
+env:
+  NX_BRANCH: ${{ github.event.number }}
+  NX_RUN_GROUP: ${{ github.run_id }}
+
+jobs:
+  release-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ''
+          fetch-depth: 0
+
+      - name: Cache Node Modules
+        id: npm-cache
+        uses: actions/cache@v2
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Use .npmrc
+        uses: bduff9/use-npmrc@v1.1
+        with:
+          dot-npmrc: ${{ secrets.DOT_NPMRC }}
+
+      - name: Install Modules
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        run: npm ci && echo "modules were installed via npm" || yarn
+
+      - name: Get tag
+        id: tag
+        uses: dawidd6/action-get-tag@v1
+
+      - name: Build and Push to Jfrog NPM Registry
+        uses: collaborationFactory/github-actions/.github/actions/artifacts@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+        env:
+          JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
+          JFROG_URL: ${{ secrets.JFROG_URL }}
+          JFROG_USER: ${{ secrets.JFROG_USER }}
+          TAG: ${{ steps.tag.outputs.tag }}

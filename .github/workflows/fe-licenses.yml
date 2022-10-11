@@ -1,0 +1,69 @@
+name: Frontend Install Dependencies Workflow
+
+on:
+  workflow_call:
+    inputs:
+      FOSS_DIST:
+        required: true
+        type: string
+      CUSTOM_LICENSES_JSON:
+        required: false
+        type: string
+    secrets:
+      DOT_NPMRC:
+        required: true
+
+jobs:
+  check-licenses:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.9.1
+        with:
+          access_token: ${{ github.token }}
+
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '14'
+
+      - name: Cache Node Modules
+        id: npm-cache
+        uses: actions/cache@v2
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Use .npmrc
+        uses: bduff9/use-npmrc@v1.1
+        with:
+          dot-npmrc: ${{ secrets.DOT_NPMRC }}
+
+      - name: Install modules
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Check Licenses Local
+        id: localLicenseChecker
+        continue-on-error: true
+        run: node_modules/.bin/nx run cf-frontend-licenses:check
+
+      - name: Check Licenses Remote
+        if: steps.localLicenseChecker.outcome == 'failure'
+        run: node node_modules/@cplace-next/cf-frontend-licenses/main.js check ${{ inputs.FOSS_DIST }} ${{ inputs.CUSTOM_LICENSES_JSON }}
+
+      - name: Run Diff
+        continue-on-error: true
+        run: diff -a --suppress-common-lines -y ./foss-list.json ${{ inputs.FOSS_DIST }}/foss-list.json
+
+      - name: Read fossTmp
+        id: readFossTmp
+        run: echo "::set-output name=foss_status::$(cat ${{ inputs.FOSS_DIST }}/fossTmp)"
+
+      - name: Check fossTmp
+        if: steps.readFossTmp.outputs.foss_status == '1'
+        run: exit 1

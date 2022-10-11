@@ -1,0 +1,46 @@
+name: 'Frontend Main CI'
+on:
+  push:
+    branches:
+      - main
+      - master
+
+env:
+  NX_BRANCH: ${{ github.event.number }}
+  NX_RUN_GROUP: ${{ github.run_id }}
+
+jobs:
+  install-deps:
+    uses: collaborationFactory/github-actions/.github/workflows/fe-install-deps.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+    with:
+      GHA_REF: ''
+    secrets:
+      DOT_NPMRC: ${{ secrets.DOT_NPMRC }}
+
+  e2e-tests:
+    needs: install-deps
+    uses: collaborationFactory/github-actions/.github/workflows/fe-e2e.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+    with:
+      GHA_REF: ''
+      GHA_BASE: ${{ github.event.before }}
+    secrets:
+      PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
+
+  build:
+    needs: install-deps
+    uses: collaborationFactory/github-actions/.github/workflows/fe-build.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+    with:
+      GHA_REF: ''
+      GHA_BASE: ${{ github.event.before }}
+
+  snapshot:
+    needs: build
+    uses: collaborationFactory/github-actions/.github/workflows/fe-snapshot.yml@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+    with:
+      GHA_REF: ''
+      GHA_BASE: ${{ github.event.before }}
+    secrets:
+      JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
+      JFROG_URL: ${{ secrets.JFROG_URL }}
+      JFROG_USER: ${{ secrets.JFROG_USER }}
+      GIT_USER_TOKEN: ${{ secrets.GIT_USER_TOKEN }}

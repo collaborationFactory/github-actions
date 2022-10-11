@@ -1,0 +1,59 @@
+name: Frontend Tag Workflow
+
+on:
+  workflow_call:
+    inputs:
+      GHA_REF:
+        type: string
+        required: true
+      GHA_BASE:
+        type: string
+        required: true
+    secrets:
+      JFROG_BASE64_TOKEN:
+        required: true
+      JFROG_URL:
+        required: true
+      JFROG_USER:
+        required: true
+      GIT_USER_TOKEN:
+        required: true
+      GIT_USER_EMAIL:
+        required: true
+      GIT_USER:
+        required: true
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ inputs.GHA_REF }}
+          fetch-depth: 0
+          token: ${{ secrets.GIT_USER_TOKEN }}
+
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '14'
+
+      - name: Cache Node Modules
+        id: npm-cache
+        uses: actions/cache@v2
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Configure git user
+        run: |
+          git config user.name ${{ secrets.GIT_USER }}
+          git config user.email ${{ secrets.GIT_USER_EMAIL }}
+
+      - name: Bump Version and Push new Tag
+        uses: collaborationFactory/github-actions/.github/actions/artifacts@feature/PFM-ISSUE-10870-Share-CI-CD-workflows
+        env:
+          JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
+          JFROG_URL: ${{ secrets.JFROG_URL }}
+          JFROG_USER: ${{ secrets.JFROG_USER }}
+          ONLY_BUMP_VERSION: true
+          BASE: ${{ inputs.GHA_BASE }}
