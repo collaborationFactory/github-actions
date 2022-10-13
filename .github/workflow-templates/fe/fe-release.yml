@@ -32,8 +32,8 @@ jobs:
       GHA_REF: ''
       GHA_BASE: ${{ github.event.before }}
 
-  snapshot:
-    needs: [build, code-quality, e2e]
+  tag:
+    needs: [build, e2e-tests]
     uses: collaborationFactory/github-actions/.github/workflows/fe-tag.yml@master
     with:
       GHA_REF: ''
