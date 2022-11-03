@@ -38,7 +38,7 @@ export class NxProject {
   private _npmrcContent = '';
   private _packageJsonContent: any = {};
   public isPublishable: boolean = false;
-  public hasPackageJsonInSource = false;
+  public hasPackageJson = false;
 
   constructor(
     public name: string,
@@ -48,10 +48,10 @@ export class NxProject {
     public scope: string = ''
   ) {
     if (this.nxProjectKind === NxProjectKind.Library) {
-      if (fs.existsSync(this.getPackageJsonPathInSource())) {
-        this.hasPackageJsonInSource = true;
+      if (fs.existsSync(this.getPackageJsonPathInDist())) {
+        this.hasPackageJson = true;
         this.packageJsonContent = JSON.parse(
-          fs.readFileSync(this.getPackageJsonPathInSource()).toString()
+          fs.readFileSync(this.getPackageJsonPathInDist()).toString()
         );
         if (this.packageJsonContent.publishable === true)
           this.isPublishable = true;
@@ -175,10 +175,10 @@ export class NxProject {
   }
 
   public setVersionOrGeneratePackageJsonInDist(version: Version) {
-    if (this.hasPackageJsonInSource) {
+    if (this.hasPackageJson) {
       try {
         this.packageJsonContent = JSON.parse(
-          fs.readFileSync(this.getPackageJsonPathInSource()).toString()
+          fs.readFileSync(this.getPackageJsonPathInDist()).toString()
         );
         this.packageJsonContent.author = 'squad-fe';
         this.packageJsonContent.version = version.toString();
@@ -232,23 +232,12 @@ export class NxProject {
     );
   }
 
-  public getPathToProjectInSource(): string {
-    return path.resolve(
-      this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs',
-      this.name
-    );
-  }
-
   public getNpmrcPathInDist() {
     return path.join(this.getPathToProjectInDist(), '.npmrc');
   }
 
   public getPackageJsonPathInDist() {
     return path.join(this.getPathToProjectInDist(), NxProject.PACKAGEJSON);
-  }
-
-  public getPackageJsonPathInSource() {
-    return path.join(this.getPathToProjectInSource(), NxProject.PACKAGEJSON);
   }
 
   get npmrcContent(): string {
