@@ -48,10 +48,10 @@ export class NxProject {
     public scope: string = ''
   ) {
     if (this.nxProjectKind === NxProjectKind.Library) {
-      if (fs.existsSync(this.getPackageJsonPathInDist())) {
+      if (fs.existsSync(this.getPackageJsonPathInSource())) {
         this.hasPackageJson = true;
         this.packageJsonContent = JSON.parse(
-          fs.readFileSync(this.getPackageJsonPathInDist()).toString()
+          fs.readFileSync(this.getPackageJsonPathInSource()).toString()
         );
         if (this.packageJsonContent.publishable === true)
           this.isPublishable = true;
@@ -238,6 +238,17 @@ export class NxProject {
 
   public getPackageJsonPathInDist() {
     return path.join(this.getPathToProjectInDist(), NxProject.PACKAGEJSON);
+  }
+
+  public getPathToProjectInSource(): string {
+    return path.resolve(
+      this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs',
+      this.name
+    );
+  }
+
+  public getPackageJsonPathInSource() {
+    return path.join(this.getPathToProjectInSource(), NxProject.PACKAGEJSON);
   }
 
   get npmrcContent(): string {
