@@ -108,6 +108,7 @@ export class ArtifactsHandler {
       console.log(`About to bump version for release Branch`);
       this.bumpVersionForReleaseBranch();
     } else {
+      console.log(`About to build and release projects`);
       this.initProjects();
       await this.buildAndPublishProjects();
     }
@@ -115,7 +116,10 @@ export class ArtifactsHandler {
   }
 
   private async buildAndPublishProjects() {
+    console.log(`Number of projects being processed: ${this.projects.length}`);
+    console.log(`Projects being processed: ${JSON.stringify(this.projects)}`);
     for (const project of this.projects) {
+      console.log(`Currently processing: ${JSON.stringify(project)}`);
       if (project.isPublishable) {
         if (this.onlyDeleteArtifacts)
           await project.deleteArtifact(
