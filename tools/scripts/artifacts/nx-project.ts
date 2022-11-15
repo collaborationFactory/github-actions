@@ -110,7 +110,7 @@ export class NxProject {
   public async deleteSnapshots(jfrogCredentials: JfrogCredentials) {
     const snapshots = Utils.getAllSnapshotVersionsOfPackage(
       this.name,
-      this.getPathToProjectInDist()
+      this.getPathToProjectInDist(), this.scope
     );
     console.log('The following snapshots have been found and will be removed');
     console.log(...snapshots);
@@ -207,7 +207,7 @@ export class NxProject {
     fs.writeFileSync(
       this.getPackageJsonPathInDist(),
       this.getPrettyPackageJson(),
-      { encoding: 'utf-8' }
+      {encoding: 'utf-8'}
     );
 
     console.log('wrote package.json to: ' + this.getPackageJsonPathInDist());
