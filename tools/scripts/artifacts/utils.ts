@@ -121,14 +121,14 @@ export class Utils {
   public static getAllVersionTagsInAscendingOrder(): Version[] {
     const gitRootDir = this.getRootDir();
     console.log(`Root dir is ${gitRootDir}`);
-    let tags: string[] = execSync(`git ls-remote --tags`, { cwd: gitRootDir })
+    let tags: string[] = execSync(`git ls-remote --tags`, {cwd: gitRootDir})
       .toString()
       .split(/\r?\n/)
       .filter((i) => i !== '' && i.includes(ArtifactsHandler.VERSION_PREFIX))
       .map((i) =>
         i.substring(
           i.indexOf(ArtifactsHandler.VERSION_PREFIX) +
-            ArtifactsHandler.VERSION_PREFIX.length,
+          ArtifactsHandler.VERSION_PREFIX.length,
           i.length
         )
       );
@@ -195,10 +195,11 @@ export class Utils {
 
   public static getAllSnapshotVersionsOfPackage(
     packageName: string,
-    projectDistDir: string
+    projectDistDir: string,
+    scope: string
   ): string[] {
     const snapshotVersions = JSON.parse(
-      execSync(`npm view @cplace-next/${packageName} --json`, {
+      execSync(`npm view ${scope}/${packageName} --json`, {
         cwd: projectDistDir,
       }).toString()
     ).versions;

@@ -124,7 +124,8 @@ test('can get all versions of a npm package', async () => {
     .mockReturnValueOnce(Buffer.from(versionsFromNPM));
   const snapshots = Utils.getAllSnapshotVersionsOfPackage(
     'cf-frontend-sdk',
-    ''
+    '',
+    'scope'
   );
   expect(snapshots).toHaveLength(3);
 });
@@ -145,8 +146,8 @@ test('can create comments for github actions', () => {
     comments = fs.readFileSync(gitHubCommentsFile).toString();
   expect(comments).toBe(
     ':tada: Snapshots of the following projects have been published: \n' +
-      '@cplace-next/cf-platform@0.0.0-feat-PFM-ISSUE-10014-Notify-the-developer-about-th-488\n' +
-      '@cplace-next/cf-platform@0.0.0-SNAPSHOT-l484devc-20220610\n'
+    '@cplace-next/cf-platform@0.0.0-feat-PFM-ISSUE-10014-Notify-the-developer-about-th-488\n' +
+    '@cplace-next/cf-platform@0.0.0-SNAPSHOT-l484devc-20220610\n'
   );
 });
 
