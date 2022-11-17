@@ -17,8 +17,15 @@ let cmd = `${runManyProjectsCmd} --parallel --prod`;
 
 if (target.includes('e2e')) {
   cmd = `./node_modules/.bin/percy exec -- ${runManyProjectsCmd} -c ci`;
+  if (!ref) {
+    const defaultBranch = execSync(
+      'git remote show origin | grep "HEAD branch" | cut -d" " -f5'
+    ).toString('utf-8');
+    cmd = cmd.concat(` --base=${base} --head=origin/${defaultBranch}`);
+  }
 }
 
+console.log('Running > ', cmd);
 if (projects.length > 0) {
   execSync(cmd, {
     stdio: [0, 1, 2],
