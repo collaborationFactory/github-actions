@@ -121,14 +121,14 @@ export class Utils {
   public static getAllVersionTagsInAscendingOrder(): Version[] {
     const gitRootDir = this.getRootDir();
     console.log(`Root dir is ${gitRootDir}`);
-    let tags: string[] = execSync(`git ls-remote --tags`, {cwd: gitRootDir})
+    let tags: string[] = execSync(`git ls-remote --tags`, { cwd: gitRootDir })
       .toString()
       .split(/\r?\n/)
       .filter((i) => i !== '' && i.includes(ArtifactsHandler.VERSION_PREFIX))
       .map((i) =>
         i.substring(
           i.indexOf(ArtifactsHandler.VERSION_PREFIX) +
-          ArtifactsHandler.VERSION_PREFIX.length,
+            ArtifactsHandler.VERSION_PREFIX.length,
           i.length
         )
       );

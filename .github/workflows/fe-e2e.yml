@@ -50,6 +50,7 @@ jobs:
           jobIndex: ${{ matrix.jobIndex }}
           jobCount: ${{ env.jobCount }}
           base: ${{ inputs.GHA_BASE }}
+          ref: ${{ inputs.GHA_REF }}
         env:
           PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
           PERCY_PARTIAL_BUILD: 1
