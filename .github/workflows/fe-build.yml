@@ -43,3 +43,4 @@ jobs:
           jobIndex: ${{ matrix.jobIndex }}
           jobCount: ${{ env.jobCount }}
           base: ${{ inputs.GHA_BASE }}
+          ref: ${{ inputs.GHA_REF }}
