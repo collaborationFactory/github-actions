@@ -4,9 +4,17 @@ export function getAffectedProjects(
   target: string,
   jobIndex: number,
   jobCount: number,
-  base: string
+  base: string,
+  ref: string
 ) {
-  const cmd = `./node_modules/.bin/nx print-affected --base=${base} --target=${target}`;
+  let cmd = `./node_modules/.bin/nx print-affected --target=${target}`.concat(
+    ' '
+  );
+  if (target === 'e2e' && ref === '') {
+    cmd = cmd.concat(`--all`);
+  } else {
+    cmd = cmd.concat(`--base=${base}`);
+  }
   console.log(cmd);
   const affected = execSync(cmd).toString('utf-8');
   const array = JSON.parse(affected)

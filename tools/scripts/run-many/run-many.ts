@@ -8,8 +8,9 @@ const jobCount = Number(process.argv[4]);
 let base = process.argv[5];
 // in case base is not a SHA1 commit hash add origin
 if (!/\b[0-9a-f]{5,40}\b/.test(base)) base = 'origin/' + base;
+const ref = process.argv[6];
 
-const projects = getAffectedProjects(target, jobIndex, jobCount, base);
+const projects = getAffectedProjects(target, jobIndex, jobCount, base, ref);
 
 const runManyProjectsCmd = `./node_modules/.bin/nx run-many --target=${target} --projects=${projects}`;
 let cmd = `${runManyProjectsCmd} --parallel --prod`;
