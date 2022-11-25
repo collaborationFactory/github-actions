@@ -16,13 +16,7 @@ const runManyProjectsCmd = `./node_modules/.bin/nx run-many --target=${target} -
 let cmd = `${runManyProjectsCmd} --parallel --prod`;
 
 if (target.includes('e2e')) {
-  cmd = `./node_modules/.bin/percy exec -- ${runManyProjectsCmd} -c ci`;
-  if (!ref) {
-    const defaultBranch = execSync(
-      'git remote show origin | grep "HEAD branch" | cut -d" " -f5'
-    ).toString('utf-8');
-    cmd = cmd.concat(` --base=${base} --head=origin/${defaultBranch}`);
-  }
+  cmd = getE2ECommand(cmd);
 }
 
 console.log('Running > ', cmd);
@@ -30,4 +24,21 @@ if (projects.length > 0) {
   execSync(cmd, {
     stdio: [0, 1, 2],
   });
+}
+
+function getE2ECommand(command: string): string {
+  const withPercy = process.env.PERCY_TOKEN;
+  command = command.concat(` -c ci`);
+  if (withPercy) {
+    command = `./node_modules/.bin/percy exec -- ${command}`;
+    if (!ref) {
+      const defaultBranch = execSync(
+        'git remote show origin | grep "HEAD branch" | cut -d" " -f5'
+      ).toString('utf-8');
+      command = command.concat(
+        ` --base=${base} --head=origin/${defaultBranch}`
+      );
+    }
+  }
+  return command;
 }
