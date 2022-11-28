@@ -4,7 +4,7 @@ on:
   workflow_call:
     secrets:
       PERCY_TOKEN:
-        required: true
+        required: false
     inputs:
       GHA_REF:
         type: string
