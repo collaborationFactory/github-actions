@@ -20,8 +20,6 @@ jobs:
   e2e-tests:
     needs: install-deps
     uses: collaborationFactory/github-actions/.github/workflows/fe-e2e.yml@master
-    # E2E tests should run in the default branch only if Percy is being used
-    if: ${{ secrets.PERCY_TOKEN }}
     with:
       GHA_REF: ''
       GHA_BASE: ${{ github.event.before }}
