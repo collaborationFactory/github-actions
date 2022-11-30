@@ -99,7 +99,8 @@ export class NxProject {
     console.log(
       execSync(
         `npx nx build ${this.name} --prod ${
-          (this.nxProjectKind === NxProjectKind.Application && this.task !== TASK.RELEASE)
+          this.nxProjectKind === NxProjectKind.Application &&
+          this.task !== TASK.RELEASE
             ? '--sourceMap=true'
             : ''
         }`
@@ -208,7 +209,7 @@ export class NxProject {
     fs.writeFileSync(
       this.getPackageJsonPathInDist(),
       this.getPrettyPackageJson(),
-      {encoding: 'utf-8'}
+      { encoding: 'utf-8' }
     );
 
     console.log('wrote package.json to: ' + this.getPackageJsonPathInDist());
