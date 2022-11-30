@@ -30,7 +30,7 @@ function getE2ECommand(command: string): string {
   const withPercy = process.env.PERCY_TOKEN;
   command = command.concat(` -c ci --base=${base}`);
   if (withPercy) {
-    command = `./node_modules/.bin/percy exec -- ${command} --partial`;
+    command = `./node_modules/.bin/percy exec --partial -- ${command}`;
     if (!ref) {
       const defaultBranch = execSync(
         'git remote show origin | grep "HEAD branch" | cut -d" " -f5'
