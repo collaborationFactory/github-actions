@@ -24,23 +24,16 @@ jobs:
     env:
       jobCount: 4
     steps:
-      - name: Check Percy Token
-        id: percyToken
-        run: echo '::set-output name=value::${{secrets.PERCY_TOKEN}}'
-
       - uses: actions/checkout@v2
-        if: steps.percyToken.outputs.value
         with:
           ref: ${{ inputs.GHA_REF }}
           fetch-depth: 0
 
       - uses: actions/setup-node@v1
-        if: steps.percyToken.outputs.value
         with:
           node-version: '14'
 
       - name: Cache Node Modules
-        if: steps.percyToken.outputs.value
         id: npm-cache
         uses: actions/cache@v2
         with:
@@ -48,11 +41,9 @@ jobs:
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
 
       - name: Install Cypress Binary
-        if: steps.percyToken.outputs.value
         run: npx cypress install
 
       - name: Affected Regression Tests
-        if: steps.percyToken.outputs.value
         uses: collaborationFactory/github-actions/.github/actions/run-many@master
         with:
           target: ${{ matrix.target }}
