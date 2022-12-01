@@ -85,3 +85,5 @@ jobs:
       - name: Mark Percy Build as Finalized
         if: steps.percyToken.outputs.value
         run: ./node_modules/.bin/percy build:finalize
+        env:
+          PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
