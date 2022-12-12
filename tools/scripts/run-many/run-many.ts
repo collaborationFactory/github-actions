@@ -14,6 +14,11 @@ const projects = getAffectedProjects(target, jobIndex, jobCount, base, ref);
 
 let cmd = `./node_modules/.bin/nx run-many --target=${target} --projects=${projects} --parallel --prod`;
 
+if (target.includes('e2e')) {
+  cmd = cmd.concat(` -c ci --base=${base}`);
+}
+
+
 console.log('Running > ', cmd);
 if (projects.length > 0) {
   execSync(cmd, {
