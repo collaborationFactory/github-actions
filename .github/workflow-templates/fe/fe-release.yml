@@ -22,8 +22,6 @@ jobs:
     with:
       GHA_REF: ''
       GHA_BASE: ${{ github.event.before }}
-    secrets:
-      PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
 
   build:
     needs: install-deps

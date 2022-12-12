@@ -33,6 +33,3 @@ jobs:
     with:
       GHA_REF: ${{ github.event.pull_request.head.ref }}
       GHA_BASE: ${{ github.event.pull_request.base.ref }}
-    secrets:
-      # PERCY_TOKEN is optional, and it should only be provided in case you want to use Cypress with Percy
-      PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}

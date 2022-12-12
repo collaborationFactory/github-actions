@@ -12,12 +12,12 @@ const ref = process.argv[6];
 
 const projects = getAffectedProjects(target, jobIndex, jobCount, base, ref);
 
-const runManyProjectsCmd = `./node_modules/.bin/nx run-many --target=${target} --projects=${projects}`;
-let cmd = `${runManyProjectsCmd} --parallel --prod`;
+let cmd = `./node_modules/.bin/nx run-many --target=${target} --projects=${projects} --parallel --prod`;
 
 if (target.includes('e2e')) {
-  cmd = getE2ECommand(cmd);
+  cmd = cmd.concat(` -c ci --base=${base}`);
 }
+
 
 console.log('Running > ', cmd);
 if (projects.length > 0) {
@@ -26,17 +26,3 @@ if (projects.length > 0) {
   });
 }
 
-function getE2ECommand(command: string): string {
-  const withPercy = process.env.PERCY_TOKEN;
-  command = command.concat(` -c ci --base=${base}`);
-  if (withPercy) {
-    command = `./node_modules/.bin/percy exec --parallel -- ${command}`;
-    if (!ref) {
-      const defaultBranch = execSync(
-        'git remote show origin | grep "HEAD branch" | cut -d" " -f5'
-      ).toString('utf-8');
-      command = command.concat(` --head=origin/${defaultBranch}`);
-    }
-  }
-  return command;
-}
