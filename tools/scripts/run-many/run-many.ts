@@ -12,12 +12,12 @@ const ref = process.argv[6];
 
 const projects = getAffectedProjects(target, jobIndex, jobCount, base, ref);
 
-let cmd = `./node_modules/.bin/nx run-many --target=${target} --projects=${projects} --parallel --prod`;
+const runManyProjectsCmd = `./node_modules/.bin/nx run-many --target=${target} --projects=${projects}`;
+let cmd = `${runManyProjectsCmd} --parallel --prod`;
 
 if (target.includes('e2e')) {
-  cmd = cmd.concat(` -c ci --base=${base}`);
+  cmd = getE2ECommand(cmd);
 }
-
 
 console.log('Running > ', cmd);
 if (projects.length > 0) {
@@ -26,3 +26,7 @@ if (projects.length > 0) {
   });
 }
 
+function getE2ECommand(command: string): string {
+  command = command.concat(` -c ci --base=${base}`);
+  return command;
+}
