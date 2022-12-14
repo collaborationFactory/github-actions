@@ -13,7 +13,6 @@ interface PackageJson {
   author: string;
   name: string;
   version: string;
-  license: string;
   publishConfig: {
     registry: string;
     access: string;
@@ -184,7 +183,6 @@ export class NxProject {
         );
         this.packageJsonContent.author = 'squad-fe';
         this.packageJsonContent.version = version.toString();
-        this.packageJsonContent.license = `MIT`;
         this.packageJsonContent.publishConfig = {
           registry: ArtifactsHandler.REGISTRY,
           access: 'restricted',
@@ -198,7 +196,6 @@ export class NxProject {
         author: 'squad-fe',
         name: `${this.scope}/${this.name}`,
         version: `${version.toString()}`,
-        license: `MIT`,
         publishConfig: {
           registry: ArtifactsHandler.REGISTRY,
           access: 'restricted',
