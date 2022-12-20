@@ -129,6 +129,7 @@ export class ArtifactsHandler {
         else {
           project.build();
           project.writeNPMRCInDist(this.jfrogCredentials, this.scope);
+          project.copyFossList();
           project.setVersionOrGeneratePackageJsonInDist(this.currentVersion);
           // delete existing artifact in case it is a snapshot that should be replaced
           if (this.task === TASK.MAIN_SNAPSHOT)
