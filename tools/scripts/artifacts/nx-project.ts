@@ -80,7 +80,7 @@ export class NxProject {
     if (this.isPublishable) {
       try {
         console.log(
-          execSync(`ls`, {
+          execSync(`npm publish`, {
             cwd: `${this.getPathToProjectInDist()}`,
           }).toString()
         );
