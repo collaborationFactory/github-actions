@@ -34,6 +34,7 @@ export class NxProject {
   public static readonly REGISTRY_DOWNLOAD_URL =
     'https://cplace.jfrog.io/ui/repos/tree/NpmInfo/cplace-npm-local';
   public static readonly PACKAGEJSON = 'package.json';
+  public static readonly FOSS_LIST_FILENAME = 'cplace-foss-list.json';
   private _npmrcContent = '';
   private _packageJsonContent: any = {};
   public isPublishable: boolean = false;
@@ -105,6 +106,26 @@ export class NxProject {
         }`
       ).toString()
     );
+  }
+
+  /**
+   * Copies the foss-list.json file to the dist
+   */
+  public copyFossList(): void {
+    const rootDir = Utils.getRootDir();
+    const fossListSrcPath = path.resolve(rootDir, NxProject.FOSS_LIST_FILENAME);
+    if (fs.existsSync(fossListSrcPath)) {
+      const fossListDestPath = path.resolve(
+        this.getPathToProjectInDist(),
+        NxProject.FOSS_LIST_FILENAME
+      );
+      console.log(`Copying ${fossListSrcPath} to ${fossListDestPath}`);
+      fs.copyFileSync(fossListSrcPath, fossListDestPath);
+    } else {
+      console.log(
+        `${fossListSrcPath} not found! Please generate the ${NxProject.FOSS_LIST_FILENAME}!`
+      );
+    }
   }
 
   public async deleteSnapshots(jfrogCredentials: JfrogCredentials) {

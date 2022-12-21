@@ -218,11 +218,14 @@ async function exec() {
     .mockReturnValueOnce(Buffer.from(`published ${app2}`))
     .mockReturnValueOnce(Buffer.from(`built ${lib1}`))
     .mockReturnValueOnce(Buffer.from(`published ${lib1}`))
-    .mockReturnValueOnce(Buffer.from(`built ${lib2}`));
+    .mockReturnValueOnce(Buffer.from(`built ${lib2}`))
+    .mockReturnValueOnce(Buffer.from(''))
+    .mockReturnValueOnce(Buffer.from(''));
 
   const artifactHandler = new ArtifactsHandler();
 
   jest.spyOn(fs, 'writeFileSync').mockReturnValue();
+  jest.spyOn(fs, 'copyFileSync').mockReturnValue();
   jest
     .spyOn(fs, 'readFileSync')
     .mockReturnValueOnce(packageJsonLib2)
@@ -230,6 +233,7 @@ async function exec() {
   jest
     .spyOn(fs, 'existsSync')
     .mockReturnValueOnce(false)
+    .mockReturnValueOnce(true)
     .mockReturnValueOnce(true);
 
   deleteArtifactSpy = jest
