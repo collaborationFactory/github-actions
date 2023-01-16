@@ -58,7 +58,7 @@ jobs:
 
       - name: Run Diff
         continue-on-error: true
-        run: diff -a --suppress-common-lines -y ./foss-list.json ${{ inputs.FOSS_DIST }}/foss-list.json
+        run: diff -a --suppress-common-lines -y ./cplace-foss-list.json ${{ inputs.FOSS_DIST }}/cplace-foss-list.json
 
       - name: Read fossTmp
         id: readFossTmp
