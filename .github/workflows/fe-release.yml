@@ -25,6 +25,10 @@ jobs:
           ref: ''
           fetch-depth: 0
 
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 14.16.1
+
       - name: Cache Node Modules
         id: npm-cache
         uses: actions/cache@v2
