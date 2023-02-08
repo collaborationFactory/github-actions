@@ -46,7 +46,7 @@ jobs:
         run: npm ci
 
       - name: Build and Push to Jfrog NPM Registry
-        uses: collaborationFactory/github-actions/.github/actions/artifacts@master
+        uses: collaborationFactory/github-actions/.github/actions/artifacts@release/23.1
         env:
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}
@@ -55,7 +55,7 @@ jobs:
           PR_NUMBER: ${{ github.event.number }}
 
       - name: comment published Artifacts on PR
-        uses: machine-learning-apps/pr-comment@master
+        uses: machine-learning-apps/pr-comment@release/23.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:

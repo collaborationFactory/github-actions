@@ -7,7 +7,7 @@ on:
 
 jobs:
   remove-artifacts:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-pr-close.yml@master
+    uses: collaborationFactory/github-actions/.github/workflows/fe-pr-close.yml@release/23.1
     with:
       GHA_BASE: ${{ github.event.pull_request.base.ref }}
     secrets:
