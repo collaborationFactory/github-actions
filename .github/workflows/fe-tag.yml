@@ -33,10 +33,9 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GIT_USER_TOKEN }}
 
-      - uses: actions/setup-node@v1
+      - uses: actions/setup-node@v3
         with:
-          node-version: '14'
-
+          node-version: 14.16.1
       - name: Cache Node Modules
         id: npm-cache
         uses: actions/cache@v2
