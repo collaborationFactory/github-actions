@@ -24,19 +24,19 @@ jobs:
         with:
           ref: ''
           fetch-depth: 0
-
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 14.16.1
       - name: Cache Node Modules
         id: npm-cache
         uses: actions/cache@v2
         with:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
-
       - name: Use .npmrc
         uses: bduff9/use-npmrc@v1.1
         with:
           dot-npmrc: ${{ secrets.DOT_NPMRC }}
-
       - name: Install Modules
         if: steps.npm-cache.outputs.cache-hit != 'true'
         run: npm ci && echo "modules were installed via npm" || yarn
