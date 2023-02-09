@@ -55,7 +55,7 @@ jobs:
           PR_NUMBER: ${{ github.event.number }}
 
       - name: comment published Artifacts on PR
-        uses: machine-learning-apps/pr-comment@release/23.1
+        uses: machine-learning-apps/pr-comment@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
