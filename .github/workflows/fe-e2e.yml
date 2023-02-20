@@ -52,6 +52,7 @@ jobs:
         env:
           PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
           PERCY_PARTIAL_BUILD: 1
+          DEV_STORIES: true
 #  finalize-percy:
 #    needs: e2e
 #    runs-on: ubuntu-latest
