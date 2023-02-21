@@ -11,7 +11,7 @@ env:
 
 jobs:
   install-deps:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-install-deps.yml@master
+    uses: collaborationFactory/github-actions/.github/workflows/fe-install-deps.yml@test-node-18
     with:
       GHA_REF: ''
     secrets:
@@ -20,7 +20,7 @@ jobs:
   # This job is only needed in case you are using Percy
   e2e-tests:
     needs: install-deps
-    uses: collaborationFactory/github-actions/.github/workflows/fe-e2e.yml@master
+    uses: collaborationFactory/github-actions/.github/workflows/fe-e2e.yml@test-node-18
     with:
       GHA_REF: ''
       GHA_BASE: ${{ github.event.before }}
@@ -29,14 +29,14 @@ jobs:
 
   build:
     needs: install-deps
-    uses: collaborationFactory/github-actions/.github/workflows/fe-build.yml@master
+    uses: collaborationFactory/github-actions/.github/workflows/fe-build.yml@test-node-18
     with:
       GHA_REF: ''
       GHA_BASE: ${{ github.event.before }}
 
   snapshot:
     needs: build
-    uses: collaborationFactory/github-actions/.github/workflows/fe-snapshot.yml@master
+    uses: collaborationFactory/github-actions/.github/workflows/fe-snapshot.yml@test-node-18
     with:
       GHA_REF: ''
       GHA_BASE: ${{ github.event.before }}
