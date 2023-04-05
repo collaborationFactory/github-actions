@@ -245,11 +245,24 @@ export class NxProject {
   }
 
   public getPathToProjectInDist(): string {
+    const nestedPath = this.getProjectNestedPathFromWorkspaceJson()
     return path.resolve(
       'dist',
       this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs',
-      this.name
+      nestedPath ? nestedPath : this.name
     );
+  }
+
+  public getProjectNestedPathFromWorkspaceJson(): string {
+    let workspaceJson = '';
+    try {
+      workspaceJson = fs.readFileSync("workspace.json").toString();
+      const workspaceJsonParsed = JSON.parse(workspaceJson);
+      return workspaceJsonParsed.projects[this.name]
+    } catch (e) {
+      console.info('Could not find workspace.json in current directory. Skipping nested path detection.');
+    }
+    return workspaceJson;
   }
 
   public getNpmrcPathInDist() {
@@ -261,9 +274,10 @@ export class NxProject {
   }
 
   public getPathToProjectInSource(): string {
+    const nestedPath = this.getProjectNestedPathFromWorkspaceJson()
     return path.resolve(
       this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs',
-      this.name
+      nestedPath ? nestedPath : this.name
     );
   }
 
