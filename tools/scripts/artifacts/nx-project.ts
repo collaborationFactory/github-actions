@@ -246,10 +246,11 @@ export class NxProject {
 
   public getPathToProjectInDist(): string {
     const nestedPath = this.getProjectNestedPathFromWorkspaceJson()
+    const subPath = nestedPath ? nestedPath : path.join(this.nxProjectKind === NxProjectKind.Application
+      ? 'apps' : 'libs', this.name);
     return path.resolve(
       'dist',
-      this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs',
-      nestedPath ? nestedPath : this.name
+      subPath
     );
   }
 
@@ -274,10 +275,10 @@ export class NxProject {
   }
 
   public getPathToProjectInSource(): string {
-    const nestedPath = this.getProjectNestedPathFromWorkspaceJson()
+    const nestedPath = this.getProjectNestedPathFromWorkspaceJson();
     return path.resolve(
-      this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs',
-      nestedPath ? nestedPath : this.name
+      nestedPath ? nestedPath : path.join(this.nxProjectKind === NxProjectKind.Application
+        ? 'apps' : 'libs', this.name)
     );
   }
 
