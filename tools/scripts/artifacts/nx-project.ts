@@ -8,6 +8,7 @@ import { Utils } from './utils';
 import { ArtifactsHandler, TASK } from './artifacts-handler';
 import { JfrogCredentials } from './jfrog-credentials';
 import { Version } from './version';
+import { globSync } from "glob";
 
 interface PackageJson {
   author: string;
@@ -39,6 +40,7 @@ export class NxProject {
   private _packageJsonContent: any = {};
   public isPublishable: boolean = false;
   public hasPackageJson = false;
+  public pathToProject = '';
 
   constructor(
     public name: string,
@@ -59,6 +61,34 @@ export class NxProject {
     } else {
       this.isPublishable = true;
     }
+    this.initPathToProject();
+  }
+
+  public initPathToProject() {
+    let globResults = [];
+    try {
+      globResults = globSync([
+        'project.json',
+        '**/project.json'
+      ], {
+        ignore: [
+          'node_modules/**',
+          '**/node_modules',
+          'dist',
+          '.git',
+        ],
+        absolute: false,
+        cwd: process.cwd(),
+        dot: true
+      });
+    } catch (e) {
+      console.error('Error while searching for project.json', e)
+    }
+    const results = globResults.filter(result => {
+      const resultConverted = result.replace(/\//g,'-')
+      return resultConverted.replace(/\//g,'-').indexOf(this.name) > -1 && result.indexOf(this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs') > -1;
+    })
+    this.pathToProject = results.length > 0 ? results[0].replace('/project.json', '') : '';
   }
 
   public getPackageInstallPath(): string {
@@ -245,7 +275,7 @@ export class NxProject {
   }
 
   public getPathToProjectInDist(): string {
-    const nestedPath = this.getProjectNestedPathFromWorkspaceJson()
+    const nestedPath = this.pathToProject;
     const subPath = nestedPath ? nestedPath : path.join(this.nxProjectKind === NxProjectKind.Application
       ? 'apps' : 'libs', this.name);
     return path.resolve(
@@ -254,17 +284,6 @@ export class NxProject {
     );
   }
 
-  public getProjectNestedPathFromWorkspaceJson(): string {
-    let workspaceJson = '';
-    try {
-      workspaceJson = fs.readFileSync("workspace.json").toString();
-      const workspaceJsonParsed = JSON.parse(workspaceJson);
-      return workspaceJsonParsed.projects[this.name]
-    } catch (e) {
-      console.info('Could not find workspace.json in current directory. Skipping nested path detection.');
-    }
-    return workspaceJson;
-  }
 
   public getNpmrcPathInDist() {
     return path.join(this.getPathToProjectInDist(), '.npmrc');
@@ -275,7 +294,7 @@ export class NxProject {
   }
 
   public getPathToProjectInSource(): string {
-    const nestedPath = this.getProjectNestedPathFromWorkspaceJson();
+    const nestedPath = this.pathToProject;
     return path.resolve(
       nestedPath ? nestedPath : path.join(this.nxProjectKind === NxProjectKind.Application
         ? 'apps' : 'libs', this.name)

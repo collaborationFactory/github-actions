@@ -1,8 +1,10 @@
 import { expect } from '@jest/globals';
 import * as fs from 'fs';
-
 import { NxProject, NxProjectKind } from './nx-project';
-import { packageJsonLib1, workspaceJson } from './test-data';
+import { globResult, packageJsonLib1 } from './test-data';
+import { glob } from 'glob'
+
+jest.mock('glob');
 
 afterEach(() => {
   jest.resetAllMocks();
@@ -10,10 +12,13 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
+beforeEach(()=>{
+  jest.spyOn(glob, 'globSync').mockReturnValue(globResult);
+})
+
 test('NxProject can provide jfrog Url', async () => {
   jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-  jest.spyOn(fs, 'readFileSync').mockReturnValueOnce(workspaceJson);
-  jest.spyOn(fs, 'readFileSync').mockReturnValueOnce(workspaceJson);
+  jest.spyOn(glob, 'globSync').mockReturnValue(globResult);
   jest.spyOn(fs, 'readFileSync').mockReturnValueOnce(packageJsonLib1);
   jest.spyOn(fs, 'writeFileSync').mockReturnValue();
 
@@ -33,16 +38,14 @@ test('NxProject can provide jfrog Url', async () => {
 });
 
 test('NxProject can get actual folder of project', async () => {
-  jest.spyOn(fs, 'readFileSync').mockReturnValue(workspaceJson);
-
   const nxProject = new NxProject(
     'my-cf-platform',
-    NxProjectKind.Library,
+    NxProjectKind.Application,
     undefined,
     undefined,
     '@cplace-next'
   );
-  expect(nxProject.getProjectNestedPathFromWorkspaceJson()).toBe(
+  expect(nxProject.pathToProject).toBe(
     'apps/my/cf-platform'
   );
 });
@@ -73,4 +76,13 @@ test('NxProject can find folder in dist', async () => {
   );
 });
 
-
+test('NxProject can get actual folder of project', () => {
+  const nxProject = new NxProject(
+    'my-cf-platform',
+    NxProjectKind.Application,
+    undefined,
+    undefined,
+    '@cplace-next'
+  );
+  expect(nxProject.pathToProject).toBe('apps/my/cf-platform');
+});

@@ -1,24 +1,8 @@
-export const workspaceJson='{\n' +
-  '  "version": 2,\n' +
-  '  "projects": {\n' +
-  '    "api-cf-cplace-platform": "libs/api/cf-cplace-platform",\n' +
-  '    "api-cf-frontend-sdk": "libs/api/cf-frontend-sdk",\n' +
-  '    "cf-apps-e2e": "apps/cf-apps-e2e",\n' +
-  '    "cf-fe-code-coverage": "apps/cf-fe-code-coverage",\n' +
-  '    "cf-frontend-customization": "libs/cf-frontend-customization",\n' +
-  '    "cf-frontend-licenses": "libs/cf-frontend-licenses",\n' +
-  '    "cf-frontend-sdk": "libs/cf-frontend-sdk",\n' +
-  '    "cf-frontend-sdk-e2e": "apps/cf-frontend-sdk-e2e",\n' +
-  '    "cf-ng-module-generator": "libs/cf-ng-module-generator",\n' +
-  '    "cf-platform-lib": "libs/cf-platform-lib",\n' +
-  '    "cf-shell": "apps/cf-shell",\n' +
-  '    "cf-shell-lib": "libs/cf-shell-lib",\n' +
-  '    "cf-storybook-lib": "libs/cf-storybook-lib",\n' +
-  '    "cf-type-settings-e2e": "apps/cf-type-settings-e2e",\n' +
-  '    "my-cf-platform": "apps/my/cf-platform",\n' +
-  '    "storybook-shell": "apps/storybook-shell"\n' +
-  '  }\n' +
-  '}\n'
+export const globResult = ['libs/cf-storybook-lib/project.json',
+  'libs/cf-shell-lib/project.json',
+  'libs/cf-platform-lib/project.json',
+  'apps/cf-shell/project.json', 
+  'apps/my/cf-platform/project.json', ];
 
 export const packageJsonLib1 =
   '{\n' +
