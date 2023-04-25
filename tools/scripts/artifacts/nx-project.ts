@@ -85,8 +85,8 @@ export class NxProject {
       console.error('Error while searching for project.json', e)
     }
     const results = globResults.filter(result => {
-      const resultConverted = result.replace(/\//g,'-')
-      return resultConverted.replace(/\//g,'-').indexOf(this.name) > -1 && result.indexOf(this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs') > -1;
+      const resultConverted = result.replace(/\//g, '-')
+      return resultConverted.replace(/\//g, '-').indexOf(this.name) > -1 && result.indexOf(this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs') > -1;
     })
     this.pathToProject = results.length > 0 ? results[0].replace('/project.json', '') : '';
   }
@@ -257,7 +257,7 @@ export class NxProject {
     fs.writeFileSync(
       this.getPackageJsonPathInDist(),
       this.getPrettyPackageJson(),
-      { encoding: 'utf-8' }
+      {encoding: 'utf-8'}
     );
 
     console.log('wrote package.json to: ' + this.getPackageJsonPathInDist());

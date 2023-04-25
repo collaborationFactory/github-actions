@@ -12,7 +12,7 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-beforeEach(()=>{
+beforeEach(() => {
   jest.spyOn(glob, 'globSync').mockReturnValue(globResult);
 })
 
