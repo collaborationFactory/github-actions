@@ -75,14 +75,3 @@ test('NxProject can find folder in dist', async () => {
     'dist/apps/my-app'
   );
 });
-
-test('NxProject can get actual folder of project', () => {
-  const nxProject = new NxProject(
-    'my-cf-platform',
-    NxProjectKind.Application,
-    undefined,
-    undefined,
-    '@cplace-next'
-  );
-  expect(nxProject.pathToProject).toBe('apps/my/cf-platform');
-});

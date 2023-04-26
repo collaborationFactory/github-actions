@@ -86,7 +86,8 @@ export class NxProject {
     }
     const results = globResults.filter(result => {
       const resultConverted = result.replace(/\//g, '-')
-      return resultConverted.replace(/\//g, '-').indexOf(this.name) > -1 && result.indexOf(this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs') > -1;
+      return resultConverted.indexOf(this.name) > -1 && 
+        result.indexOf(this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs') > -1;
     })
     this.pathToProject = results.length > 0 ? results[0].replace('/project.json', '') : '';
   }
