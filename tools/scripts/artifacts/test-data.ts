@@ -1,7 +1,8 @@
-import { NxProject, NxProjectKind } from './nx-project';
-import { TASK } from './artifacts-handler';
-import { Version } from './version';
-import { Utils } from './utils';
+export const globResult = ['libs/cf-storybook-lib/project.json',
+  'libs/cf-shell-lib/project.json',
+  'libs/cf-platform-lib/project.json',
+  'apps/cf-shell/project.json',
+  'apps/my/cf-platform/project.json'];
 
 export const packageJsonLib1 =
   '{\n' +
