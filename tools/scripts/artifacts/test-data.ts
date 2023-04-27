@@ -1,4 +1,4 @@
-export const npmViewResult='[\n' +
+export const npmViewResult='{versions:[\n' +
   '  "0.0.0-SNAPSHOT-le5my1cs-20230215",\n' +
   '  "0.0.0-SNAPSHOT-lfsbr6h6-20230328",\n' +
   '  "0.0.0-SNAPSHOT-lgwc4m48-20230425",\n' +
@@ -9,7 +9,7 @@ export const npmViewResult='[\n' +
   '  "0.11.2",\n' +
   '  "0.51.0",\n' +
   '  "22.3.16",\n' +
-  '  "23.1.2"]';
+  '  "23.1.2"]}';
 
 export const npmSearchResult='[\n' +
   '\n' +

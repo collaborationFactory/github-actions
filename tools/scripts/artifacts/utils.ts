@@ -187,10 +187,11 @@ export class Utils {
 
   public static getHashedTimestamp(): string {
     const date = new Date();
-    return `${(+date).toString(36)}-${date.getFullYear()}${(
-      '0' +
-      (date.getMonth() + 1)
-    ).slice(-2)}${+('0' + date.getDate()).slice(-2)}`;
+    const day: number = date.getDate();
+    const month: number = date.getMonth() + 1;
+    const year: number = date.getFullYear();
+    const currentDate: string = `${year}${month < 10 ? '0' + month : month}${day < 10 ? '0' + day : day}`;
+    return `${(+date).toString(36)}-${currentDate}`;
   }
 
   public static getAllSnapshotVersionsOfPackage(

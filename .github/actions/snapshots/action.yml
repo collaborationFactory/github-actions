@@ -1,0 +1,9 @@
+name: 'Cleanup Snapshots Action'
+description: 'Github Action to cleanup snapshots'
+runs:
+  using: 'composite'
+  steps:
+    - run: printenv
+      shell: bash
+    - run: npx ts-node "$GITHUB_ACTION_PATH/../../../tools/scripts/artifacts/cleanup-snapshots.ts"
+      shell: bash
