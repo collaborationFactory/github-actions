@@ -16,6 +16,8 @@ test('can find latest version Tag of a given branch and bump the version',  asyn
     .spyOn(child_process, 'execSync')
     .mockReturnValueOnce(npmSearchResult)
     .mockReturnValue(npmViewResult)
-  await CleanupSnapshots.cleanupSnapshots();
-  expect('').toBe('');
+  const cleanupSnaps = new CleanupSnapshots();
+  await cleanupSnaps.deleteSuperfluousArtifacts();
+  expect(cleanupSnaps.npmSearchResults[0].sortedVersions.length).toBe(1);
+  expect(cleanupSnaps.npmSearchResults[0].sortedVersions[0].date.toISOString()).toBe('2023-02-11T23:00:00.000Z');
 });

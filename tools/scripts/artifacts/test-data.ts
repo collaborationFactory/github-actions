@@ -1,6 +1,8 @@
 export const npmViewResult='{"versions":[\n' +
   '  "0.0.0-SNAPSHOT-lgwc1g48-2023125",\n' +
   '  "0.0.0-SNAPSHOT-le5my1cs-20230215",\n' +
+  '  "0.0.0-SNAPSHOT-le5my1cs-20230212",\n' +
+  '  "0.0.0-SNAPSHOT-le5my1cs-20230213",\n' +
   '  "0.0.0-SNAPSHOT-lfsbr6h6-20230328",\n' +
   '  "0.0.0-SNAPSHOT-lgwc4m48-20230425",\n' +
   '  "0.0.0-feature-PFM-ISSUE-12053-feature-PFM-ISSUE-12053-Up-820",\n' +
@@ -15,27 +17,6 @@ export const npmViewResult='{"versions":[\n' +
 export const npmSearchResult='[\n' +
   '\n' +
   '{"name":"@cplace-next/cf-components","description":null,"maintainers":[],"version":"23.1.2","date":null,"keywords":[],"author":"squad-fe"}\n' +
-  '\n' +
-  ',\n' +
-  '\n' +
-  '{"name":"@cplace-next/cf-controls-demo","description":null,"maintainers":[],"version":"0.0.0-test-ci-1","date":null,"keywords":[],"author":"squad-fe"}\n' +
-  '\n' +
-  ',\n' +
-  '\n' +
-  '{"name":"@cplace-next/cf-fe-cdn-loader","description":null,"maintainers":[],"version":"22.3.11","date":null,"keywords":[],"author":"squad-fe"}\n' +
-  '\n' +
-  ',\n' +
-  '\n' +
-  '{"name":"@cplace-next/cf-fe-code-coverage","description":null,"maintainers":[],"version":"23.2.47","date":null,"keywords":[],"author":"squad-fe"}\n' +
-  '\n' +
-  ',\n' +
-  '\n' +
-  '{"name":"@cplace-next/cf-frontend-customization","description":null,"maintainers":[],"version":"23.2.47","date":null,"keywords":[],"author":"squad-fe"}\n' +
-  '\n' +
-  ',\n' +
-  '\n' +
-  '{"name":"@cplace-next/cf-frontend-licenses","description":null,"maintainers":[],"version":"23.2.47","date":null,"keywords":[],"author":"squad-fe"}\n' +
-  '\n' +
   ']';
 
 export const globResult = ['libs/cf-storybook-lib/project.json',
