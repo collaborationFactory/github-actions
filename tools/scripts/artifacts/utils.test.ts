@@ -37,7 +37,6 @@ const rootDir = child_process
 
 beforeEach(() => {
   const mockedDate = new Date(2023, 0, 1);
-
   jest.useFakeTimers("modern");
   jest.setSystemTime(mockedDate);
 });

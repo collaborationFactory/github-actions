@@ -1,4 +1,5 @@
-export const npmViewResult='{versions:[\n' +
+export const npmViewResult='{"versions":[\n' +
+  '  "0.0.0-SNAPSHOT-lgwc1g48-2023125",\n' +
   '  "0.0.0-SNAPSHOT-le5my1cs-20230215",\n' +
   '  "0.0.0-SNAPSHOT-lfsbr6h6-20230328",\n' +
   '  "0.0.0-SNAPSHOT-lgwc4m48-20230425",\n' +

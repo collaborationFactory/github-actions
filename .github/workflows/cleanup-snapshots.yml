@@ -12,8 +12,6 @@ on:
         required: true
       JFROG_USER:
         required: true
-      DOT_NPMRC:
-        required: true
         
 jobs:
   build:
@@ -24,7 +22,6 @@ jobs:
         with:
           ref: ${{ inputs.GHA_REF }}
           fetch-depth: 0
-          token: ${{ secrets.GIT_USER_TOKEN }}
 
       - uses: actions/setup-node@v3
         with:

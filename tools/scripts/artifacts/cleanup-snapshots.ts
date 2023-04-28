@@ -60,9 +60,6 @@ export class CleanupSnapshots {
         console.log(project)
         console.log(project.version)
       }
-    }
-    ;
+    };
   }
 }
-
-CleanupSnapshots.cleanupSnapshots();
