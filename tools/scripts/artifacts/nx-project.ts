@@ -40,7 +40,7 @@ export class NxProject {
   private _packageJsonContent: any = {};
   public isPublishable: boolean = false;
   public hasPackageJson = false;
-  public pathToProject = '';
+  private _pathToProject = '';
 
   constructor(
     public name: string,
@@ -61,7 +61,6 @@ export class NxProject {
     } else {
       this.isPublishable = true;
     }
-    this.initPathToProject();
   }
 
   public initPathToProject() {
@@ -86,7 +85,8 @@ export class NxProject {
     }
     const results = globResults.filter(result => {
       const resultConverted = result.replace(/\//g, '-')
-      return resultConverted.replace(/\//g, '-').indexOf(this.name) > -1 && result.indexOf(this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs') > -1;
+      return resultConverted.indexOf(this.name) > -1 && 
+        result.indexOf(this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs') > -1;
     })
     this.pathToProject = results.length > 0 ? results[0].replace('/project.json', '') : '';
   }
@@ -319,5 +319,16 @@ export class NxProject {
 
   set packageJsonContent(value: PackageJson) {
     this._packageJsonContent = value;
+  }
+
+  get pathToProject(): string {
+    if (this._pathToProject === ''){
+      this.initPathToProject();
+    }
+    return this._pathToProject;
+  }
+
+  set pathToProject(value: string) {
+    this._pathToProject = value;
   }
 }

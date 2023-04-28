@@ -1,0 +1,39 @@
+name: Cleanup Snapshot Artifacts on a CRON Schedule
+
+on:  
+  workflow_call:
+    secrets:
+      JFROG_BASE64_TOKEN:
+        required: true
+      JFROG_URL:
+        required: true
+      JFROG_USER:
+        required: true
+        
+jobs:
+  build:
+    name: Cleanup Snapshot Artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ inputs.GHA_REF }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18.11.0
+
+      - name: Cache Node Modules
+        id: npm-cache
+        uses: actions/cache@v2
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}          
+
+      - name: Cleanup Snapshot Artifacts
+        uses: collaborationFactory/github-actions/.github/actions/artifacts@master
+        env:
+          JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
+          JFROG_URL: ${{ secrets.JFROG_URL }}
+          JFROG_USER: ${{ secrets.JFROG_USER }}

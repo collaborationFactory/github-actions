@@ -29,12 +29,21 @@ export const gitLs =
   '337cac8d5252b85338f0eb658b6b29b9627c2f69        refs/tags/version/5.20.12\n';
 export const sdk = 'cf-frontend-sdk';
 export const core = 'cf-core-lib';
-export const platform = 'cf-platform';
 
 const rootDir = child_process
   .execSync(`git rev-parse --show-toplevel`)
   .toString()
   .trim();
+
+beforeEach(() => {
+  const mockedDate = new Date(2023, 0, 1);
+  jest.useFakeTimers("modern");
+  jest.setSystemTime(mockedDate);
+});
+
+afterEach(() => {
+  jest.useRealTimers();
+});
 
 test('can parse and order version tags ', async () => {
   jest.spyOn(child_process, 'execSync').mockReturnValue(Buffer.from(rootDir));
@@ -193,4 +202,9 @@ test('can bump version correctly for a release Branch with existing tag', () => 
     .mockReturnValueOnce(new Version('22.4.12'));
   const version = Utils.calculateNewVersion('release/22.4');
   expect(version).toStrictEqual(new Version('22.4.13'));
+});
+
+test('can create hashed timestamp correctly formatted', () => {
+  const timestamp = Utils.getHashedTimestamp();
+  expect(timestamp).toEqual('lccjqzk0-20230101');
 });

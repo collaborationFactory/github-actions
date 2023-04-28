@@ -40,13 +40,7 @@ export class ArtifactsHandler {
   constructor() {
     this.scope = Utils.parseScopeFromPackageJson();
     // parse ENV variables
-    this.jfrogCredentials = new JfrogCredentials(
-      process.env.JFROG_URL != undefined ? process.env.JFROG_URL : '',
-      process.env.JFROG_USER != undefined ? process.env.JFROG_USER : '',
-      process.env.JFROG_BASE64_TOKEN != undefined
-        ? process.env.JFROG_BASE64_TOKEN
-        : ''
-    );
+    this.jfrogCredentials=new JfrogCredentials();
     this.tag = process.env.TAG != undefined ? process.env.TAG : '';
     this.currentBranch = Utils.getCurrentBranchNameFromGithubEnv();
     this.prNumber =
@@ -98,7 +92,7 @@ export class ArtifactsHandler {
     }
     console.log('Configuration ' + JSON.stringify(this));
   }
-
+  
   async handle() {
     Utils.initGithubActionsFile();
     if (
