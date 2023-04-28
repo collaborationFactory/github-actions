@@ -5,5 +5,7 @@ runs:
   steps:
     - run: printenv
       shell: bash
+    - run: cd "$GITHUB_ACTION_PATH/../../.." && pwd && npm ci
+      shell: bash      
     - run: npx ts-node "$GITHUB_ACTION_PATH/../../../tools/scripts/artifacts/main-snapshots.ts"
       shell: bash
