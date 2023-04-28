@@ -1,3 +1,4 @@
 import { CleanupSnapshots } from "./cleanup-snapshots";
 
-CleanupSnapshots.cleanupSnapshots();
+const cleanupSnapshots = new CleanupSnapshots();
+cleanupSnapshots.deleteSuperfluousArtifacts().then(r => console.log('finished action removing snapshots'));
