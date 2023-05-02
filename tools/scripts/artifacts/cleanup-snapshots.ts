@@ -37,12 +37,15 @@ export class CleanupSnapshots {
   private initPackagesAndVersions() {
     this.scope = Utils.parseScopeFromPackageJson();
     this._npmSearchResults = this.searchNPMPackages();
+    console.log('filteredSearchResults: ', JSON.stringify(this._npmSearchResults, null, "  "));
     for (const npmPackage of this._npmSearchResults) {
       const versionInfo = execSync(`npm view ${npmPackage.name} --json`).toString()
+      console.log('versionInfo: ', versionInfo);
       npmPackage.versions = JSON.parse(versionInfo).versions;
       npmPackage.versions = npmPackage.versions.filter((version) => {
         return version.toLowerCase().includes('snapshot');
       });
+      console.log('npmPackage.versions: ', JSON.stringify(npmPackage.versions, null, "  "));
       this.initSortedVersions(npmPackage);
     };
   }
@@ -57,16 +60,19 @@ export class CleanupSnapshots {
       } else {
         dateTime = DateTime.fromISO('99990101');
       }
+      console.log('dateTime: ', dateTime);
       const versionWithDate: VersionWithDate = {
         date: dateTime.toJSDate(),
         version: version
       };
+      console.log('versionWithDate: ', versionWithDate);
       npmPackage.sortedVersions.push(versionWithDate);
     });
   }
 
   private searchNPMPackages() {
     const scopeSearchResult = execSync(`npm search ${this.scope} --json`).toString();
+    console.log('scopeSearchResult: ', scopeSearchResult);
     let npmSearchResults: NpmPackage[] = JSON.parse(scopeSearchResult);
     return npmSearchResults.filter((entry) => {
       return entry.name.includes(this.scope);
@@ -77,8 +83,10 @@ export class CleanupSnapshots {
     for (const npmPackage of this._npmSearchResults) {
       if (npmPackage.sortedVersions.length > 5) {
         npmPackage.sortedVersions.sort((a, b) => b.date.getTime() - a.date.getTime());
+        console.log('all sortedVersions: ', JSON.stringify(npmPackage.sortedVersions, null, "  "));
         // remove latest 5 versions from array so they are kept in the registry
         npmPackage.sortedVersions.splice(0, 5);
+        console.log('sortedVersions with five most recent entries (that should not be deleted): ', JSON.stringify(npmPackage.sortedVersions, null, "  "));
         await this.removeSnapshotArtifacts(npmPackage);
       }
     }
