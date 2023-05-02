@@ -11,3 +11,4 @@ jobs:
       JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
       JFROG_URL: ${{ secrets.JFROG_URL }}
       JFROG_USER: ${{ secrets.JFROG_USER }}
+      DOT_NPMRC: ${{ secrets.DOT_NPMRC }}

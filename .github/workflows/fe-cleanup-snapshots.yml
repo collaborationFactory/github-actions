@@ -9,6 +9,8 @@ on:
         required: true
       JFROG_USER:
         required: true
+      DOT_NPMRC:
+        required: true
         
 jobs:
   build:
@@ -29,7 +31,12 @@ jobs:
         uses: actions/cache@v2
         with:
           path: '**/node_modules'
-          key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}          
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}       
+          
+      - name: Use .npmrc
+        uses: bduff9/use-npmrc@v1.1
+        with:
+          dot-npmrc: ${{ secrets.DOT_NPMRC }}          
 
       - name: Cleanup Snapshot Artifacts
         uses: collaborationFactory/github-actions/.github/actions/snapshots@master
