@@ -9,7 +9,7 @@ permissions: write-all
 
 jobs:
   remove-artifacts:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-pr-close.yml@release/23.2
+    uses: collaborationFactory/github-actions/.github/workflows/fe-pr-close.yml@master
     with:
       GHA_BASE: ${{ github.event.pull_request.base.ref }}
     secrets:
