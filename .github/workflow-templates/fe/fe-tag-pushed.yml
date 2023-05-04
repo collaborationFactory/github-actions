@@ -4,13 +4,15 @@ on:
     tags:
       - '*/*'
 
+permissions: write-all
+
 env:
   NX_BRANCH: ${{ github.event.number }}
   NX_RUN_GROUP: ${{ github.run_id }}
 
 jobs:
   release-version:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-release.yml@master
+    uses: collaborationFactory/github-actions/.github/workflows/fe-release.yml@release/23.2
     secrets:
       JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
       JFROG_URL: ${{ secrets.JFROG_URL }}
