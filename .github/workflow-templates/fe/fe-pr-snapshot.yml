@@ -5,6 +5,8 @@ on:
     branches:
       - '**'
 
+permissions: write-all
+
 jobs:
   publish-pr-snapshot:
     uses: collaborationFactory/github-actions/.github/workflows/fe-pr-snapshot.yml@release/23.2

@@ -5,6 +5,8 @@ on:
       - main
       - master
 
+permissions: write-all
+
 env:
   NX_BRANCH: ${{ github.event.number }}
   NX_RUN_GROUP: ${{ github.run_id }}
