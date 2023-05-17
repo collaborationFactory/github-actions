@@ -83,13 +83,18 @@ export class NxProject {
     } catch (e) {
       console.error('Error while searching for project.json', e)
     }
-    const results = globResults.filter(result => {
-      const resultConverted = result.replace(/\//g, '-')
-      return resultConverted.indexOf(this.name) > -1 && 
-        result.indexOf(this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs') > -1;
+
+    this.pathToProject = '';
+
+    const foundProjectPath = globResults.find(result => {
+      const normalizedPath = result.replace(/\//g, '-');
+      return normalizedPath.includes(this.name) &&
+        !normalizedPath.includes('-e2e') &&
+        normalizedPath.includes(this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs');
     });
-    console.log(this.name, results.join(', '));
-    this.pathToProject = results.length > 0 ? results[0].replace('/project.json', '') : '';
+    if (foundProjectPath) {
+      this.pathToProject = foundProjectPath.replace('/project.json', '');
+    }
   }
 
   public getPackageInstallPath(): string {
