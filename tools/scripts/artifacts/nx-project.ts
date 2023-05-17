@@ -87,7 +87,8 @@ export class NxProject {
       const resultConverted = result.replace(/\//g, '-')
       return resultConverted.indexOf(this.name) > -1 && 
         result.indexOf(this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs') > -1;
-    })
+    });
+    console.log(this.name, results.join(', '));
     this.pathToProject = results.length > 0 ? results[0].replace('/project.json', '') : '';
   }
 
@@ -276,8 +277,10 @@ export class NxProject {
 
   public getPathToProjectInDist(): string {
     const nestedPath = this.pathToProject;
+    console.log('getPathToProjectInDist', nestedPath);
     const subPath = nestedPath ? nestedPath : path.join(this.nxProjectKind === NxProjectKind.Application
       ? 'apps' : 'libs', this.name);
+    console.log('getPathToProjectInDist', subPath);
     return path.resolve(
       'dist',
       subPath
