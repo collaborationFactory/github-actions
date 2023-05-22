@@ -70,7 +70,7 @@ export class CleanupSnapshots {
         );
         // all versions older than threshold should be deleted
         return (
-          Math.round(Math.abs(diff.months)) > CleanupSnapshots.RELEASE_CADENCE
+          Math.round(Math.abs(diff.months)) >= CleanupSnapshots.RELEASE_CADENCE
         );
       });
   }
