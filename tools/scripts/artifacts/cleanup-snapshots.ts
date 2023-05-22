@@ -63,7 +63,7 @@ export class CleanupSnapshots {
         const now = DateTime.fromISO(new Date().toISOString());
         const diff = date.diff(now, ['years', 'months']);
         console.log('version with date', date.toISO());
-        console.log('now', date.toISO());
+        console.log('now', now.toISO());
         console.log(
           'rounded diff in months',
           Math.round(Math.abs(diff.months))
