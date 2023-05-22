@@ -1,6 +1,6 @@
 name: Cleanup Snapshot Artifacts on a CRON Schedule
 
-on:  
+on:
   workflow_call:
     secrets:
       JFROG_BASE64_TOKEN:
@@ -11,7 +11,7 @@ on:
         required: true
       DOT_NPMRC:
         required: true
-        
+
 jobs:
   build:
     name: Cleanup Snapshot Artifacts
@@ -31,12 +31,12 @@ jobs:
         uses: actions/cache@v2
         with:
           path: '**/node_modules'
-          key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}       
-          
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
+
       - name: Use .npmrc
         uses: bduff9/use-npmrc@v1.1
         with:
-          dot-npmrc: ${{ secrets.DOT_NPMRC }}          
+          dot-npmrc: ${{ secrets.DOT_NPMRC }}
 
       - name: Cleanup Snapshot Artifacts
         uses: collaborationFactory/github-actions/.github/actions/snapshots@master

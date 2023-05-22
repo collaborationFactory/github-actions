@@ -1,10 +1,12 @@
-export const npmViewResult='{"versions":[\n' +
-  '  "0.0.0-SNAPSHOT-lgwc1g48-2023125",\n' +
-  '  "0.0.0-SNAPSHOT-le5my1cs-20230215",\n' +
-  '  "0.0.0-SNAPSHOT-le5my1cs-20230212",\n' +
+export const npmViewResult =
+  '{"versions":[\n' +
+  '  "0.0.0-SNAPSHOT-lgwc1g48-2023015",\n' +
+  '  "0.0.0-SNAPSHOT-le5my1cs-20230110",\n' +
+  '  "0.0.0-SNAPSHOT-le5my1cs-20230112",\n' +
   '  "0.0.0-SNAPSHOT-le5my1cs-20230213",\n' +
   '  "0.0.0-SNAPSHOT-lfsbr6h6-20230328",\n' +
   '  "0.0.0-SNAPSHOT-lgwc4m48-20230425",\n' +
+  '  "0.0.0-SNAPSHOT-lgwc4m48-20230503",\n' +
   '  "0.0.0-feature-PFM-ISSUE-12053-feature-PFM-ISSUE-12053-Up-820",\n' +
   '  "0.0.0-fix-PFM-TASK-3503-Adjust-the-getMFConfig-in-the-SD-821",\n' +
   '  "0.1.93-hotfix-cplace-5.17.0",\n' +
@@ -14,16 +16,19 @@ export const npmViewResult='{"versions":[\n' +
   '  "22.3.16",\n' +
   '  "23.1.2"]}';
 
-export const npmSearchResult='[\n' +
+export const npmSearchResult =
+  '[\n' +
   '\n' +
   '{"name":"@cplace-next/cf-components","description":null,"maintainers":[],"version":"23.1.2","date":null,"keywords":[],"author":"squad-fe"}\n' +
   ']';
 
-export const globResult = ['libs/cf-storybook-lib/project.json',
+export const globResult = [
+  'libs/cf-storybook-lib/project.json',
   'libs/cf-shell-lib/project.json',
   'libs/cf-platform-lib/project.json',
   'apps/cf-shell/project.json',
-  'apps/my/cf-platform/project.json'];
+  'apps/my/cf-platform/project.json',
+];
 
 export const packageJsonLib1 =
   '{\n' +
