@@ -2,7 +2,7 @@ import { expect } from '@jest/globals';
 import * as fs from 'fs';
 import { NxProject, NxProjectKind } from './nx-project';
 import { globResult, packageJsonLib1 } from './test-data';
-import { glob } from 'glob'
+import { glob } from 'glob';
 
 jest.mock('glob');
 
@@ -14,7 +14,7 @@ afterEach(() => {
 
 beforeEach(() => {
   jest.spyOn(glob, 'globSync').mockReturnValue(globResult);
-})
+});
 
 test('NxProject can provide jfrog Url', async () => {
   jest.spyOn(fs, 'existsSync').mockReturnValue(true);
@@ -45,9 +45,7 @@ test('NxProject can get actual folder of project', async () => {
     undefined,
     '@cplace-next'
   );
-  expect(nxProject.pathToProject).toBe(
-    'apps/my/cf-platform'
-  );
+  expect(nxProject.pathToProject).toBe('apps/my/cf-platform');
 });
 
 test('NxProject can find folder in src', async () => {
@@ -58,9 +56,7 @@ test('NxProject can find folder in src', async () => {
     undefined,
     '@cplace-next'
   );
-  expect(nxProject.getPathToProjectInSource()).toContain(
-    'libs/my-lib'
-  );
+  expect(nxProject.getPathToProjectInSource()).toContain('libs/my-lib');
 });
 
 test('NxProject can find folder in dist', async () => {
@@ -71,7 +67,5 @@ test('NxProject can find folder in dist', async () => {
     undefined,
     '@cplace-next'
   );
-  expect(nxProject.getPathToProjectInDist()).toContain(
-    'dist/apps/my-app'
-  );
+  expect(nxProject.getPathToProjectInDist()).toContain('dist/apps/my-app');
 });

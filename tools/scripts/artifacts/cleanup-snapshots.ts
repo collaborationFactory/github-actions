@@ -1,14 +1,9 @@
-import { execSync } from "child_process";
-import { NxProject, NxProjectKind } from "./nx-project";
-import { ArtifactsHandler } from "./artifacts-handler";
-import { Version } from "./version";
-import { Utils } from "./utils";
-import { DateTime } from 'luxon'
-
-interface VersionWithDate {
-  version: string;
-  date: Date;
-}
+import { execSync } from 'child_process';
+import { NxProject, NxProjectKind } from './nx-project';
+import { ArtifactsHandler } from './artifacts-handler';
+import { Version } from './version';
+import { Utils } from './utils';
+import { DateTime } from 'luxon';
 
 interface NpmPackage {
   name: string;
@@ -19,74 +14,79 @@ interface NpmPackage {
   keywords: string[];
   author: string;
   versions: string[];
-  sortedVersions: VersionWithDate[];
   scope: string;
 }
 
 export class CleanupSnapshots {
-  get npmSearchResults(): NpmPackage[] {
-    return this._npmSearchResults;
-  }
   private _npmSearchResults: NpmPackage[] = [];
   private scope = '';
+  private static readonly RELEASE_CADENCE = 4;
 
   constructor() {
-    this.initPackagesAndVersions()
+    this.initPackagesAndVersions();
+  }
+
+  get npmSearchResults(): NpmPackage[] {
+    return this._npmSearchResults;
   }
 
   private initPackagesAndVersions() {
     this.scope = Utils.parseScopeFromPackageJson();
     this._npmSearchResults = this.searchNPMPackages();
-    console.log('filteredSearchResults: ', JSON.stringify(this._npmSearchResults, null, "  "));
+    console.log(
+      'filteredSearchResults: ',
+      JSON.stringify(this._npmSearchResults, null, '  ')
+    );
     for (const npmPackage of this._npmSearchResults) {
-      const versionInfo = execSync(`npm view ${npmPackage.name} --json`).toString()
-      console.log('versionInfo: ', versionInfo);
-      npmPackage.versions = JSON.parse(versionInfo).versions;
-      npmPackage.versions = npmPackage.versions.filter((version) => {
-        return version.toLowerCase().includes('snapshot');
-      });
-      console.log('npmPackage.versions: ', JSON.stringify(npmPackage.versions, null, "  "));
-      this.initSortedVersions(npmPackage);
-    };
+      const versionInfo = execSync(
+        `npm view ${npmPackage.name} --json`
+      ).toString();
+      npmPackage.versions = this.getFilteredVersionsToDelete(versionInfo);
+      console.log(
+        'versions to delete: ',
+        JSON.stringify(npmPackage.versions, null, '  ')
+      );
+    }
   }
-  
-  private initSortedVersions(npmPackage: NpmPackage) {
-    npmPackage.sortedVersions = [];
-    npmPackage.versions.forEach((version) => {
-      let dateString = (version.match(/[0-9]{8}$/) || '')[0];
-      let dateTime: DateTime;
-      if (dateString) {
-        dateTime = DateTime.fromISO(dateString);
-      } else {
-        dateTime = DateTime.fromISO('99990101');
-      }
-      console.log('dateTime: ', dateTime);
-      const versionWithDate: VersionWithDate = {
-        date: dateTime.toJSDate(),
-        version: version
-      };
-      console.log('versionWithDate: ', versionWithDate);
-      npmPackage.sortedVersions.push(versionWithDate);
-    });
+
+  private getFilteredVersionsToDelete(versionInfo: string): string[] {
+    console.log('versionInfo: ', versionInfo);
+    const versions = JSON.parse(versionInfo).versions;
+    console.log('all versions: ', versions);
+    return versions
+      .filter((version) => version.toLowerCase().includes('snapshot'))
+      .filter((version) => {
+        const parts = version.split('-');
+        // takes only a year and a month
+        const dateString = parts[parts.length - 1].substring(0, 6);
+        const date = DateTime.fromISO(dateString);
+        const now = DateTime.fromISO(new Date().toISOString());
+        const diff = date.diff(now, ['years', 'months']);
+        console.log('version with date', date.toISO());
+        console.log('now', date.toISO());
+        console.log(
+          'rounded diff in months',
+          Math.round(Math.abs(diff.months))
+        );
+        // all versions older than threshold should be deleted
+        return (
+          Math.round(Math.abs(diff.months)) > CleanupSnapshots.RELEASE_CADENCE
+        );
+      });
   }
 
   private searchNPMPackages() {
-    const scopeSearchResult = execSync(`npm search ${this.scope} --json`).toString();
+    const scopeSearchResult = execSync(
+      `npm search ${this.scope} --json`
+    ).toString();
     console.log('scopeSearchResult: ', scopeSearchResult);
-    let npmSearchResults: NpmPackage[] = JSON.parse(scopeSearchResult);
-    return npmSearchResults.filter((entry) => {
-      return entry.name.includes(this.scope);
-    });
+    const npmSearchResults: NpmPackage[] = JSON.parse(scopeSearchResult);
+    return npmSearchResults.filter((entry) => entry.name.includes(this.scope));
   }
 
   public async deleteSuperfluousArtifacts() {
     for (const npmPackage of this._npmSearchResults) {
-      if (npmPackage.sortedVersions.length > 5) {
-        npmPackage.sortedVersions.sort((a, b) => b.date.getTime() - a.date.getTime());
-        console.log('all sortedVersions: ', JSON.stringify(npmPackage.sortedVersions, null, "  "));
-        // remove latest 5 versions from array so they are kept in the registry
-        npmPackage.sortedVersions.splice(0, 5);
-        console.log('sortedVersions with five most recent entries (that should not be deleted): ', JSON.stringify(npmPackage.sortedVersions, null, "  "));
+      if (npmPackage.versions.length) {
         await this.removeSnapshotArtifacts(npmPackage);
       }
     }
@@ -95,10 +95,21 @@ export class CleanupSnapshots {
   private async removeSnapshotArtifacts(npmPackage: NpmPackage) {
     npmPackage.scope = npmPackage.name.split('/')[0];
     npmPackage.name = npmPackage.name.split('/')[1];
-    for (const sortedVersion of npmPackage.sortedVersions) {
-      const currentVersion = sortedVersion.version.replace(`${ArtifactsHandler.SNAPSHOT_VERSION}`, '');
-      const project: NxProject = new NxProject(npmPackage.name, NxProjectKind.Application, undefined, new Version(ArtifactsHandler.SNAPSHOT_VERSION, currentVersion), npmPackage.scope);
-      console.log(`About to delete ${npmPackage.scope}/${npmPackage.name}@${project.version}`)
+    for (const sortedVersion of npmPackage.versions) {
+      const currentVersion = sortedVersion.replace(
+        `${ArtifactsHandler.SNAPSHOT_VERSION}`,
+        ''
+      );
+      const project: NxProject = new NxProject(
+        npmPackage.name,
+        NxProjectKind.Application,
+        undefined,
+        new Version(ArtifactsHandler.SNAPSHOT_VERSION, currentVersion),
+        npmPackage.scope
+      );
+      console.log(
+        `About to delete ${npmPackage.scope}/${npmPackage.name}@${project.version}`
+      );
       //await project.deleteArtifact(new JfrogCredentials(), project.version);
     }
   }

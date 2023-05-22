@@ -8,7 +8,7 @@ import { Utils } from './utils';
 import { ArtifactsHandler, TASK } from './artifacts-handler';
 import { JfrogCredentials } from './jfrog-credentials';
 import { Version } from './version';
-import { globSync } from "glob";
+import { globSync } from 'glob';
 
 interface PackageJson {
   author: string;
@@ -66,31 +66,27 @@ export class NxProject {
   public initPathToProject() {
     let globResults = [];
     try {
-      globResults = globSync([
-        'project.json',
-        '**/project.json'
-      ], {
-        ignore: [
-          'node_modules/**',
-          '**/node_modules',
-          'dist',
-          '.git',
-        ],
+      globResults = globSync(['project.json', '**/project.json'], {
+        ignore: ['node_modules/**', '**/node_modules', 'dist', '.git'],
         absolute: false,
         cwd: process.cwd(),
-        dot: true
+        dot: true,
       });
     } catch (e) {
-      console.error('Error while searching for project.json', e)
+      console.error('Error while searching for project.json', e);
     }
 
     this.pathToProject = '';
 
-    const foundProjectPath = globResults.find(result => {
+    const foundProjectPath = globResults.find((result) => {
       const normalizedPath = result.replace(/\//g, '-');
-      return normalizedPath.includes(this.name) &&
+      return (
+        normalizedPath.includes(this.name) &&
         !normalizedPath.includes('-e2e') &&
-        normalizedPath.includes(this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs');
+        normalizedPath.includes(
+          this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs'
+        )
+      );
     });
     if (foundProjectPath) {
       this.pathToProject = foundProjectPath.replace('/project.json', '');
@@ -263,7 +259,7 @@ export class NxProject {
     fs.writeFileSync(
       this.getPackageJsonPathInDist(),
       this.getPrettyPackageJson(),
-      {encoding: 'utf-8'}
+      { encoding: 'utf-8' }
     );
 
     console.log('wrote package.json to: ' + this.getPackageJsonPathInDist());
@@ -283,15 +279,15 @@ export class NxProject {
   public getPathToProjectInDist(): string {
     const nestedPath = this.pathToProject;
     console.log('getPathToProjectInDist', nestedPath);
-    const subPath = nestedPath ? nestedPath : path.join(this.nxProjectKind === NxProjectKind.Application
-      ? 'apps' : 'libs', this.name);
+    const subPath = nestedPath
+      ? nestedPath
+      : path.join(
+          this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs',
+          this.name
+        );
     console.log('getPathToProjectInDist', subPath);
-    return path.resolve(
-      'dist',
-      subPath
-    );
+    return path.resolve('dist', subPath);
   }
-
 
   public getNpmrcPathInDist() {
     return path.join(this.getPathToProjectInDist(), '.npmrc');
@@ -304,8 +300,12 @@ export class NxProject {
   public getPathToProjectInSource(): string {
     const nestedPath = this.pathToProject;
     return path.resolve(
-      nestedPath ? nestedPath : path.join(this.nxProjectKind === NxProjectKind.Application
-        ? 'apps' : 'libs', this.name)
+      nestedPath
+        ? nestedPath
+        : path.join(
+            this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs',
+            this.name
+          )
     );
   }
 
@@ -330,7 +330,7 @@ export class NxProject {
   }
 
   get pathToProject(): string {
-    if (this._pathToProject === ''){
+    if (this._pathToProject === '') {
       this.initPathToProject();
     }
     return this._pathToProject;
