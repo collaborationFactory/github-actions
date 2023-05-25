@@ -4,6 +4,7 @@ import { ArtifactsHandler } from './artifacts-handler';
 import { Version } from './version';
 import { Utils } from './utils';
 import { DateTime } from 'luxon';
+import { JfrogCredentials } from './jfrog-credentials';
 
 interface NpmPackage {
   name: string;
@@ -107,10 +108,7 @@ export class CleanupSnapshots {
         new Version(ArtifactsHandler.SNAPSHOT_VERSION, currentVersion),
         npmPackage.scope
       );
-      console.log(
-        `About to delete ${npmPackage.scope}/${npmPackage.name}@${project.version}`
-      );
-      //await project.deleteArtifact(new JfrogCredentials(), project.version);
+      await project.deleteArtifact(new JfrogCredentials(), project.version);
     }
   }
 }
