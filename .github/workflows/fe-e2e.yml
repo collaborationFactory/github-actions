@@ -43,7 +43,7 @@ jobs:
         run: npx cypress install
 
       - name: Affected Regression Tests
-        uses: collaborationFactory/github-actions/.github/actions/run-many@master
+        uses: collaborationFactory/github-actions/.github/actions/run-many@release/23.3
         with:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}
@@ -54,36 +54,3 @@ jobs:
           PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
           PERCY_PARTIAL_BUILD: 1
           DEV_STORIES: true
-#  finalize-percy:
-#    needs: e2e
-#    runs-on: ubuntu-latest
-#    timeout-minutes: 45
-#    steps:
-#      - name: Check Percy Token
-#        id: percyToken
-#        run: echo '::set-output name=value::${{secrets.PERCY_TOKEN}}'
-#
-#      - uses: actions/checkout@v2
-#        if: steps.percyToken.outputs.value
-#        with:
-#          ref: ${{ inputs.GHA_REF }}
-#          fetch-depth: 0
-#
-#      - uses: actions/setup-node@v1
-#        if: steps.percyToken.outputs.value
-#        with:
-#          node-version: '14'
-#
-#      - name: Cache Node Modules
-#        if: steps.percyToken.outputs.value
-#        id: npm-cache
-#        uses: actions/cache@v2
-#        with:
-#          path: '**/node_modules'
-#          key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
-#
-#      - name: Mark Percy Build as Finalized
-#        if: steps.percyToken.outputs.value
-#        run: ./node_modules/.bin/percy build:finalize
-#        env:
-#          PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
