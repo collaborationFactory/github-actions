@@ -45,7 +45,7 @@ jobs:
         run: npm ci
 
       - name: Delete Snapshots from NPM Registry
-        uses: collaborationFactory/github-actions/.github/actions/artifacts@master
+        uses: collaborationFactory/github-actions/.github/actions/artifacts@feature/PFM-TASK-3833-Migrate-frontend-build-to-Nx-16
         env:
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}
