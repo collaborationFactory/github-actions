@@ -20,7 +20,7 @@ export class Utils {
     scope: string = ''
   ): NxProject[] {
     const affectedString = execSync(
-      `npx nx affected:${
+      `./node_modules/.bin/nx affected -t ${
         nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs'
       } --base=${base} --plain`
     ).toString();
@@ -47,8 +47,8 @@ export class Utils {
     version: Version = new Version(),
     scope: string = ''
   ): NxProject[] {
-    const libsStr = execSync('npx nx affected:libs --all --plain').toString();
-    const appsStr = execSync('npx nx affected:apps --all --plain').toString();
+    const libsStr = execSync('./node_modules/.bin/nx affected -t libs --all --plain').toString();
+    const appsStr = execSync('./node_modules/.bin/nx affected -t apps --all --plain').toString();
 
     const libs = Utils.getListOfProjectsFromProjectsString(libsStr);
     const apps = Utils.getListOfProjectsFromProjectsString(appsStr);
