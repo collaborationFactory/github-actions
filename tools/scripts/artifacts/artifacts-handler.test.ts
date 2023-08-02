@@ -11,6 +11,7 @@ import {
   app2,
   appsDir,
   base,
+  globResult,
   lib1,
   lib2,
   libsDir,
@@ -38,6 +39,10 @@ afterEach(() => {
   process.env.GITHUB_EVENT_NAME = '';
   process.env.GITHUB_HEAD_REF = '';
   process.env.GITHUB_REF_NAME = '';
+});
+
+beforeEach(() => {
+  jest.spyOn(Utils, 'globProjectJSON').mockReturnValue(globResult);
 });
 
 test('can create and overwrite Snapshots for a Pull Request', async () => {
@@ -145,7 +150,7 @@ test('can create and overwrite Snapshots in main branch', async () => {
   expect(artifactHandler.projects[2].name).toBe(lib1);
   expect(artifactHandler.projects[3].name).toBe(lib2);
   expect(artifactHandler.projects[0].getPathToProjectInDist()).toContain(
-    `dist/apps/${app1}`
+    `dist/apps/my/${app1}`
   );
   expect(artifactHandler.projects[1].getPathToProjectInDist()).toContain(
     `dist/apps/${app2}`
@@ -214,6 +219,8 @@ async function exec() {
     .spyOn(child_process, 'execSync')
     .mockReturnValueOnce(Buffer.from(affectedApps))
     .mockReturnValueOnce(Buffer.from(affectedApps))
+    .mockReturnValueOnce(Buffer.from(affectedApps))
+    .mockReturnValueOnce(Buffer.from(affectedLibs))
     .mockReturnValueOnce(Buffer.from(affectedLibs))
     .mockReturnValueOnce(Buffer.from(affectedLibs))
     .mockReturnValueOnce(Buffer.from(`built ${app1}`))
@@ -246,6 +253,8 @@ async function exec() {
     .spyOn(fs, 'readdirSync')
     .mockReturnValueOnce(appsDir)
     .mockReturnValueOnce(appsDir)
+    .mockReturnValueOnce(appsDir)
+    .mockReturnValueOnce(libsDir)
     .mockReturnValueOnce(libsDir)
     .mockReturnValueOnce(libsDir);
 

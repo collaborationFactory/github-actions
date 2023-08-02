@@ -12,6 +12,7 @@ import {
   app2,
   appsDir,
   base,
+  globResult,
   libsDir,
   packageJsonLib1,
 } from './test-data';
@@ -41,6 +42,7 @@ beforeEach(() => {
   const mockedDate = new Date(2023, 0, 1);
   jest.useFakeTimers('modern');
   jest.setSystemTime(mockedDate);
+  jest.spyOn(Utils, 'globProjectJSON').mockReturnValue(globResult);
 });
 
 afterEach(() => {
@@ -106,6 +108,7 @@ test('can parse affected ', async () => {
     .mockReturnValueOnce(Buffer.from(affectedApps));
   jest
     .spyOn(fs, 'readdirSync')
+    .mockReturnValueOnce(appsDir)
     .mockReturnValueOnce(appsDir)
     .mockReturnValueOnce(appsDir);
   const apps = Utils.getAffectedNxProjects(base, NxProjectKind.Application);

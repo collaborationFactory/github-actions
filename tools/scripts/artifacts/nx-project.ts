@@ -8,7 +8,6 @@ import { Utils } from './utils';
 import { ArtifactsHandler, TASK } from './artifacts-handler';
 import { JfrogCredentials } from './jfrog-credentials';
 import { Version } from './version';
-import { globSync } from 'glob';
 
 interface PackageJson {
   author: string;
@@ -66,12 +65,7 @@ export class NxProject {
   public initPathToProject() {
     let globResults = [];
     try {
-      globResults = globSync(['project.json', '**/project.json'], {
-        ignore: ['node_modules/**', '**/node_modules', 'dist', '.git'],
-        absolute: false,
-        cwd: process.cwd(),
-        dot: true,
-      });
+      globResults = Utils.globProjectJSON();
     } catch (e) {
       console.error('Error while searching for project.json', e);
     }

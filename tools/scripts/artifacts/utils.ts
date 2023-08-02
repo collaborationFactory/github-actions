@@ -12,6 +12,21 @@ export class Utils {
   public static readonly EMPTY_GITHUB_COMMENTS =
     'No snapshots of projects have been published (probably no project is affected)';
 
+  public static globProjectJSON(): string[] {
+    const projects = execSync(
+      `npx glob --cwd=${process.cwd()} --absolute --dot ./**/project.json`
+    )
+      .toString()
+      .trim();
+    return projects.split('\n').filter((projectJSON) => {
+      return (
+        !projectJSON.includes('dist') &&
+        !projectJSON.includes('node_modules') &&
+        !projectJSON.includes('.git')
+      );
+    });
+  }
+
   public static getAffectedNxProjects(
     base: string,
     nxProjectKind: NxProjectKind,
