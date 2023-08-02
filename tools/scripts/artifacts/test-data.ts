@@ -59,9 +59,14 @@ export const packageJsonLib2 =
 
 export const app1 = 'cf-platform';
 export const app2 = 'cf-project-planning';
+export const app3 = 'cf-project-planning-lib-e2e';
 export const lib1 = 'cf-core-lib';
 export const lib2 = 'cf-frontend-sdk';
-export const affectedApps = app1.concat('\n').concat(app2);
+export const affectedApps = app1
+  .concat('\n')
+  .concat(app2)
+  .concat('\n')
+  .concat(app3);
 export const affectedLibs = lib1.concat('\n').concat(lib2);
 
 export const libsDir: any = affectedLibs.split('\n');

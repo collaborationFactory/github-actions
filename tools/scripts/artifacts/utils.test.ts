@@ -91,6 +91,7 @@ test('can find all projects without e2e projects', async () => {
     .mockReturnValueOnce(libsDir)
     .mockReturnValueOnce(libsDir)
     .mockReturnValueOnce(appsDir)
+    .mockReturnValueOnce(appsDir)
     .mockReturnValueOnce(appsDir);
 
   const nxProjects: NxProject[] = Utils.getAllNxProjects();

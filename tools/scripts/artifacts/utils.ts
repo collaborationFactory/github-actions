@@ -31,7 +31,8 @@ export class Utils {
       }: ` + affectedProjects.toString()
     );
     let filteredAffected: string[] = affectedProjects
-      .filter((i) => !i.startsWith('api-'))
+      .filter((project) => !project.includes('e2e'))
+      .filter((project) => !project.startsWith('api-'))
       .sort();
     let projects: NxProject[] = [];
     filteredAffected.forEach((affected) => {
@@ -52,8 +53,8 @@ export class Utils {
 
     const projects = [...libs, ...apps];
     const nxProjects: NxProject[] = projects
-      .filter((project) => !project[0].includes('e2e'))
-      .filter((project) => !project[0].startsWith('api-'))
+      .filter((project) => !project.includes('e2e'))
+      .filter((project) => !project.startsWith('api-'))
       .map((project) => {
         return new NxProject(
           project,
