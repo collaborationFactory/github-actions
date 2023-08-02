@@ -12,7 +12,7 @@ const ref = process.argv[6];
 
 const projects = getAffectedProjects(target, jobIndex, jobCount, base, ref);
 
-const runManyProjectsCmd = `./node_modules/.bin/nx run-many --target=${target} --projects=${projects}`;
+const runManyProjectsCmd = `./node_modules/.bin/nx run-many --targets=${target} --projects=${projects}`;
 let cmd = `${runManyProjectsCmd} --parallel --prod`;
 
 if (target.includes('e2e')) {

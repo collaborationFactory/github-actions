@@ -9,9 +9,11 @@ import {
   affectedLibs,
   app1,
   app2,
+  appsDir,
   base,
   lib1,
   lib2,
+  libsDir,
   npmrc,
   packageJsonLib2,
 } from './test-data';
@@ -211,6 +213,8 @@ async function exec() {
   jest
     .spyOn(child_process, 'execSync')
     .mockReturnValueOnce(Buffer.from(affectedApps))
+    .mockReturnValueOnce(Buffer.from(affectedApps))
+    .mockReturnValueOnce(Buffer.from(affectedLibs))
     .mockReturnValueOnce(Buffer.from(affectedLibs))
     .mockReturnValueOnce(Buffer.from(`built ${app1}`))
     .mockReturnValueOnce(Buffer.from(`published ${app1}`))
@@ -219,6 +223,8 @@ async function exec() {
     .mockReturnValueOnce(Buffer.from(`built ${lib1}`))
     .mockReturnValueOnce(Buffer.from(`published ${lib1}`))
     .mockReturnValueOnce(Buffer.from(`built ${lib2}`))
+    .mockReturnValueOnce(Buffer.from(''))
+    .mockReturnValueOnce(Buffer.from(''))
     .mockReturnValueOnce(Buffer.from(''))
     .mockReturnValueOnce(Buffer.from(''));
 
@@ -235,6 +241,13 @@ async function exec() {
     .mockReturnValueOnce(false)
     .mockReturnValueOnce(true)
     .mockReturnValueOnce(true);
+
+  jest
+    .spyOn(fs, 'readdirSync')
+    .mockReturnValueOnce(appsDir)
+    .mockReturnValueOnce(appsDir)
+    .mockReturnValueOnce(libsDir)
+    .mockReturnValueOnce(libsDir);
 
   deleteArtifactSpy = jest
     .spyOn(NxProject.prototype as any, 'deleteArtifact')

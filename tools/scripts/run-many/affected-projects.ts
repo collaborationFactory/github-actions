@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { Utils } from '../artifacts/utils';
 
 export function getAffectedProjects(
   target: string,
@@ -7,25 +7,23 @@ export function getAffectedProjects(
   base: string,
   ref: string
 ) {
-  let cmd = `./node_modules/.bin/nx print-affected --target=${target}`.concat(
-    ' '
-  );
+  let allAffectedProjects = [];
   if (target === 'e2e' && ref === '') {
-    cmd = cmd.concat(`--all`);
+    allAffectedProjects = Utils.getAllProjects(false, null, target);
   } else {
-    cmd = cmd.concat(`--base=${base}`);
+    allAffectedProjects = Utils.getAllProjects(true, base, target);
   }
-  console.log(cmd);
-  const affected = execSync(cmd).toString('utf-8');
-  const array = JSON.parse(affected)
-    .tasks.map((t) => t.target.project)
-    .slice()
-    .sort();
-  const sliceSize = Math.max(Math.floor(array.length / jobCount), 1);
+  const sliceSize = Math.max(
+    Math.floor(allAffectedProjects.length / jobCount),
+    1
+  );
   const projects =
     jobIndex < jobCount
-      ? array.slice(sliceSize * (jobIndex - 1), sliceSize * jobIndex)
-      : array.slice(sliceSize * (jobIndex - 1));
+      ? allAffectedProjects.slice(
+          sliceSize * (jobIndex - 1),
+          sliceSize * jobIndex
+        )
+      : allAffectedProjects.slice(sliceSize * (jobIndex - 1));
   console.log(`Affected Projects: ${projects.toString()}`);
   return projects;
 }

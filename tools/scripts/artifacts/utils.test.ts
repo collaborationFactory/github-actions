@@ -10,7 +10,9 @@ import {
   affectedLibs,
   app1,
   app2,
+  appsDir,
   base,
+  libsDir,
   packageJsonLib1,
 } from './test-data';
 
@@ -76,12 +78,20 @@ test('can find all projects without e2e projects', async () => {
   jest
     .spyOn(child_process, 'execSync')
     .mockReturnValueOnce(Buffer.from(affectedLibs))
+    .mockReturnValueOnce(Buffer.from(affectedLibs))
+    .mockReturnValueOnce(Buffer.from(affectedApps))
     .mockReturnValueOnce(Buffer.from(affectedApps));
   jest.spyOn(fs, 'existsSync').mockReturnValue(true).mockReturnValue(true);
   jest
     .spyOn(fs, 'readFileSync')
     .mockReturnValueOnce('{}')
     .mockReturnValueOnce(packageJsonLib1);
+  jest
+    .spyOn(fs, 'readdirSync')
+    .mockReturnValueOnce(libsDir)
+    .mockReturnValueOnce(libsDir)
+    .mockReturnValueOnce(appsDir)
+    .mockReturnValueOnce(appsDir);
 
   const nxProjects: NxProject[] = Utils.getAllNxProjects();
   expect(nxProjects).toHaveLength(4);
@@ -93,6 +103,10 @@ test('can parse affected ', async () => {
   jest
     .spyOn(child_process, 'execSync')
     .mockReturnValueOnce(Buffer.from(affectedApps));
+  jest
+    .spyOn(fs, 'readdirSync')
+    .mockReturnValueOnce(appsDir)
+    .mockReturnValueOnce(appsDir);
   const apps = Utils.getAffectedNxProjects(base, NxProjectKind.Application);
   expect(apps).toHaveLength(2);
   expect(apps[0].name).toBe(app1);

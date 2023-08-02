@@ -61,8 +61,11 @@ export const app1 = 'cf-platform';
 export const app2 = 'cf-project-planning';
 export const lib1 = 'cf-core-lib';
 export const lib2 = 'cf-frontend-sdk';
-export const affectedApps = app1.concat(' ').concat(app2).concat('\n');
-export const affectedLibs = lib1.concat(' ').concat(lib2).concat('\n');
+export const affectedApps = app1.concat('\n').concat(app2);
+export const affectedLibs = lib1.concat('\n').concat(lib2);
+
+export const libsDir: any = affectedLibs.split('\n');
+export const appsDir: any = affectedApps.split('\n');
 export const base = 'e67bf7f141419e8d1936a2de3eb3970c6a9ec311';
 export const npmrc =
   '@cplace-frontend-applications:registry=jfrog_url \n' +
