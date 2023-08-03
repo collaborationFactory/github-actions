@@ -273,16 +273,19 @@ export class NxProject {
   public getPathToProjectInDist(): string {
     const nestedPath = this.pathToProject;
     console.log('getPathToProjectInDist nestedPath', nestedPath);
+    const projectType = this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs';
     const subPath = nestedPath
       ? nestedPath
       : path.join(
-          this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs',
+            projectType,
           this.name
         );
     console.log('getPathToProjectInDist subPath', subPath);
-    const base = subPath.split(Utils.getRootDir())[0];
+    const base = subPath.split(projectType)[0];
+    const relativePath = subPath.split(projectType)[1];
     console.log('getPathToProjectInDist base', base);
-    const distPath = path.join(base, 'dist', subPath);
+    console.log('getPathToProjectInDist base', relativePath);
+    const distPath = path.join(base, 'dist', projectType, relativePath);
     console.log('getPathToProjectInDist distPath', distPath);
     return distPath;
   }
