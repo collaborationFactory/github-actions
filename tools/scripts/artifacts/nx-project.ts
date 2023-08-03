@@ -280,7 +280,9 @@ export class NxProject {
           this.name
         );
     console.log('getPathToProjectInDist subPath', subPath);
-    const distPath = path.resolve(Utils.getRootDir(), 'dist', subPath);
+    const base = subPath.split(Utils.getRootDir())[0];
+    console.log('getPathToProjectInDist base', base);
+    const distPath = path.join(base, 'dist', subPath);
     console.log('getPathToProjectInDist distPath', distPath);
     return distPath;
   }
