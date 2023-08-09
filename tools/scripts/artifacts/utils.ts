@@ -20,7 +20,7 @@ export class Utils {
       .trim();
     return projects.split('\n').filter((projectJSON) => {
       return (
-        !projectJSON.includes('dist') &&
+        !projectJSON.includes(path.join(process.cwd(), 'dist/')) &&
         !projectJSON.includes('node_modules') &&
         !projectJSON.includes('.git')
       );
@@ -46,7 +46,7 @@ export class Utils {
       }: ` + affectedProjects.toString()
     );
     let filteredAffected: string[] = affectedProjects
-      .filter((project) => !project.includes('e2e'))
+      .filter((project) => !project.endsWith('-e2e'))
       .filter((project) => !project.startsWith('api-'))
       .sort();
     let projects: NxProject[] = [];
@@ -68,7 +68,7 @@ export class Utils {
 
     const projects = [...libs, ...apps];
     const nxProjects: NxProject[] = projects
-      .filter((project) => !project.includes('e2e'))
+      .filter((project) => !project.endsWith('-e2e'))
       .filter((project) => !project.startsWith('api-'))
       .map((project) => {
         return new NxProject(
