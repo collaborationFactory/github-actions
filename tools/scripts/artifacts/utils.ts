@@ -19,8 +19,9 @@ export class Utils {
       .toString()
       .trim();
     return projects.split('\n').filter((projectJSON) => {
+      console.log('globProjectJSON', projectJSON)
       return (
-        !projectJSON.includes(path.join(process.cwd(), 'dist/')) &&
+        !projectJSON.includes('dist/') &&
         !projectJSON.includes('node_modules') &&
         !projectJSON.includes('.git')
       );
