@@ -49,7 +49,7 @@ jobs:
           git config user.email ${{ secrets.GIT_USER_EMAIL }}
 
       - name: Bump Version and Push new Tag
-        uses: collaborationFactory/github-actions/.github/actions/artifacts@feature/PFM-TASK-3833-Migrate-frontend-build-to-Nx-16
+        uses: collaborationFactory/github-actions/.github/actions/artifacts@master
         env:
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}
