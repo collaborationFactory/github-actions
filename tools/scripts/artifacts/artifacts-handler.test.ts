@@ -9,9 +9,12 @@ import {
   affectedLibs,
   app1,
   app2,
+  appsDir,
   base,
+  globResult,
   lib1,
   lib2,
+  libsDir,
   npmrc,
   packageJsonLib2,
 } from './test-data';
@@ -36,6 +39,10 @@ afterEach(() => {
   process.env.GITHUB_EVENT_NAME = '';
   process.env.GITHUB_HEAD_REF = '';
   process.env.GITHUB_REF_NAME = '';
+});
+
+beforeEach(() => {
+  jest.spyOn(Utils, 'globProjectJSON').mockReturnValue(globResult);
 });
 
 test('can create and overwrite Snapshots for a Pull Request', async () => {
@@ -143,7 +150,7 @@ test('can create and overwrite Snapshots in main branch', async () => {
   expect(artifactHandler.projects[2].name).toBe(lib1);
   expect(artifactHandler.projects[3].name).toBe(lib2);
   expect(artifactHandler.projects[0].getPathToProjectInDist()).toContain(
-    `dist/apps/${app1}`
+    `dist/apps/my/${app1}`
   );
   expect(artifactHandler.projects[1].getPathToProjectInDist()).toContain(
     `dist/apps/${app2}`
@@ -211,6 +218,10 @@ async function exec() {
   jest
     .spyOn(child_process, 'execSync')
     .mockReturnValueOnce(Buffer.from(affectedApps))
+    .mockReturnValueOnce(Buffer.from(affectedApps))
+    .mockReturnValueOnce(Buffer.from(affectedApps))
+    .mockReturnValueOnce(Buffer.from(affectedLibs))
+    .mockReturnValueOnce(Buffer.from(affectedLibs))
     .mockReturnValueOnce(Buffer.from(affectedLibs))
     .mockReturnValueOnce(Buffer.from(`built ${app1}`))
     .mockReturnValueOnce(Buffer.from(`published ${app1}`))
@@ -219,6 +230,8 @@ async function exec() {
     .mockReturnValueOnce(Buffer.from(`built ${lib1}`))
     .mockReturnValueOnce(Buffer.from(`published ${lib1}`))
     .mockReturnValueOnce(Buffer.from(`built ${lib2}`))
+    .mockReturnValueOnce(Buffer.from(''))
+    .mockReturnValueOnce(Buffer.from(''))
     .mockReturnValueOnce(Buffer.from(''))
     .mockReturnValueOnce(Buffer.from(''));
 
@@ -235,6 +248,15 @@ async function exec() {
     .mockReturnValueOnce(false)
     .mockReturnValueOnce(true)
     .mockReturnValueOnce(true);
+
+  jest
+    .spyOn(fs, 'readdirSync')
+    .mockReturnValueOnce(appsDir)
+    .mockReturnValueOnce(appsDir)
+    .mockReturnValueOnce(appsDir)
+    .mockReturnValueOnce(libsDir)
+    .mockReturnValueOnce(libsDir)
+    .mockReturnValueOnce(libsDir);
 
   deleteArtifactSpy = jest
     .spyOn(NxProject.prototype as any, 'deleteArtifact')

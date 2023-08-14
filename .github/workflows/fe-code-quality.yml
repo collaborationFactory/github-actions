@@ -25,7 +25,7 @@ jobs:
         run: node_modules/.bin/nx format:check --base=origin/${{ github.event.pull_request.base.ref }}
 
       - name: Linter
-        run: node_modules/.bin/nx affected:lint --parallel --configuration=dev --base=origin/${{ github.event.pull_request.base.ref }}
+        run: node_modules/.bin/nx affected --target=lint --parallel --configuration=dev --base=origin/${{ github.event.pull_request.base.ref }}
 
       - name: Unit Tests
-        run: node_modules/.bin/nx affected:test --parallel --configuration=dev --base=origin/${{ github.event.pull_request.base.ref }}
+        run: node_modules/.bin/nx affected --target=test --parallel --configuration=dev --base=origin/${{ github.event.pull_request.base.ref }}

@@ -8,7 +8,6 @@ import { Utils } from './utils';
 import { ArtifactsHandler, TASK } from './artifacts-handler';
 import { JfrogCredentials } from './jfrog-credentials';
 import { Version } from './version';
-import { globSync } from 'glob';
 
 interface PackageJson {
   author: string;
@@ -66,12 +65,7 @@ export class NxProject {
   public initPathToProject() {
     let globResults = [];
     try {
-      globResults = globSync(['project.json', '**/project.json'], {
-        ignore: ['node_modules/**', '**/node_modules', 'dist', '.git'],
-        absolute: false,
-        cwd: process.cwd(),
-        dot: true,
-      });
+      globResults = Utils.globProjectJSON();
     } catch (e) {
       console.error('Error while searching for project.json', e);
     }
@@ -130,7 +124,7 @@ export class NxProject {
   public build() {
     console.log(
       execSync(
-        `npx nx build ${this.name} --prod ${
+        `./node_modules/.bin/nx build ${this.name} --prod ${
           this.nxProjectKind === NxProjectKind.Application &&
           this.task !== TASK.RELEASE
             ? '--sourceMap=true'
@@ -278,15 +272,12 @@ export class NxProject {
 
   public getPathToProjectInDist(): string {
     const nestedPath = this.pathToProject;
-    console.log('getPathToProjectInDist', nestedPath);
-    const subPath = nestedPath
-      ? nestedPath
-      : path.join(
-          this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs',
-          this.name
-        );
-    console.log('getPathToProjectInDist', subPath);
-    return path.resolve('dist', subPath);
+    const projectType =
+      this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs';
+    const subPath = nestedPath ? nestedPath : path.join(projectType, this.name);
+    const base = subPath.split(projectType)[0];
+    const relativePath = subPath.split(projectType)[1];
+    return path.join(base, 'dist', projectType, relativePath);
   }
 
   public getNpmrcPathInDist() {

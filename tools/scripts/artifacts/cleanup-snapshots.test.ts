@@ -19,5 +19,5 @@ test('can find latest version Tag of a given branch and bump the version', async
   jest.useFakeTimers().setSystemTime(new Date('2023-05-22'));
   const cleanupSnaps = new CleanupSnapshots();
   await cleanupSnaps.deleteSuperfluousArtifacts();
-  expect(cleanupSnaps.npmSearchResults[0].versions.length).toBe(3);
+  expect(cleanupSnaps.npmSearchResults[0].versions.length).toBe(4);
 });

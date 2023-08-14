@@ -2,9 +2,7 @@ import { expect } from '@jest/globals';
 import * as fs from 'fs';
 import { NxProject, NxProjectKind } from './nx-project';
 import { globResult, packageJsonLib1 } from './test-data';
-import { glob } from 'glob';
-
-jest.mock('glob');
+import { Utils } from './utils';
 
 afterEach(() => {
   jest.resetAllMocks();
@@ -13,12 +11,11 @@ afterEach(() => {
 });
 
 beforeEach(() => {
-  jest.spyOn(glob, 'globSync').mockReturnValue(globResult);
+  jest.spyOn(Utils, 'globProjectJSON').mockReturnValue(globResult);
 });
 
 test('NxProject can provide jfrog Url', async () => {
   jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-  jest.spyOn(glob, 'globSync').mockReturnValue(globResult);
   jest.spyOn(fs, 'readFileSync').mockReturnValueOnce(packageJsonLib1);
   jest.spyOn(fs, 'writeFileSync').mockReturnValue();
 

@@ -12,6 +12,17 @@ export class Utils {
   public static readonly EMPTY_GITHUB_COMMENTS =
     'No snapshots of projects have been published (probably no project is affected)';
 
+  public static globProjectJSON(): string[] {
+    const projects = execSync('ls */**/project.json').toString().trim();
+    return projects.split('\n').filter((projectJSON) => {
+      return (
+        !projectJSON.startsWith('dist/') &&
+        !projectJSON.includes('node_modules') &&
+        !projectJSON.includes('.git')
+      );
+    });
+  }
+
   public static getAffectedNxProjects(
     base: string,
     nxProjectKind: NxProjectKind,
@@ -19,27 +30,28 @@ export class Utils {
     version: Version = new Version(),
     scope: string = ''
   ): NxProject[] {
-    const affectedString = execSync(
-      `npx nx affected:${
-        nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs'
-      } --base=${base} --plain`
-    ).toString();
+    let affectedProjects = [];
+    if (nxProjectKind === NxProjectKind.Application) {
+      affectedProjects = Utils.getListOfAllAffectedApps(base);
+    } else {
+      affectedProjects = Utils.getListOfAllAffectedLibs(base);
+    }
     console.log(
       `Affected ${
         nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs'
-      }: ` + affectedString
+      }: ` + affectedProjects.toString()
     );
-    let affectedNames: string[] = affectedString
-      .trim()
-      .split(' ')
-      .filter((i) => i)
-      .filter((i) => !i.startsWith('api-'))
+    let filteredAffected: string[] = affectedProjects
+      .filter((project) => !project.endsWith('-e2e'))
+      .filter((project) => !project.startsWith('api-'))
       .sort();
-    let apps: NxProject[] = [];
-    affectedNames.map((affected) => {
-      apps.push(new NxProject(affected, nxProjectKind, task, version, scope));
+    let projects: NxProject[] = [];
+    filteredAffected.forEach((affected) => {
+      projects.push(
+        new NxProject(affected, nxProjectKind, task, version, scope)
+      );
     });
-    return apps;
+    return projects;
   }
 
   public static getAllNxProjects(
@@ -47,16 +59,13 @@ export class Utils {
     version: Version = new Version(),
     scope: string = ''
   ): NxProject[] {
-    const libsStr = execSync('npx nx affected:libs --all --plain').toString();
-    const appsStr = execSync('npx nx affected:apps --all --plain').toString();
-
-    const libs = Utils.getListOfProjectsFromProjectsString(libsStr);
-    const apps = Utils.getListOfProjectsFromProjectsString(appsStr);
+    const libs = Utils.getListOfAllLibs();
+    const apps = Utils.getListOfAllApps();
 
     const projects = [...libs, ...apps];
     const nxProjects: NxProject[] = projects
-      .filter((project) => !project[0].includes('e2e'))
-      .filter((project) => !project[0].startsWith('api-'))
+      .filter((project) => !project.endsWith('-e2e'))
+      .filter((project) => !project.startsWith('api-'))
       .map((project) => {
         return new NxProject(
           project,
@@ -74,11 +83,55 @@ export class Utils {
     return nxProjects;
   }
 
+  public static getListOfAllAffectedLibs(base: string): string[] {
+    const projects = Utils.getAllProjects(true, base);
+    return projects.filter((project) =>
+      fs.readdirSync(this.getLibsDir()).includes(project)
+    );
+  }
+
+  public static getListOfAllAffectedApps(base: string): string[] {
+    const projects = Utils.getAllProjects(true, base);
+    return projects.filter((project) =>
+      fs.readdirSync(this.getAppsDir()).includes(project)
+    );
+  }
+
+  public static getListOfAllLibs(): string[] {
+    const projects = Utils.getAllProjects(false);
+    return projects.filter((project) =>
+      fs.readdirSync(this.getLibsDir()).includes(project)
+    );
+  }
+
+  public static getListOfAllApps(): string[] {
+    const projects = Utils.getAllProjects(false);
+    return projects.filter((project) =>
+      fs.readdirSync(this.getAppsDir()).includes(project)
+    );
+  }
+
+  public static getAllProjects(
+    affected: boolean,
+    base?: string,
+    target?: string
+  ): string[] {
+    let cmd = `./node_modules/.bin/nx show projects --affected=${affected} `;
+    if (base) {
+      cmd = cmd.concat(`--base=${base} `);
+    }
+    if (target) {
+      cmd = cmd.concat(`--withTarget=${target} `);
+    }
+    const projectsString = execSync(cmd).toString();
+    return Utils.getListOfProjectsFromProjectsString(projectsString);
+  }
+
   public static getListOfProjectsFromProjectsString(
     projectsString: string | undefined
   ) {
     if (projectsString?.length) {
-      return projectsString.trim().split(' ');
+      return projectsString.trim().split('\n');
     }
     return [];
   }
@@ -142,6 +195,14 @@ export class Utils {
 
   public static getRootDir() {
     return execSync(`git rev-parse --show-toplevel`).toString().trim();
+  }
+
+  public static getLibsDir() {
+    return path.resolve(this.getRootDir(), 'libs');
+  }
+
+  public static getAppsDir() {
+    return path.resolve(this.getRootDir(), 'apps');
   }
 
   public static getGitHubCommentsFile() {
