@@ -11,22 +11,35 @@ if (!/\b[0-9a-f]{5,40}\b/.test(base)) base = 'origin/' + base;
 const ref = process.argv[6];
 
 const projects = getAffectedProjects(target, jobIndex, jobCount, base, ref);
+const skipNxCacheFlag = `--skip-nx-cache`;
 
-const runManyProjectsCmd = `./node_modules/.bin/nx run-many --targets=${target} --projects=${projects}`;
-let cmd = `${runManyProjectsCmd} --parallel --prod`;
+let cmdArgs = [
+  `./node_modules/.bin/nx`,
+  `run-many`,
+  `--targets=${target}`,
+  `--projects=${projects}`,
+  `--parallel`,
+  `--prod`,
+  skipNxCacheFlag,
+];
 
 if (target.includes('e2e')) {
-  cmd = getE2ECommand(cmd);
+  cmdArgs = getE2ECmdArgs(cmdArgs);
 }
+
+const cmd = cmdArgs.join(' ');
 
 console.log('Running > ', cmd);
 if (projects.length > 0) {
   execSync(cmd, {
-    stdio: [0, 1, 2],
+    stdio: 'inherit',
   });
 }
 
-function getE2ECommand(command: string): string {
-  command = command.concat(` -c ci --base=${base}`);
-  return command;
+function getE2ECmdArgs(providedCmdArgs: string[]): string[] {
+  const skipNxCacheIndex = providedCmdArgs.indexOf(skipNxCacheFlag);
+  if (skipNxCacheIndex !== -1) {
+    providedCmdArgs.splice(skipNxCacheIndex, 1);
+  }
+  return [...providedCmdArgs, `--c=ci`, `--base=${base}`];
 }
