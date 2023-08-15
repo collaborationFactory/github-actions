@@ -35,7 +35,7 @@ jobs:
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
 
       - name: Build and Storybook
-        uses: collaborationFactory/github-actions/.github/actions/run-many@master
+        uses: collaborationFactory/github-actions/.github/actions/run-many@improvement/PFM-ISSUE-13081-Investigate-if-we-can-use-nx-caching-only-for
         with:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}
