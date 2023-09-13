@@ -13,7 +13,7 @@ env:
 
 jobs:
   check-licenses:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-licenses.yml@release/23.4
+    uses: collaborationFactory/github-actions/.github/workflows/fe-licenses.yml@master
     with:
       FOSS_DIST: dist
       CUSTOM_LICENSES_JSON: custom-licenses/custom-licenses.json
