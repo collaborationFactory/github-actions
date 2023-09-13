@@ -9,7 +9,7 @@ permissions: write-all
 
 jobs:
   publish-pr-snapshot:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-pr-snapshot.yml@master
+    uses: collaborationFactory/github-actions/.github/workflows/fe-pr-snapshot.yml@release/23.4
     with:
       GHA_BASE: ${{ github.event.pull_request.base.ref }}
     secrets:
