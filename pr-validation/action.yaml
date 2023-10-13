@@ -2,7 +2,7 @@ name: PR Validation
 description: 'Github Action for our collaboration Factory repositories to enforce the correct format of our PR template'
 author: 'collaboration Factory AG'
 branding:
-  icon: 'command'
+  icon: 'check'
   color: 'blue'
 
 jobs:
