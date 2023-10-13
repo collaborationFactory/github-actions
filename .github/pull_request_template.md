@@ -9,3 +9,7 @@ Resolves [PFM-ISSUE-xxx](url)
 - [ ] Assigned myself as responsible for PR
 - [ ] Assigned initial labels to PR and milestone specifying target release
 - [ ] Documented Breaking API changes (if applicable)?
+
+Criticality:
+
+- [ ] Contains migration steps?
