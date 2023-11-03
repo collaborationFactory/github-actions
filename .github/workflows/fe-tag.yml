@@ -31,7 +31,6 @@ jobs:
         with:
           ref: ${{ inputs.GHA_REF }}
           fetch-depth: 0
-          token: ${{ secrets.GIT_USER_TOKEN }}
       - uses: actions/setup-node@v3
         with:
           node-version: 14.16.1
