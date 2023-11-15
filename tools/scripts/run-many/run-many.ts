@@ -6,9 +6,15 @@ const target = process.argv[2];
 const jobIndex = Number(process.argv[3]);
 const jobCount = Number(process.argv[4]);
 let base = process.argv[5];
+
 // in case base is not a SHA1 commit hash add origin
 if (!/\b[0-9a-f]{5,40}\b/.test(base)) base = 'origin/' + base;
+if(base.includes('0000000000000000')){
+  base='origin/main'
+}
 const ref = process.argv[6];
+
+console.log(`Inputs: target ${target} , jobIndex ${target} , jobCount ${jobCount} , base ${base} , ref ${ref}`)
 
 const projects = getAffectedProjects(target, jobIndex, jobCount, base, ref);
 
