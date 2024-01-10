@@ -55,8 +55,8 @@ jobs:
           PR_NUMBER: ${{ github.event.number }}
 
       - name: comment published Artifacts on PR
-        uses: machine-learning-apps/pr-comment@master
+        uses: thollander/actions-comment-pull-request@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          path: githubCommentsForPR.txt
+          filePath: githubCommentsForPR.txt
