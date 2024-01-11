@@ -1,0 +1,11 @@
+name: 'Check Upmerge'
+description: 'Github Action to check wether upmerge is necessary'
+runs:
+  using: 'composite'
+  steps:
+    - run: printenv
+      shell: bash
+    - run: cd "$GITHUB_ACTION_PATH/../../.." && pwd && npm ci
+      shell: bash
+    - run: npx ts-node "$GITHUB_ACTION_PATH/../../../tools/scripts/upmerge/upmerge.ts"
+      shell: bash
