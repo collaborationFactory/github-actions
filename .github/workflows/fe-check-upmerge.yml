@@ -1,0 +1,28 @@
+name: Check wether upmerge is necessary on a CRON Schedule
+
+jobs:
+  check-upmerge:
+    name: Run Upmerge Flow
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ inputs.GHA_REF }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18.18.2
+
+      - name: Cache Node Modules
+        id: npm-cache
+        uses: actions/cache@v2
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
+
+      - name: check if upmerge is necessary and post to slack
+        uses: collaborationFactory/github-actions/.github/actions/upmerge@master
+        env:
+          SLACK_TOKEN_UPMERGE: ${{ secrets.SLACK_TOKEN_UPMERGE }}
+          
