@@ -1,5 +1,11 @@
 name: Check wether upmerge is necessary on a CRON Schedule
 
+on:
+  workflow_call:
+    secrets:
+      SLACK_TOKEN_UPMERGE:
+        required: true
+        
 jobs:
   check-upmerge:
     name: Run Upmerge Flow
