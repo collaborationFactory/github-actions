@@ -5,6 +5,8 @@ on:
     secrets:
       SLACK_TOKEN_UPMERGE:
         required: true
+      GIT_USER_EMAIL:
+        required: true
         
 jobs:
   check-upmerge:
@@ -31,4 +33,5 @@ jobs:
         uses: collaborationFactory/github-actions/.github/actions/upmerge@master
         env:
           SLACK_TOKEN_UPMERGE: ${{ secrets.SLACK_TOKEN_UPMERGE }}
+          GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
           
