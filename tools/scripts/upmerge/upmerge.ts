@@ -3,7 +3,7 @@ import { execSync } from 'child_process';
 import { WebClient } from '@slack/web-api';
 
 export async function checkUpmergeAndNotifiy() {
-  console.log(execSync(`git config --global user.email ${process.env.GIT_USER_NAME}`).toString());
+  console.log(execSync(`git config --global user.email ${process.env.GIT_USER_EMAIL}`).toString());
   const slackMessage = isUpmergeNeeded();
   await postToSlack(slackMessage);
 }
