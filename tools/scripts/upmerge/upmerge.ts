@@ -26,7 +26,7 @@ export class UpmergeHandler {
       const linkToAction = `https://github.com/collaborationFactory/cplace-fe/actions/runs/${process.env.GITHUB_RUN_ID}`;
       return {
         message: `There was an error running cplace-cli in repo ${repo}:\n\n${linkToAction}`,
-        threadMessage: error
+        threadMessage: error.message
       };
     }
     const index = cliResult.findIndex(v => v.includes("have been merged"));
@@ -37,7 +37,7 @@ export class UpmergeHandler {
     return {'message': ''};
   }
 
-  private async postToSlack(slackPost: SlackPost) {
+  public async postToSlack(slackPost: SlackPost) {
     if (slackPost.message && slackPost.message.length > 0) {
       const web = new WebClient(process.env.SLACK_TOKEN_UPMERGE);
       try {
@@ -46,13 +46,14 @@ export class UpmergeHandler {
           text: slackPost.message
         });
         if (result.ts && slackPost.threadMessage && slackPost.threadMessage.length > 0) {
+          console.log(`Posting to thread: ${slackPost.threadMessage}`);
           const threadResult: ChatPostMessageResponse = await web.chat.postMessage({
             channel: 'frontend-upmerge',
             text: slackPost.threadMessage,
             thread_ts: result.ts,
           });
         }
-        console.log(`Successfully posted to Slack\n\n ${slackPost.message} ${slackPost.threadMessage}`);
+        console.log(`Successfully posted to Slack\n\nmessage: ${slackPost.message}  \n\nthreadMessage: ${slackPost.threadMessage}`);
       } catch (error) {
         console.log(error);
       }
