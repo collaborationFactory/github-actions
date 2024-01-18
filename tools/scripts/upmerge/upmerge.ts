@@ -52,7 +52,7 @@ export class UpmergeHandler {
             thread_ts: result.ts,
           });
         }
-        console.log(`Successfully posted to Slack\n\n ${slackPost.message} ${slackPost.threadMessage}`);
+        console.log(`Successfully posted to Slack\n\nmessage: ${slackPost.message}  \n\nthreadMessage: ${slackPost.threadMessage}`);
       } catch (error) {
         console.log(error);
       }
