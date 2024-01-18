@@ -1,6 +1,11 @@
 import { execSync } from 'child_process';
 
-import { WebClient } from '@slack/web-api';
+import { ChatPostMessageResponse, WebClient } from '@slack/web-api';
+
+interface SlackPost {
+  message: string;
+  threadMessage?: string
+}
 
 export class UpmergeHandler {
 
@@ -11,32 +16,43 @@ export class UpmergeHandler {
     await this.postToSlack(slackMessage);
   }
 
-  isUpmergeNeeded(): string {
+  isUpmergeNeeded(): SlackPost {
     const repo = execSync('git config --get remote.origin.url').toString().trim();
     let cliResult: string[] = []
     try {
       cliResult = execSync('cplace-cli flow --upmerge --release 5.17 --no-push --show-files').toString().split('\n')
       console.log('cliResult: ', cliResult);
     } catch (error) {
-      return `There was an error running cplace-cli in repo ${repo}:\n\n${error}`;
+      const linkToAction = `https://github.com/collaborationFactory/cplace-fe/actions/runs/${process.env.GITHUB_RUN_ID}`;
+      return {
+        message: `There was an error running cplace-cli in repo ${repo}:\n\n${linkToAction}`,
+        threadMessage: error
+      };
     }
     const index = cliResult.findIndex(v => v.includes("have been merged"));
     const releaseThatNeedsUpmerge = cliResult[index - 1]?.split('release')[1]?.split('into')[0]?.trim().replace('\/', '');
     if (releaseThatNeedsUpmerge) {
-      return `Please upmerge from release ${releaseThatNeedsUpmerge} in repo ${repo}`;
+      return {'message': `Please upmerge from release ${releaseThatNeedsUpmerge} in repo ${repo}`};
     }
-    return '';
+    return {'message': ''};
   }
 
-  private async postToSlack(message: string) {
-    if (message && message.length > 0) {
+  private async postToSlack(slackPost: SlackPost) {
+    if (slackPost.message && slackPost.message.length > 0) {
       const web = new WebClient(process.env.SLACK_TOKEN_UPMERGE);
       try {
-        await web.chat.postMessage({
+        const result: ChatPostMessageResponse = await web.chat.postMessage({
           channel: 'frontend-upmerge',
-          text: message,
+          text: slackPost.message
         });
-        console.log(`Posted to Slack successfully ${message}`);
+        if (result.ts && slackPost.threadMessage && slackPost.threadMessage.length > 0) {
+          const threadResult: ChatPostMessageResponse = await web.chat.postMessage({
+            channel: 'frontend-upmerge',
+            text: slackPost.threadMessage,
+            thread_ts: result.ts,
+          });
+        }
+        console.log(`Successfully posted to Slack\n\n ${slackPost.message} ${slackPost.threadMessage}`);
       } catch (error) {
         console.log(error);
       }

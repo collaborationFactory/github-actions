@@ -16,7 +16,7 @@ test('can detect that upmerge is needed', async () => {
     '[${this.repoName}]: The following files have been merged: \n' +
     'documentation/guides/intercommunication.md\n' +
     '.../shared/components/cplace-control-with-edit-mode.component.ts\n');
-  expect(new UpmergeHandler().isUpmergeNeeded()).toBe('Please upmerge from release 23.4 in repo https://github.com/collaborationFactory/github-actions.git');
+  expect(new UpmergeHandler().isUpmergeNeeded().message).toBe('Please upmerge from release 23.4 in repo https://github.com/collaborationFactory/github-actions.git');
 });
 
 test('can detect no upmerge is needed', async () => {
@@ -27,5 +27,5 @@ test('can detect no upmerge is needed', async () => {
     'Merging upmerge-CscNaE/release/23.3 into origin/release/23.4\n' +
     '[${this.repoName}]:  Nothing to merge.\n' +
     'Merging upmerge-CscNaE/release/23.4 into origin/release/24.1\n');
-  expect(new UpmergeHandler().isUpmergeNeeded()).toBe('');
+  expect(new UpmergeHandler().isUpmergeNeeded().message).toBe('');
 });
