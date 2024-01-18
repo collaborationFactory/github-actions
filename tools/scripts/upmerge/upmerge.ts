@@ -24,9 +24,15 @@ export class UpmergeHandler {
       console.log('cliResult: ', cliResult);
     } catch (error) {
       const linkToAction = `https://github.com/collaborationFactory/cplace-fe/actions/runs/${process.env.GITHUB_RUN_ID}`;
+      let threadMessage = '';
+      if (typeof error === "string") {
+        threadMessage = error.toUpperCase()
+      } else if (error instanceof Error) {
+        threadMessage = error.message
+      }
       return {
         message: `There was an error running cplace-cli in repo ${repo}:\n\n${linkToAction}`,
-        threadMessage: error.message
+        threadMessage: threadMessage
       };
     }
     const index = cliResult.findIndex(v => v.includes("have been merged"));
