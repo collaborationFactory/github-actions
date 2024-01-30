@@ -54,3 +54,17 @@ jobs:
           PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
           PERCY_PARTIAL_BUILD: 1
           DEV_STORIES: true
+
+      - name: Upload E2E Videos
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-videos
+          path: |
+            dist/cypress/apps/**/videos/
+
+      - name: Upload A11Y Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: a11y-reports
+          path: |
+            dist/cypress/apps/**/a11y/html/
