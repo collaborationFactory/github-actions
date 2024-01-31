@@ -58,13 +58,13 @@ jobs:
       - name: Upload E2E Videos
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-videos
+          name: dist-${{ matrix.target }}-${{ matrix.jobIndex }}-e2e-videos
           path: |
             dist/cypress/apps/**/videos/
 
       - name: Upload A11Y Reports
         uses: actions/upload-artifact@v4
         with:
-          name: a11y-reports
+          name: dist-${{ matrix.target }}-${{ matrix.jobIndex }}-a11y-reports
           path: |
             dist/cypress/apps/**/a11y/html/
