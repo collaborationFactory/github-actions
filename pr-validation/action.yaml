@@ -1,0 +1,23 @@
+name: PR Validation
+
+description: 'Github Action for our collaboration Factory repositories to enforce the correct format of our PR template'
+author: 'collaboration Factory AG'
+
+branding:
+  icon: 'check'
+  color: 'blue'
+
+inputs:
+  GITHUB_TOKEN:
+    description: 'GITHUB_TOKEN to read PR metadata'
+    required: true
+  REPOSITORY_NAME:
+    description: 'Repository name of the current repo'
+    required: true
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - '-e "GITHUB_TOKEN=${{ inputs.GITHUB_TOKEN }}"'
+    - '-e "REPOSITORY_NAME=${{ inputs.REPOSITORY_NAME }}"'
