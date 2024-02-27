@@ -13,7 +13,7 @@ env:
 
 jobs:
   install-deps:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-install-deps.yml@master
+    uses: collaborationFactory/github-actions/.github/workflows/fe-install-deps.yml@feature/PFM-ISSUE-26057-Allow-private-registry-in-Github-Actions-
     with:
       GHA_REF: ''
     secrets:
@@ -22,7 +22,7 @@ jobs:
   # This job is only needed in case you are using Percy
   e2e-tests:
     needs: install-deps
-    uses: collaborationFactory/github-actions/.github/workflows/fe-e2e.yml@master
+    uses: collaborationFactory/github-actions/.github/workflows/fe-e2e.yml@feature/PFM-ISSUE-26057-Allow-private-registry-in-Github-Actions-
     with:
       GHA_REF: ''
       GHA_BASE: ${{ github.event.before }}
@@ -31,14 +31,14 @@ jobs:
 
   build:
     needs: install-deps
-    uses: collaborationFactory/github-actions/.github/workflows/fe-build.yml@master
+    uses: collaborationFactory/github-actions/.github/workflows/fe-build.yml@feature/PFM-ISSUE-26057-Allow-private-registry-in-Github-Actions-
     with:
       GHA_REF: ''
       GHA_BASE: ${{ github.event.before }}
 
   snapshot:
     needs: build
-    uses: collaborationFactory/github-actions/.github/workflows/fe-snapshot.yml@master
+    uses: collaborationFactory/github-actions/.github/workflows/fe-snapshot.yml@feature/PFM-ISSUE-26057-Allow-private-registry-in-Github-Actions-
     with:
       GHA_REF: ''
       GHA_BASE: ${{ github.event.before }}

@@ -12,7 +12,7 @@ env:
 
 jobs:
   install-deps:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-install-deps.yml@master
+    uses: collaborationFactory/github-actions/.github/workflows/fe-install-deps.yml@feature/PFM-ISSUE-26057-Allow-private-registry-in-Github-Actions-
     with:
       GHA_REF: ${{ github.event.pull_request.head.ref }}
     secrets:
@@ -20,18 +20,18 @@ jobs:
 
   build:
     needs: install-deps
-    uses: collaborationFactory/github-actions/.github/workflows/fe-build.yml@master
+    uses: collaborationFactory/github-actions/.github/workflows/fe-build.yml@feature/PFM-ISSUE-26057-Allow-private-registry-in-Github-Actions-
     with:
       GHA_REF: ${{ github.event.pull_request.head.ref }}
       GHA_BASE: ${{ github.event.pull_request.base.ref }}
 
   code-quality:
     needs: install-deps
-    uses: collaborationFactory/github-actions/.github/workflows/fe-code-quality.yml@master
+    uses: collaborationFactory/github-actions/.github/workflows/fe-code-quality.yml@feature/PFM-ISSUE-26057-Allow-private-registry-in-Github-Actions-
 
   e2e:
     needs: install-deps
-    uses: collaborationFactory/github-actions/.github/workflows/fe-e2e.yml@master
+    uses: collaborationFactory/github-actions/.github/workflows/fe-e2e.yml@feature/PFM-ISSUE-26057-Allow-private-registry-in-Github-Actions-
     with:
       GHA_REF: ${{ github.event.pull_request.head.ref }}
       GHA_BASE: ${{ github.event.pull_request.base.ref }}
