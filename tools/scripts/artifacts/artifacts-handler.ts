@@ -41,6 +41,7 @@ export class ArtifactsHandler {
     this.scope = Utils.parseScopeFromPackageJson();
     // parse ENV variables
     this.jfrogCredentials = new JfrogCredentials();
+    console.log('jfrogUrl', this.jfrogCredentials.url);
     this.tag = process.env.TAG != undefined ? process.env.TAG : '';
     this.currentBranch = Utils.getCurrentBranchNameFromGithubEnv();
     this.prNumber =
