@@ -13,7 +13,7 @@ env:
 
 jobs:
   check-licenses:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-licenses.yml@feature/PFM-ISSUE-26057-Allow-private-registry-in-Github-Actions-
+    uses: collaborationFactory/github-actions/.github/workflows/fe-licenses.yml@master
     with:
       FOSS_DIST: dist
       CUSTOM_LICENSES_JSON: custom-licenses/custom-licenses.json

@@ -12,7 +12,7 @@ env:
 
 jobs:
   release-version:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-release.yml@feature/PFM-ISSUE-26057-Allow-private-registry-in-Github-Actions-
+    uses: collaborationFactory/github-actions/.github/workflows/fe-release.yml@master
     secrets:
       JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
       JFROG_URL: ${{ secrets.JFROG_URL }}
