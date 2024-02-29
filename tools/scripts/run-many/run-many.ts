@@ -33,6 +33,6 @@ if (projects.length > 0) {
 }
 
 function getE2ECommand(command: string): string {
-  command = command.concat(` -c ci --base=${base}`);
+  command = command.concat(` -c ci --base=${base} --verbose`);
   return command;
 }
