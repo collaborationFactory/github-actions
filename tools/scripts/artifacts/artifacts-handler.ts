@@ -14,7 +14,6 @@ export enum TASK {
 export class ArtifactsHandler {
   public static readonly SNAPSHOT_VERSION = '0.0.0';
   public static readonly SNAPSHOT = 'SNAPSHOT';
-  public static readonly REGISTRY =
     'https://cplace.jfrog.io/artifactory/api/npm/cplace-npm-local/';
   public static readonly RELEASE_BRANCH_PREFIX = 'release/';
   // semver regex from https://gist.github.com/jhorsman/62eeea161a13b80e39f5249281e17c39
@@ -124,7 +123,7 @@ export class ArtifactsHandler {
           project.build();
           project.writeNPMRCInDist(this.jfrogCredentials, this.scope);
           project.copyFossList();
-          project.setVersionOrGeneratePackageJsonInDist(this.currentVersion);
+          project.setVersionOrGeneratePackageJsonInDist(this.currentVersion, this.jfrogCredentials.url);
           if (this.task === TASK.PR_SNAPSHOT)
             await project.deleteArtifact(
               this.jfrogCredentials,

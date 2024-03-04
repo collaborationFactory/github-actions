@@ -5,7 +5,7 @@ import { request } from 'https';
 import { IncomingMessage } from 'http';
 
 import { Utils } from './utils';
-import { ArtifactsHandler, TASK } from './artifacts-handler';
+import { TASK } from './artifacts-handler';
 import { JfrogCredentials } from './jfrog-credentials';
 import { Version } from './version';
 
@@ -222,7 +222,7 @@ export class NxProject {
     console.log('wrote .npmrc to:  ' + this.getNpmrcPathInDist());
   }
 
-  public setVersionOrGeneratePackageJsonInDist(version: Version) {
+  public setVersionOrGeneratePackageJsonInDist(version: Version, registry: string) {
     if (this.hasPackageJson) {
       try {
         this.packageJsonContent = JSON.parse(
@@ -231,7 +231,7 @@ export class NxProject {
         this.packageJsonContent.author = 'squad-fe';
         this.packageJsonContent.version = version.toString();
         this.packageJsonContent.publishConfig = {
-          registry: ArtifactsHandler.REGISTRY,
+          registry: registry,
           access: 'restricted',
           tag: this.getTag(),
         };
@@ -244,7 +244,7 @@ export class NxProject {
         name: `${this.scope}/${this.name}`,
         version: `${version.toString()}`,
         publishConfig: {
-          registry: ArtifactsHandler.REGISTRY,
+          registry: registry,
           access: 'restricted',
           tag: this.getTag(),
         },
