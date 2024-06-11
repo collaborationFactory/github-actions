@@ -19,6 +19,7 @@ jobs:
         jobIndex: [1, 2]
     env:
       jobCount: 2
+      NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@v2
         with:
