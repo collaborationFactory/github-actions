@@ -21,6 +21,11 @@ jobs:
       jobCount: 2
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
+      - name: Check RAM size
+        run: |
+          ram_size_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+          ram_size_gb=$(echo "scale=2; $ram_size_kb/1024/1024" | bc)
+          echo "Total RAM size: $ram_size_gb GB"
       - uses: actions/checkout@v2
         with:
           ref: ${{ inputs.GHA_REF }}
