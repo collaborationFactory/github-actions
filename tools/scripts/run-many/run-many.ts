@@ -19,7 +19,7 @@ console.log(`Inputs:\n target ${target},\n jobIndex: ${target},\n jobCount ${job
 const projects = getAffectedProjects(target, jobIndex, jobCount, base, ref);
 
 const runManyProjectsCmd = `./node_modules/.bin/nx run-many --targets=${target} --projects=${projects}`;
-let cmd = `${runManyProjectsCmd} --parallel --prod --max-old-space-size=3072`;
+let cmd = `${runManyProjectsCmd} --parallel --prod`;
 
 if (target.includes('e2e')) {
   cmd = getE2ECommand(cmd);
