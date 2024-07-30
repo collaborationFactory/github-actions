@@ -43,7 +43,7 @@ jobs:
         run: npx cypress install
 
       - name: Affected Regression Tests
-        uses: collaborationFactory/github-actions/.github/actions/run-many@master
+        uses: collaborationFactory/github-actions/.github/actions/run-many@test/fix-buffer-overflow
         with:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}
