@@ -14,7 +14,11 @@ function runCommand(command: string): void {
     const output = execSync(command, { maxBuffer: 1024 * 1024 * 1024 });
     core.info(output.toString())
   } catch (error) {
-    core.info(error.stdout.toString())
+    core.info(error.stdout.toString());
+    core.error(error.stderr.toString());
+    core.error(`Error message: ${error.message}`);
+    core.error(`Error name: ${error.name}`);
+    core.error(`Stacktrace:\n${error.stack}`);
     core.setFailed(error);
   }
 }
