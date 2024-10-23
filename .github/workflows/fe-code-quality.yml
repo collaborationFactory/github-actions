@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [ 'formatter', 'linter', 'unit-tests' ]
+        target: [ 'unit-tests' ]
         jobIndex: [ 1, 2, 3 ]
     env:
       jobCount: 3
@@ -28,13 +28,10 @@ jobs:
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
 
       - name: Formatter
-        if: matrix.target == 'formatter'
         run: node_modules/.bin/nx format:check --base=origin/${{ github.event.pull_request.base.ref }}
 
       - name: Linter
-        if: matrix.target == 'linter'
         run: node_modules/.bin/nx affected --target=lint --parallel --configuration=dev --base=origin/${{ github.event.pull_request.base.ref }}
 
       - name: Unit Tests
-        if: matrix.target == 'unit-tests'
         run: node_modules/.bin/nx affected --target=test --parallel --configuration=dev --base=origin/${{ github.event.pull_request.base.ref }} --only-failed --jobIndex=${{ matrix.jobIndex }} --jobCount=${{ env.jobCount }}
