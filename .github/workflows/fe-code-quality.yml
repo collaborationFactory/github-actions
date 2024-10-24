@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [ 'unit-tests' ]
+        target: [ 'test' ]
         jobIndex: [ 1, 2, 3 ]
     env:
       jobCount: 3
@@ -34,4 +34,4 @@ jobs:
         run: node_modules/.bin/nx affected --target=lint --parallel --configuration=dev --base=origin/${{ github.event.pull_request.base.ref }}
 
       - name: Unit Tests
-        run: node_modules/.bin/nx affected --target=test --parallel --configuration=dev --base=origin/${{ github.event.pull_request.base.ref }} --only-failed --jobIndex=${{ matrix.jobIndex }} --jobCount=${{ env.jobCount }}
+        run: node_modules/.bin/nx affected --target=test --parallel --configuration=dev --base=origin/${{ github.event.pull_request.base.ref }} --only-failed --jobIndex=${{ matrix.jobIndex }} --jobCount=${{ env.jobCount }} --detectOpenHandles --logHeapUsage --detectLeaks
