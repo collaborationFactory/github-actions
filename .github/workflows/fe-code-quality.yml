@@ -18,7 +18,7 @@ jobs:
         target: [ 'test' ]
         jobIndex: [ 1, 2, 3,4 ]
     env:
-      jobCount: 3
+      jobCount: 4
     steps:
       - uses: actions/checkout@v2
         with:
