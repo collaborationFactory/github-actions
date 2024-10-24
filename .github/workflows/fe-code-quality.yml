@@ -1,10 +1,24 @@
 name: Frontend Code Quality Workflow
 
-on: workflow_call
+on:
+  workflow_call:
+    inputs:
+      GHA_REF:
+        type: string
+        required: true
+      GHA_BASE:
+        type: string
+        required: true
 
 jobs:
   code-quality:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [ 'test' ]
+        jobIndex: [ 1, 2, 3,4 ]
+    env:
+      jobCount: 4
     steps:
       - uses: actions/checkout@v2
         with:
@@ -28,4 +42,10 @@ jobs:
         run: node_modules/.bin/nx affected --target=lint --parallel --configuration=dev --base=origin/${{ github.event.pull_request.base.ref }}
 
       - name: Unit Tests
-        run: node_modules/.bin/nx affected --target=test --parallel --configuration=dev --base=origin/${{ github.event.pull_request.base.ref }}
+        uses: collaborationFactory/github-actions/.github/actions/run-many@master
+        with:
+          target: ${{ matrix.target }}
+          jobIndex: ${{ matrix.jobIndex }}
+          jobCount: ${{ env.jobCount }}
+          base: ${{ inputs.GHA_BASE }}
+          ref: ${{ inputs.GHA_REF }}
