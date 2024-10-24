@@ -1,6 +1,14 @@
 name: Frontend Code Quality Workflow
 
-on: workflow_call
+on:
+  workflow_call:
+    inputs:
+      GHA_REF:
+        type: string
+        required: true
+      GHA_BASE:
+        type: string
+        required: true
 
 jobs:
   code-quality:
