@@ -41,7 +41,7 @@ function main() {
   const projects = getAffectedProjects(target, jobIndex, jobCount, base, ref);
 
   const runManyProjectsCmd = `./node_modules/.bin/nx run-many --targets=${target} --projects=${projects}`;
-  let cmd = `${runManyProjectsCmd} --parallel=false --prod`;
+  let cmd = `${runManyProjectsCmd} --parallel=false --prod --output-style=static`;
 
   if (target.includes('e2e')) {
     cmd = getE2ECommand(cmd, base);
