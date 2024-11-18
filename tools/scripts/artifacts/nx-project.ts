@@ -196,7 +196,7 @@ export class NxProject {
           console.error(
             `An error ocurred while deleting the artifact: ${error}`
           );
-          resolve(res.statusCode);
+          reject();
         });
         resolve(res.statusCode);
       });
