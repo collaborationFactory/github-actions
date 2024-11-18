@@ -125,10 +125,10 @@ export class ArtifactsHandler {
           project.copyFossList();
           project.setVersionOrGeneratePackageJsonInDist(this.currentVersion, this.jfrogCredentials.url);
           if (this.task === TASK.PR_SNAPSHOT)
-            await project.deleteArtifact(
+           /* await project.deleteArtifact(
               this.jfrogCredentials,
               this.currentVersion
-            );
+            );*/
           await project.publish();
         }
       }
