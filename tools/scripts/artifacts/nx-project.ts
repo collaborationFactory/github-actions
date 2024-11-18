@@ -182,7 +182,7 @@ export class NxProject {
       );
       const options = {
         hostname: 'cplace.jfrog.io',
-        path: `/artifactory/cplace-npm-local/${this.scope}/${this.name}/-/${
+        path: `/artifactory/cplace-assets-npm/${this.scope}/${this.name}/-/${
           this.scope
         }/${this.name}-${version.toString()}.tgz`,
         method: 'DELETE',
