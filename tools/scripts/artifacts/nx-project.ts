@@ -32,7 +32,7 @@ export enum VERSION_BUMP {
 
 export class NxProject {
   public static readonly REGISTRY_DOWNLOAD_URL =
-    'https://cplace.jfrog.io/ui/repos/tree/NpmInfo/cplace-npm-local';
+    'https://cplace.jfrog.io/ui/repos/tree/NpmInfo/cplace-assets-npm';
   public static readonly PACKAGEJSON = 'package.json';
   public static readonly FOSS_LIST_FILENAME = 'cplace-foss-list.json';
   private _npmrcContent = '';
