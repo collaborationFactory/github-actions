@@ -208,7 +208,7 @@ export class NxProject {
     this.npmrcContent = `${scope}:registry=${jfrogCredentials.url} \n`;
     this.npmrcContent =
       this.npmrcContent +
-      `${jfrogCredentials.getJfrogUrlNoHttp()}:_auth=${
+      `${jfrogCredentials.getJfrogUrlNoHttp()}:_authToken=${
         jfrogCredentials.base64Token
       } \n`;
     this.npmrcContent =
