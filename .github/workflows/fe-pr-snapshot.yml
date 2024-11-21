@@ -6,9 +6,6 @@ on:
       GHA_BASE:
         type: string
         required: true
-      NPM_REGISTRY:
-        type: string
-        required: false
     secrets:
       JFROG_BASE64_TOKEN:
         required: true
@@ -18,6 +15,8 @@ on:
         required: true
       DOT_NPMRC:
         required: true
+      NPM_REGISTRY:
+        required: false
 
 jobs:
   publish-pr-snapshot:
@@ -50,12 +49,12 @@ jobs:
         run: npm ci
 
       - name: Build and Push to Jfrog NPM Registry
-        uses: collaborationFactory/github-actions/.github/actions/artifacts@master
+        uses: collaborationFactory/github-actions/.github/actions/artifacts@fix/PFM-ISSUE-28366-Github-unable-to-publish-only-libs-without
         env:
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}
           JFROG_USER: ${{ secrets.JFROG_USER }}
-          NPM_REGISTRY: ${{ inputs.NPM_REGISTRY }}
+          NPM_REGISTRY: ${{ secrets.NPM_REGISTRY }}
           BASE: ${{ inputs.GHA_BASE }}
           PR_NUMBER: ${{ github.event.number }}
 
