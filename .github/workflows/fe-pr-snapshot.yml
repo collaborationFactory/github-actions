@@ -6,6 +6,9 @@ on:
       GHA_BASE:
         type: string
         required: true
+      NPM_REGISTRY:
+        type: string
+        required: false
     secrets:
       JFROG_BASE64_TOKEN:
         required: true
@@ -13,8 +16,6 @@ on:
         required: true
       JFROG_USER:
         required: true
-      NPM_REGISTRY:
-        required: false
       DOT_NPMRC:
         required: true
 
@@ -54,7 +55,7 @@ jobs:
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}
           JFROG_USER: ${{ secrets.JFROG_USER }}
-          NPM_REGISTRY: ${{ secrets.NPM_REGISTRY }}
+          NPM_REGISTRY: ${{ inputs.NPM_REGISTRY }}
           BASE: ${{ inputs.GHA_BASE }}
           PR_NUMBER: ${{ github.event.number }}
 
