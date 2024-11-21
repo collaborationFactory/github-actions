@@ -52,7 +52,6 @@ jobs:
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}
           JFROG_USER: ${{ secrets.JFROG_USER }}
-          NPM_REGISTRY: ${{ secrets.NPM_REGISTRY }}
           BASE: ${{ inputs.GHA_BASE }}
           PR_NUMBER: ${{ github.event.number }}
 
