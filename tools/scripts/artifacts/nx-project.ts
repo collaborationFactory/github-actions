@@ -89,8 +89,6 @@ export class NxProject {
   }
 
   public getJfrogNpmArtifactUrl(): string {
-    //return `${NxProject.REGISTRY_DOWNLOAD_URL}/${this.scope}/${this.name}/-/${this.scope}/${this.name}-${this.version.toString()}.tgz`;
-    // https://cplace.jfrog.io/artifactory/cplace-assets-npm/@cplace-legacy-fe-assets/cf-legacy-fe-dependencies/-/@cplace-legacy-fe-assets/cf-legacy-fe-dependencies-0.0.2.tgz
     return getJfrogUrl() + `/${this.scope}/${this.name}/-/${this.scope}/${this.name}-${this.version.toString()}.tgz`;
   }
 

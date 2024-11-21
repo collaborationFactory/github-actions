@@ -15,8 +15,6 @@ on:
         required: true
       DOT_NPMRC:
         required: true
-      NPM_REGISTRY:
-        required: false
 
 jobs:
   publish-pr-snapshot:
