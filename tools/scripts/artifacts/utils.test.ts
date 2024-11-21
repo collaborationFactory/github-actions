@@ -40,7 +40,7 @@ const rootDir = child_process
 
 beforeEach(() => {
   const mockedDate = new Date(2023, 0, 1);
-  jest.useFakeTimers('modern');
+  jest.useFakeTimers();
   jest.setSystemTime(mockedDate);
   jest.spyOn(Utils, 'globProjectJSON').mockReturnValue(globResult);
 });

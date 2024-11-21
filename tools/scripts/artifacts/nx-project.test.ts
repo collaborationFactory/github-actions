@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import { NxProject, NxProjectKind } from './nx-project';
 import { globResult, packageJsonLib1 } from './test-data';
 import { Utils } from './utils';
+import { sep } from 'node:path';
 
 afterEach(() => {
   jest.resetAllMocks();
@@ -26,11 +27,11 @@ test('NxProject can provide jfrog Url', async () => {
     undefined,
     '@cplace-next'
   );
-  expect(nxProject.getJfrogUrl()).toBe(
-    'https://cplace.jfrog.io/ui/repos/tree/NpmInfo/cplace-npm-local/@cplace-next/test/-/@cplace-next/test-0.0.0.tgz'
+  expect(nxProject.getJfrogNpmArtifactUrl()).toBe(
+    'https://cplace.jfrog.io/artifactory/cplace-npm-local/@cplace-next/test/-/@cplace-next/test-0.0.0.tgz'
   );
   expect(nxProject.getMarkdownLink()).toBe(
-    '[@cplace-next/test@0.0.0](https://cplace.jfrog.io/ui/repos/tree/NpmInfo/cplace-npm-local/@cplace-next/test/-/@cplace-next/test-0.0.0.tgz)'
+    '[@cplace-next/test@0.0.0](https://cplace.jfrog.io/artifactory/cplace-npm-local/@cplace-next/test/-/@cplace-next/test-0.0.0.tgz)'
   );
 });
 
@@ -53,7 +54,7 @@ test('NxProject can find folder in src', async () => {
     undefined,
     '@cplace-next'
   );
-  expect(nxProject.getPathToProjectInSource()).toContain('libs/my-lib');
+  expect(nxProject.getPathToProjectInSource()).toContain('libs/my-lib'.replace(/\//g, sep));
 });
 
 test('NxProject can find folder in dist', async () => {
@@ -64,5 +65,5 @@ test('NxProject can find folder in dist', async () => {
     undefined,
     '@cplace-next'
   );
-  expect(nxProject.getPathToProjectInDist()).toContain('dist/apps/my-app');
+  expect(nxProject.getPathToProjectInDist()).toContain( 'dist/apps/my-app'.replace(/\//g, sep));
 });

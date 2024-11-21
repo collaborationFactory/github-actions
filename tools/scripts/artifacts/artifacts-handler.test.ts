@@ -18,6 +18,7 @@ import {
   npmrc,
   packageJsonLib2,
 } from './test-data';
+import { sep } from 'node:path';
 
 export const SNAPSHOT_VERSION = ArtifactsHandler.SNAPSHOT_VERSION + '-SNAPSHOT';
 
@@ -150,16 +151,16 @@ test('can create and overwrite Snapshots in main branch', async () => {
   expect(artifactHandler.projects[2].name).toBe(lib1);
   expect(artifactHandler.projects[3].name).toBe(lib2);
   expect(artifactHandler.projects[0].getPathToProjectInDist()).toContain(
-    `dist/apps/my/${app1}`
+    `dist/apps/my/${app1}`.replace(/\//g, sep)
   );
   expect(artifactHandler.projects[1].getPathToProjectInDist()).toContain(
-    `dist/apps/${app2}`
+    `dist/apps/${app2}`.replace(/\//g, sep)
   );
   expect(artifactHandler.projects[2].getPathToProjectInDist()).toContain(
-    `dist/libs/${lib1}`
+    `dist/libs/${lib1}`.replace(/\//g, sep)
   );
   expect(artifactHandler.projects[3].getPathToProjectInDist()).toContain(
-    `dist/libs/${lib2}`
+    `dist/libs/${lib2}`.replace(/\//g, sep)
   );
   expect(artifactHandler.projects[0].npmrcContent).toBe(npmrc);
   expect(artifactHandler.projects[1].npmrcContent).toBe(npmrc);
