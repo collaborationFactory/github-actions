@@ -1,3 +1,3 @@
-export function getNpmRegistryRepo(): string {
-  return process.env.NPM_REGISTRY !== undefined ? process.env.NPM_REGISTRY : 'cplace-npm-local';
+export function getJfrogUrl(): string {
+  return process.env.JFROG_URL !== undefined ? process.env.JFROG_URL : 'https://cplace.jfrog.io/artifactory/cplace-npm-local';
 }

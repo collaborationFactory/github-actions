@@ -1,14 +1,12 @@
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { request } from 'https';
-import { IncomingMessage } from 'http';
 
 import { Utils } from './utils';
 import { TASK } from './artifacts-handler';
 import { JfrogCredentials } from './jfrog-credentials';
 import { Version } from './version';
-import { getNpmRegistryRepo } from './configuration';
+import { getJfrogUrl } from './configuration';
 
 interface PackageJson {
   author: string;
@@ -32,8 +30,6 @@ export enum VERSION_BUMP {
 }
 
 export class NxProject {
-  public static readonly REGISTRY_DOWNLOAD_URL =
-    `https://cplace.jfrog.io/ui/repos/tree/NpmInfo/${getNpmRegistryRepo()}`;
   public static readonly PACKAGEJSON = 'package.json';
   public static readonly FOSS_LIST_FILENAME = 'cplace-foss-list.json';
   private _npmrcContent = '';
@@ -92,14 +88,14 @@ export class NxProject {
     return `${this.scope}/${this.name}@${this.version.toString()}`;
   }
 
-  public getJfrogUrl(): string {
-    return `${NxProject.REGISTRY_DOWNLOAD_URL}/${this.scope}/${this.name}/-/${
-      this.scope
-    }/${this.name}-${this.version.toString()}.tgz`;
+  public getJfrogNpmArtifactUrl(): string {
+    //return `${NxProject.REGISTRY_DOWNLOAD_URL}/${this.scope}/${this.name}/-/${this.scope}/${this.name}-${this.version.toString()}.tgz`;
+    // https://cplace.jfrog.io/artifactory/cplace-assets-npm/@cplace-legacy-fe-assets/cf-legacy-fe-dependencies/-/@cplace-legacy-fe-assets/cf-legacy-fe-dependencies-0.0.2.tgz
+    return getJfrogUrl() + `/${this.scope}/${this.name}/-/${this.scope}/${this.name}-${this.version.toString()}.tgz`;
   }
 
   public getMarkdownLink(): string {
-    return `[${this.getPackageInstallPath()}](${this.getJfrogUrl()})`;
+    return `[${this.getPackageInstallPath()}](${this.getJfrogNpmArtifactUrl()})`;
   }
 
   public async publish() {
@@ -175,34 +171,28 @@ export class NxProject {
     jfrogCredentials: JfrogCredentials,
     version: Version
   ) {
-    return new Promise(async (resolve, reject) => {
+    console.log(
+      `About to delete artifact from Jfrog: ${
+        this.name
+      }@${version.toString()}`
+    );
+    try {
       console.log(
-        `About to delete artifact from Jfrog: ${
+        execSync(`npm unpublish ${this.scope}/${this.name}@${version.toString()}`, {
+          cwd: `${this.getPathToProjectInDist()}`,
+        }).toString()
+      );
+      console.log(
+        `Deleted artifact from Jfrog: ${
           this.name
         }@${version.toString()}`
       );
-      const options = {
-        hostname: 'cplace.jfrog.io',
-        path: `/artifactory/${getNpmRegistryRepo()}/${this.scope}/${this.name}/-/${
-          this.scope
-        }/${this.name}-${version.toString()}.tgz`,
-        method: 'DELETE',
-        headers: {
-          Authorization: 'Basic ' + jfrogCredentials.base64Token,
-        },
-      };
-      const req = request(options, (res: IncomingMessage) => {
-        console.log(`Http-StatusCode of Delete request: ${res.statusCode}`);
-        req.on('error', (error: any) => {
-          console.error(
-            `An error ocurred while deleting the artifact: ${error}`
-          );
-          reject();
-        });
-        resolve(res.statusCode);
-      });
-      req.end();
-    });
+    } catch (error: any) {
+      console.error(
+        `An error occurred while deleting the artifact: ${error}`
+      );
+      if (error.status !== 0) process.exit(1);
+    }
   }
 
   public writeNPMRCInDist(jfrogCredentials: JfrogCredentials, scope: string) {
