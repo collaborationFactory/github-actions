@@ -8,6 +8,7 @@ import { Utils } from './utils';
 import { TASK } from './artifacts-handler';
 import { JfrogCredentials } from './jfrog-credentials';
 import { Version } from './version';
+import { getNpmRegistryRepo } from './configuration';
 
 interface PackageJson {
   author: string;
@@ -32,7 +33,7 @@ export enum VERSION_BUMP {
 
 export class NxProject {
   public static readonly REGISTRY_DOWNLOAD_URL =
-    'https://cplace.jfrog.io/ui/repos/tree/NpmInfo/cplace-assets-npm';
+    `https://cplace.jfrog.io/ui/repos/tree/NpmInfo/${getNpmRegistryRepo()}`;
   public static readonly PACKAGEJSON = 'package.json';
   public static readonly FOSS_LIST_FILENAME = 'cplace-foss-list.json';
   private _npmrcContent = '';
@@ -182,7 +183,7 @@ export class NxProject {
       );
       const options = {
         hostname: 'cplace.jfrog.io',
-        path: `/artifactory/cplace-assets-npm/${this.scope}/${this.name}/-/${
+        path: `/artifactory/${getNpmRegistryRepo()}/${this.scope}/${this.name}/-/${
           this.scope
         }/${this.name}-${version.toString()}.tgz`,
         method: 'DELETE',
