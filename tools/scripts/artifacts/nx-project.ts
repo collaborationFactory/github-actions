@@ -7,6 +7,7 @@ import { TASK } from './artifacts-handler';
 import { JfrogCredentials } from './jfrog-credentials';
 import { Version } from './version';
 import { getJfrogUrl } from './configuration';
+import { NpmPackage } from './types';
 
 interface PackageJson {
   author: string;
@@ -159,16 +160,27 @@ export class NxProject {
     console.log(...snapshots);
     for (const snapshot of snapshots) {
       await this.deleteArtifact(
-        jfrogCredentials,
         Utils.getVersionFromSnapshotString(snapshot)
       );
     }
   }
 
-  public async deleteArtifact(
-    jfrogCredentials: JfrogCredentials,
-    version: Version
-  ) {
+  private packageExists(pkg: string, version: string) {
+    const scopeSearchResult = execSync(
+      `npm search ${pkg} --json`
+    ).toString();
+    console.log('scopeSearchResult: ', scopeSearchResult);
+    const npmSearchResults: NpmPackage[] = JSON.parse(scopeSearchResult);
+    return npmSearchResults.some((entry) => entry.name === pkg && entry.versions.includes(version));
+  }
+
+  public async deleteArtifact(version: Version) {
+    console.log("Checking if package exists in registry");
+    if(!this.packageExists(`${this.scope}/${this.name}`, version.toString())) {
+      console.log(`Package ${this.scope}/${this.name} does not exist in the registry. Skipping deletion.`);
+      return;
+    }
+    console.log("Package exists in registry");
     console.log(
       `About to delete artifact from Jfrog: ${
         this.name
