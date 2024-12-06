@@ -115,7 +115,6 @@ export class ArtifactsHandler {
       if (project.isPublishable) {
         if (this.onlyDeleteArtifacts)
           await project.deleteArtifact(
-            this.jfrogCredentials,
             this.currentVersion
           );
         else {
@@ -125,7 +124,6 @@ export class ArtifactsHandler {
           project.setVersionOrGeneratePackageJsonInDist(this.currentVersion, this.jfrogCredentials.url);
           if (this.task === TASK.PR_SNAPSHOT)
             await project.deleteArtifact(
-              this.jfrogCredentials,
               this.currentVersion
             );
           await project.publish();
