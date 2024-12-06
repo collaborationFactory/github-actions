@@ -170,7 +170,12 @@ export class NxProject {
       `npm search ${pkg} --json`
     ).toString();
     const npmSearchResults: NpmPackage[] = JSON.parse(scopeSearchResult);
-    return npmSearchResults.some((entry) => entry.name === pkg && entry.versions && entry.versions.find((v) => v === version));
+    const npmPackage = npmSearchResults.find((entry) => entry.name === pkg);
+    const packageDetails = execSync(
+      `npm view ${pkg} --json`
+    ).toString();
+    npmPackage.versions = JSON.parse(packageDetails).versions || [];
+    return npmPackage.versions.includes(version);
   }
 
   public async deleteArtifact(version: Version) {
