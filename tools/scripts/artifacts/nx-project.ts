@@ -176,8 +176,9 @@ export class NxProject {
 
   public async deleteArtifact(version: Version) {
     console.log("Checking if package exists in registry");
-    if(!this.packageExists(`${this.scope}/${this.name}`, version.toString())) {
-      console.log(`Package ${this.scope}/${this.name} does not exist in the registry. Skipping deletion.`);
+    const scopedPackage = `${this.scope}/${this.name}`;
+    if(!this.packageExists(scopedPackage, version.toString())) {
+      console.log(`Package ${scopedPackage} does not exist in the registry. Skipping deletion.`);
       return;
     }
     console.log("Package exists in registry");
