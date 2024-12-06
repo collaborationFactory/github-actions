@@ -169,9 +169,8 @@ export class NxProject {
     const scopeSearchResult = execSync(
       `npm search ${pkg} --json`
     ).toString();
-    console.log('scopeSearchResult: ', scopeSearchResult);
     const npmSearchResults: NpmPackage[] = JSON.parse(scopeSearchResult);
-    return npmSearchResults.some((entry) => entry.name === pkg && entry.versions.includes(version));
+    return npmSearchResults.some((entry) => entry.name === pkg && entry.versions && entry.versions.find((v) => v === version));
   }
 
   public async deleteArtifact(version: Version) {

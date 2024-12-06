@@ -47,7 +47,7 @@ jobs:
         run: npm ci
 
       - name: Build and Push to Jfrog NPM Registry
-        uses: collaborationFactory/github-actions/.github/actions/artifacts@release/25.1
+        uses: collaborationFactory/github-actions/.github/actions/artifacts@fix/PFM-ISSUE-28573-Fix-usage-of-npm-unpublish-in-delete-snapshot
         env:
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}
