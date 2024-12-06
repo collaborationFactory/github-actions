@@ -177,10 +177,10 @@ export class NxProject {
     console.log("Checking if package exists in registry");
     const scopedPackage = `${this.scope}/${this.name}`;
     if(!this.packageExists(scopedPackage, version.toString())) {
-      console.log(`Package ${scopedPackage} does not exist in the registry. Skipping deletion.`);
+      console.log(`Package ${scopedPackage}@${version.toString()} does not exist in the registry. Skipping deletion.`);
       return;
     }
-    console.log("Package exists in registry");
+    console.log(`Package ${scopedPackage}@${version.toString()} exists in registry`);
     console.log(
       `About to delete artifact from Jfrog: ${
         this.name
