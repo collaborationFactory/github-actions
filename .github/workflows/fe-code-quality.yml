@@ -1,14 +1,6 @@
 name: Frontend Code Quality Workflow
 
-on:
-  workflow_call:
-    inputs:
-      GHA_REF:
-        type: string
-        required: true
-      GHA_BASE:
-        type: string
-        required: true
+on: workflow_call
 
 jobs:
   code-quality:
@@ -47,5 +39,5 @@ jobs:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}
           jobCount: ${{ env.jobCount }}
-          base: ${{ inputs.GHA_BASE }}
-          ref: ${{ inputs.GHA_REF }}
+          base: ${{ github.event.pull_request.base.ref }}
+          ref: ${{ github.event.pull_request.head.ref }}

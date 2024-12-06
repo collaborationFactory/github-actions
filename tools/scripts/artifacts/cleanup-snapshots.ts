@@ -5,18 +5,8 @@ import { Version } from './version';
 import { Utils } from './utils';
 import { DateTime } from 'luxon';
 import { JfrogCredentials } from './jfrog-credentials';
+import { NpmPackage } from './types';
 
-interface NpmPackage {
-  name: string;
-  description: string;
-  maintainers: string[];
-  version: string;
-  date: string;
-  keywords: string[];
-  author: string;
-  versions: string[];
-  scope: string;
-}
 
 export class CleanupSnapshots {
   private _npmSearchResults: NpmPackage[] = [];
@@ -108,7 +98,7 @@ export class CleanupSnapshots {
         new Version(ArtifactsHandler.SNAPSHOT_VERSION, currentVersion),
         npmPackage.scope
       );
-      await project.deleteArtifact(new JfrogCredentials(), project.version);
+      await project.deleteArtifact(project.version);
     }
   }
 }
