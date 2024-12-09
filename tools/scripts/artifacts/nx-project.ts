@@ -176,7 +176,6 @@ export class NxProject {
       `npm view ${pkg} --json`
     ).toString();
     const npmPackageDetails = JSON.parse(packageDetails);
-    if (!npmPackageDetails) return false;
     npmPackage.versions = npmPackageDetails.versions || [];
     return npmPackage.versions.includes(version);
   }
