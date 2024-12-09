@@ -171,10 +171,13 @@ export class NxProject {
     ).toString();
     const npmSearchResults: NpmPackage[] = JSON.parse(scopeSearchResult);
     const npmPackage = npmSearchResults.find((entry) => entry.name === pkg);
+    if (!npmPackage) return false;
     const packageDetails = execSync(
       `npm view ${pkg} --json`
     ).toString();
-    npmPackage.versions = JSON.parse(packageDetails).versions || [];
+    const npmPackageDetails = JSON.parse(packageDetails);
+    if (!npmPackageDetails) return false;
+    npmPackage.versions = npmPackageDetails.versions || [];
     return npmPackage.versions.includes(version);
   }
 
