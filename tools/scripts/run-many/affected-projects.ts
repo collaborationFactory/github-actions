@@ -30,5 +30,5 @@ export function getAffectedProjects(
   
   const projects= distributeProjectsEvenly(allAffectedProjects, jobCount);
   console.log(`Affected Projects: ${projects.toString()}`);
-  return projects[jobIndex].join(',');
+  return projects[jobIndex-1].join(',');
 }

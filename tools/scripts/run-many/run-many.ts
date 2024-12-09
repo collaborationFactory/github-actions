@@ -36,7 +36,7 @@ function main() {
   }
   const ref = process.argv[6];
 
-  core.info(`Inputs:\n target ${target},\n jobIndex: ${target},\n jobCount ${jobCount},\n base ${base},\n ref ${ref}`)
+  core.info(`Inputs:\n target ${target},\n jobIndex: ${jobIndex},\n jobCount ${jobCount},\n base ${base},\n ref ${ref}`)
 
   const projects = getAffectedProjects(target, jobIndex, jobCount, base, ref);
 
