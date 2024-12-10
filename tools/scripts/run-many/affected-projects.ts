@@ -1,12 +1,13 @@
 import { Utils } from '../artifacts/utils';
 
-export function  distributeProjectsEvenly(
+export function distributeProjectsEvenly(
   allProjects: string[],
   jobCount: number
 ): string[][] {
-  const distributedProjects: string[][] = Array(jobCount).fill([]).map(() => []);
+  const sortedProjects = [...allProjects].sort((a, b) => a.localeCompare(b));
 
-  allProjects.forEach((project, index) => {
+  const distributedProjects: string[][] = Array(jobCount).fill([]).map(() => []);
+  sortedProjects.forEach((project, index) => {
     const jobIndex = index % jobCount;
     distributedProjects[jobIndex].push(project);
   });
@@ -27,9 +28,9 @@ export function getAffectedProjects(
   } else {
     allAffectedProjects = Utils.getAllProjects(true, base, target);
   }
-  
-  const projects= distributeProjectsEvenly(allAffectedProjects, jobCount);
+
+  const projects = distributeProjectsEvenly(allAffectedProjects, jobCount);
   console.log(`Affected Projects:`);
   console.table(projects);
-  return projects[jobIndex-1].join(',');
+  return projects[jobIndex - 1].join(',');
 }
