@@ -43,7 +43,7 @@ jobs:
         run: npx cypress install
 
       - name: Affected Regression Tests
-        uses: collaborationFactory/github-actions/.github/actions/run-many@fix/PFM-ISSUE-28250-Fix-parallelization-of-e2e-
+        uses: collaborationFactory/github-actions/.github/actions/run-many@fix/master
         with:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}
