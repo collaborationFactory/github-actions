@@ -14,6 +14,11 @@ function runCommand(command: string): void {
     const output = execSync(command, { stdio: 'pipe', maxBuffer: 1024 * 1024 * 1024, encoding: 'utf-8' }); // 10MB
     core.info(output.toString())
   } catch (error) {
+    if (error.signal === 'SIGTERM') {
+      core.error('Timed out');
+    } else if (error.code === 'ENOBUFS') {
+      core.error('Buffer exceeded');
+    }
     core.info(error.stdout.toString());
     core.error(error.stderr.toString());
     core.error(`Error message: ${error.message}`);
