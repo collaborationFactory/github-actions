@@ -11,7 +11,7 @@ function runCommand(command: string): void {
   core.info(`Running > ${command}`);
 
   try {
-    const output = execSync(command, { maxBuffer: 1024 * 1024 * 1024 });
+    const output = execSync(command, { maxBuffer: 1024 * 1024 * 10 }); // 10MB
     core.info(output.toString())
   } catch (error) {
     core.info(error.stdout.toString());
