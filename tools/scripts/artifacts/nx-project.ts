@@ -94,7 +94,7 @@ export class NxProject {
   }
 
   public getMarkdownLink(): string {
-    return `[${this.getPackageInstallPath()}](${this.getJfrogNpmArtifactUrl()})`;
+    return `${this.version.toString()}`;
   }
 
   public async publish() {
