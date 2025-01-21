@@ -94,7 +94,7 @@ export class NxProject {
   }
 
   public getMarkdownLink(): string {
-    return `${this.version.toString()}`;
+    return `${this.getPackageInstallPath()}`;
   }
 
   public async publish() {
