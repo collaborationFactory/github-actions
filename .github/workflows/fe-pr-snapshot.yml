@@ -60,5 +60,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          filePath: githubCommentsForPR.txt
+          file-path: githubCommentsForPR.txt
           comment-tag: published-artifacts
