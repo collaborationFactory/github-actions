@@ -89,6 +89,9 @@ export class NxProject {
     return `${this.scope}/${this.name}@${this.version.toString()}`;
   }
 
+  /**
+   * we are no longer using this method and can be removed along with the unit tests REF:PFM-ISSUE-28695
+   */
   public getJfrogNpmArtifactUrl(): string {
     return getJfrogUrl() + `/${this.scope}/${this.name}/-/${this.scope}/${this.name}-${this.version.toString()}.tgz`;
   }
@@ -110,7 +113,7 @@ export class NxProject {
         );
       } catch (error: any) {
         console.error(
-          `An error ocurred while publishing the artifact: ${error}`
+          `An error occurred while publishing the artifact: ${error}`
         );
         if (error.status !== 0) process.exit(1);
       }
