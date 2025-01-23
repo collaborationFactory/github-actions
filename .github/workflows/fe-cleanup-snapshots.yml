@@ -17,7 +17,7 @@ jobs:
     name: Cleanup Snapshot Artifacts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.GHA_REF }}
           fetch-depth: 0
@@ -28,7 +28,7 @@ jobs:
 
       - name: Cache Node Modules
         id: npm-cache
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
