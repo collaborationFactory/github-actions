@@ -29,6 +29,9 @@ jobs:
           ref: ${{ inputs.GHA_REF }}
           fetch-depth: 0
 
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
       - uses: actions/setup-node@v3
         with:
           node-version: 18.18.2
