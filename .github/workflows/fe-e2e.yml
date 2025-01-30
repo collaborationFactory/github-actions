@@ -39,8 +39,11 @@ jobs:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
 
-      - name: Install Cypress Binary
-        run: CYPRESS_INSTALL_BINARY=0 npx cypress install
+      - name: Install Cypress Without Binary
+        run: CYPRESS_INSTALL_BINARY=0 npm install cypress --save-dev
+
+      - name: Ensure Cypress Binary Exists
+        run: npx cypress install
 
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
