@@ -24,9 +24,6 @@ jobs:
     env:
       jobCount: 4
     steps:
-      - name: Set Timezone
-        run: export TZ=UTC
-
       - uses: actions/checkout@v2
         with:
           ref: ${{ inputs.GHA_REF }}
@@ -42,13 +39,12 @@ jobs:
         with:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-modules-
-          exclude: '/home/runner/.cache/Cypress'  # Exclude Cypress cache
 
+      - name: Install Cypress Binary
+        run: npx cypress install
 
-      - name: Install Cypress
-        run: npx cypress@13.3.2 install
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
 
       - name: Affected Regression Tests
         uses: collaborationFactory/github-actions/.github/actions/run-many@master
