@@ -44,7 +44,7 @@ jobs:
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
 
       - name: Install Cypress
-        run: npx cypress install
+        run: npx cypress install@13.3.2
 
       - name: Affected Regression Tests
         uses: collaborationFactory/github-actions/.github/actions/run-many@master
