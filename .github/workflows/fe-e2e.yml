@@ -41,7 +41,7 @@ jobs:
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-modules-
-            exclude: '/home/runner/.cache/Cypress'  # Exclude Cypress cache
+          exclude: '/home/runner/.cache/Cypress'  # Exclude Cypress cache
 
       - name: Install Cypress
         run: npx cypress install
