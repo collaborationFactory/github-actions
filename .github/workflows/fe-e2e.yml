@@ -23,7 +23,6 @@ jobs:
         jobIndex: [1, 2, 3, 4]
     env:
       jobCount: 4
-      TZ: 'UTC'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -42,14 +41,16 @@ jobs:
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-modules-
-          exclude: '/home/runner/.cache/Cypress'  # Exclude Cypress cache
 
       - name: Install Cypress
         run: npx cypress install
 
-      - name: Setup timezone
+      - name: Debug Git Info
         run: |
-          sudo timedatectl set-timezone UTC
+          echo "GHA_REF: ${{ inputs.GHA_REF }}"
+          echo "GHA_BASE: ${{ inputs.GHA_BASE }}"
+          git rev-parse HEAD
+          git log -1
 
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
