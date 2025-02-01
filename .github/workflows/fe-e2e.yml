@@ -51,7 +51,7 @@ jobs:
             echo "Clearing Cypress cache..."
             npx cypress cache clear
             echo "Installing Cypress..."
-            npx cypress install --force
+            npx cypress@12.17.3 install --force
             echo "Verifying Cypress installation..."
             npx cypress verify
 
