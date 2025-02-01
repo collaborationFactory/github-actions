@@ -23,6 +23,7 @@ jobs:
         jobIndex: [1, 2, 3, 4]
     env:
       jobCount: 4
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -43,7 +44,9 @@ jobs:
             ${{ runner.os }}-modules-
 
       - name: Install Cypress
-        run: npx cypress install
+        run: |
+            npx cypress cache clear
+            npx cypress install --force
 
       - name: Debug Git Info
         run: |
@@ -51,9 +54,6 @@ jobs:
           echo "GHA_BASE: ${{ inputs.GHA_BASE }}"
           git rev-parse HEAD
           git log -1
-
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
 
       - name: Affected Regression Tests
         uses: collaborationFactory/github-actions/.github/actions/run-many@master
@@ -67,6 +67,14 @@ jobs:
           PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
           PERCY_PARTIAL_BUILD: 1
           DEV_STORIES: true
+          NODE_OPTIONS: --max-old-space-size=4096
+          DEBUG: cypress:*
+          TZ: 'UTC'
+          CYPRESS_FORCE_TIMEZONE: 'UTC'  # Force Cypress to use UTC
+          CYPRESS_RETRIES: 2  # Add retries for flaky time-related failures
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
 
       - name: Upload E2E Videos
         uses: actions/upload-artifact@v4
