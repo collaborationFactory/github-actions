@@ -48,6 +48,9 @@ jobs:
           npx cypress cache list
           echo "Clearing Cypress cache..."
           npx cypress cache clear
+          echo "Installing Cypress..."
+          npx cypress install --force
+          echo "Verifying Cypress installation..."
           npx cypress verify
 
       - name: Affected Regression Tests
