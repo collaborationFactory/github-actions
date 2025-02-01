@@ -51,6 +51,9 @@ jobs:
         run: |
           sudo timedatectl set-timezone UTC
 
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
       - name: Affected Regression Tests
         uses: collaborationFactory/github-actions/.github/actions/run-many@master
         with:
