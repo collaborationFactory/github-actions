@@ -23,24 +23,35 @@ jobs:
         jobIndex: [1, 2, 3, 4]
     env:
       jobCount: 4
+
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.GHA_REF }}
           fetch-depth: 0
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: 18.18.2
+
       - name: Cache Node Modules
         id: npm-cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
 
-      - name: Install Cypress Binary
-        run: npx cypress install
+      - name: Use .npmrc
+        uses: bduff9/use-npmrc@v1.1
+        with:
+          dot-npmrc: ${{ secrets.DOT_NPMRC }}
+
+      - name: Install modules
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
 
       - name: Affected Regression Tests
         uses: collaborationFactory/github-actions/.github/actions/run-many@master
@@ -54,6 +65,11 @@ jobs:
           PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
           PERCY_PARTIAL_BUILD: 1
           DEV_STORIES: true
+          NODE_OPTIONS: --max-old-space-size=4096
+          DEBUG: cypress:*
+          TZ: 'UTC'
+          CYPRESS_FORCE_TIMEZONE: 'UTC'  # Force Cypress to use UTC
+          CYPRESS_RETRIES: 2  # Add retries for flaky time-related failures
 
       - name: Upload E2E Videos
         uses: actions/upload-artifact@v4
