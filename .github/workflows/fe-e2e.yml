@@ -23,6 +23,7 @@ jobs:
         jobIndex: [1, 2, 3, 4]
     env:
       jobCount: 4
+      TZ: 'UTC'
     steps:
       - uses: actions/checkout@v2
         with:
@@ -45,6 +46,10 @@ jobs:
 
       - name: Install Cypress
         run: npx cypress install
+
+      - name: Setup timezone
+        run: |
+          sudo timedatectl set-timezone UTC
 
       - name: Affected Regression Tests
         uses: collaborationFactory/github-actions/.github/actions/run-many@master
