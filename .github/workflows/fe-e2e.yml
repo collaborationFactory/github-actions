@@ -41,6 +41,15 @@ jobs:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
 
+      - name: Use .npmrc
+        uses: bduff9/use-npmrc@v1.1
+        with:
+          dot-npmrc: ${{ secrets.DOT_NPMRC }}
+
+      - name: Install modules
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        run: npm ci
+
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
 
