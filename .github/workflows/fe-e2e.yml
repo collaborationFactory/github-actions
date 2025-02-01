@@ -43,25 +43,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-modules-
 
-      - name: Install Cypress
-        run:  |
-            echo "Current Cypress cache:"
-            npx cypress cache path
-            npx cypress cache list
-            echo "Clearing Cypress cache..."
-            npx cypress cache clear
-            echo "Installing Cypress..."
-            npx cypress@12.17.3 install --force
-            echo "Verifying Cypress installation..."
-            npx cypress verify
-
-      - name: Debug Git Info
-        run: |
-          echo "GHA_REF: ${{ inputs.GHA_REF }}"
-          echo "GHA_BASE: ${{ inputs.GHA_BASE }}"
-          git rev-parse HEAD
-          git log -1
-
       - name: Affected Regression Tests
         uses: collaborationFactory/github-actions/.github/actions/run-many@master
         with:
