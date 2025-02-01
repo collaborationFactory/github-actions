@@ -44,9 +44,16 @@ jobs:
             ${{ runner.os }}-modules-
 
       - name: Install Cypress
-        run: |
+        run:  |
+            echo "Current Cypress cache:"
+            npx cypress cache path
+            npx cypress cache list
+            echo "Clearing Cypress cache..."
             npx cypress cache clear
+            echo "Installing Cypress..."
             npx cypress install --force
+            echo "Verifying Cypress installation..."
+            npx cypress verify
 
       - name: Debug Git Info
         run: |
