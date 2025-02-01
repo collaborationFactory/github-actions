@@ -40,8 +40,15 @@ jobs:
         with:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-modules-
+
+      - name: Install Cypress
+        run: |
+          echo "Current Cypress cache:"
+          npx cypress cache path
+          npx cypress cache list
+          echo "Clearing Cypress cache..."
+          npx cypress cache clear
+          npx cypress verify
 
       - name: Affected Regression Tests
         uses: collaborationFactory/github-actions/.github/actions/run-many@master
