@@ -41,6 +41,10 @@ jobs:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
 
+      - name: Install modules
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        run: npm ci
+
       - name: Install Cypress
         run: |
           echo "Current Cypress cache:"
@@ -48,10 +52,10 @@ jobs:
           npx cypress cache list
           echo "Clearing Cypress cache..."
           npx cypress cache clear
-          echo "Installing Cypress..."
-          npx cypress install --force
-          echo "Verifying Cypress installation..."
           npx cypress verify
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
 
       - name: Affected Regression Tests
         uses: collaborationFactory/github-actions/.github/actions/run-many@master
@@ -70,9 +74,6 @@ jobs:
           TZ: 'UTC'
           CYPRESS_FORCE_TIMEZONE: 'UTC'  # Force Cypress to use UTC
           CYPRESS_RETRIES: 2  # Add retries for flaky time-related failures
-
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
 
       - name: Upload E2E Videos
         uses: actions/upload-artifact@v4
