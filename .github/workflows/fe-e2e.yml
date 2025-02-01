@@ -23,24 +23,44 @@ jobs:
         jobIndex: [1, 2, 3, 4]
     env:
       jobCount: 4
+
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.GHA_REF }}
           fetch-depth: 0
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: 18.18.2
+
       - name: Cache Node Modules
         id: npm-cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-modules-
 
-      - name: Install Cypress Binary
-        run: npx cypress install
+      - name: Install Cypress
+        run:  |
+            echo "Current Cypress cache:"
+            npx cypress cache path
+            npx cypress cache list
+            echo "Clearing Cypress cache..."
+            npx cypress cache clear
+            echo "Installing Cypress..."
+            npx cypress@12.17.3 install --force
+            echo "Verifying Cypress installation..."
+            npx cypress verify
+
+      - name: Debug Git Info
+        run: |
+          echo "GHA_REF: ${{ inputs.GHA_REF }}"
+          echo "GHA_BASE: ${{ inputs.GHA_BASE }}"
+          git rev-parse HEAD
+          git log -1
 
       - name: Affected Regression Tests
         uses: collaborationFactory/github-actions/.github/actions/run-many@master
@@ -54,6 +74,14 @@ jobs:
           PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
           PERCY_PARTIAL_BUILD: 1
           DEV_STORIES: true
+          NODE_OPTIONS: --max-old-space-size=4096
+          DEBUG: cypress:*
+          TZ: 'UTC'
+          CYPRESS_FORCE_TIMEZONE: 'UTC'  # Force Cypress to use UTC
+          CYPRESS_RETRIES: 2  # Add retries for flaky time-related failures
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
 
       - name: Upload E2E Videos
         uses: actions/upload-artifact@v4
