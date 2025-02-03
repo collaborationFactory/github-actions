@@ -20,7 +20,7 @@ jobs:
     env:
       jobCount: 2
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.GHA_REF }}
           fetch-depth: 0
@@ -29,7 +29,7 @@ jobs:
           node-version: 18.18.2
       - name: Cache Node Modules
         id: npm-cache
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
