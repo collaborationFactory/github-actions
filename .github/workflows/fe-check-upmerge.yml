@@ -9,7 +9,7 @@ on:
         required: true
       GIT_USER:
         required: true
-        
+
 jobs:
   check-upmerge:
     name: Run Upmerge Flow
@@ -22,7 +22,7 @@ jobs:
 
       - uses: actions/setup-node@v3
         with:
-          node-version: 18.18.2
+          node-version: 18.19.1
 
       - name: Cache Node Modules
         id: npm-cache
@@ -37,4 +37,4 @@ jobs:
           SLACK_TOKEN_UPMERGE: ${{ secrets.SLACK_TOKEN_UPMERGE }}
           GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
           GIT_USER: ${{ secrets.GIT_USER }}
-          
+
