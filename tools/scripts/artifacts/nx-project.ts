@@ -123,7 +123,7 @@ export class NxProject {
   public build() {
     console.log(
       execSync(
-        `./node_modules/.bin/nx build ${this.name} --prod ${
+        `npx nx build ${this.name} --prod ${
           this.nxProjectKind === NxProjectKind.Application &&
           this.task !== TASK.RELEASE
             ? '--sourceMap=true'
