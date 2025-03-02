@@ -116,7 +116,7 @@ export class Utils {
     base?: string,
     target?: string
   ): string[] {
-    let cmd = `npx nxs --affected=${affected} `;
+    let cmd = `npx nx --affected=${affected} `;
     if (base) {
       cmd = cmd.concat(`--base=${base} `);
     }
