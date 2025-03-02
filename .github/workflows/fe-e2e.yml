@@ -43,7 +43,7 @@ jobs:
         run: npx cypress install
 
       - name: Affected Regression Tests
-        uses: collaborationFactory/github-actions/.github/actions/run-many@master
+        uses: collaborationFactory/github-actions/.github/actions/run-many@fix/PFM-ISSUE-29449-Nx19-migration-related-adjustments-in-github
         with:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}
