@@ -54,6 +54,7 @@ jobs:
           PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
           PERCY_PARTIAL_BUILD: 1
           DEV_STORIES: true
+          CYPRESS_INTERNAL_BROWSER_CONNECT_TIMEOUT: 300000
 
       - name: Upload E2E Videos
         uses: actions/upload-artifact@v4
