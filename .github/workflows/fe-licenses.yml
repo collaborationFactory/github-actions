@@ -64,5 +64,5 @@ jobs:
         run: echo "{foss_status}={$(cat ${{ inputs.FOSS_DIST }}/fossTmp)}" >> $GITHUB_OUTPUT
 
       - name: Check fossTmp
-        if: CI.foss_status == '1'
+        if: steps.readFossTmp.outputs.foss_status == '1'
         run: exit 1
