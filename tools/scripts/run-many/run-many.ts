@@ -45,7 +45,7 @@ function main() {
 
   const projects = getAffectedProjects(target, jobIndex, jobCount, base, ref);
 
-  const runManyProjectsCmd = `npx nx run-many --targets=${target} --projects=${projects}`;
+  const runManyProjectsCmd = `npx nx run-many --targets=${target} --projects="${projects}"`;
   let cmd = `${runManyProjectsCmd} --parallel=false --prod`;
 
   if (target.includes('e2e')) {
