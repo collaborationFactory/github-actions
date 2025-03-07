@@ -61,8 +61,8 @@ jobs:
 
       - name: Read fossTmp
         id: readFossTmp
-        run: echo "::set-output name=foss_status::$(cat ${{ inputs.FOSS_DIST }}/fossTmp)"
+        run: echo "{foss_status}={$(cat ${{ inputs.FOSS_DIST }}/fossTmp)}" >> $GITHUB_OUTPUT
 
       - name: Check fossTmp
-        if: steps.readFossTmp.outputs.foss_status == '1'
+        if: CI.foss_status == '1'
         run: exit 1
