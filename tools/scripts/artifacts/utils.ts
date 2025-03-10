@@ -298,7 +298,8 @@ export class Utils {
       ) {
         fs.writeFileSync(
           gitHubCommentsFile,
-          `:tada: Snapshots of the following projects have been published: \n`
+          `:tada: Snapshots of the following projects have been published: \n
+                 Last updated: ${Date} \n`
         );
       }
       fs.appendFileSync(gitHubCommentsFile, `${message}\n`);
