@@ -42,6 +42,11 @@ jobs:
       - name: Install Cypress Binary
         run: npx cypress install
 
+      - name: Install Chrome
+        uses: browser-actions/setup-chrome@latest
+        with:
+          chrome-version: stable
+
       - name: Affected Regression Tests
         uses: collaborationFactory/github-actions/.github/actions/run-many@fix/PFM-ISSUE-29449-Nx19-migration-related-adjustments-in-github
         with:
