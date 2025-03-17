@@ -53,7 +53,7 @@ jobs:
 
       - name: Check Licenses Remote
         if: steps.localLicenseChecker.outcome == 'failure'
-        run: node node_modules/@cplace-next/cf-frontend-licenses/src/index.js check ${{ inputs.FOSS_DIST }} ${{ inputs.CUSTOM_LICENSES_JSON }}
+        run: node node_modules/@cplace-next/cf-frontend-licenses/main.js check ${{ inputs.FOSS_DIST }} ${{ inputs.CUSTOM_LICENSES_JSON }}
 
       - name: Run Diff
         continue-on-error: true
