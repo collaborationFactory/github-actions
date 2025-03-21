@@ -49,7 +49,7 @@ jobs:
       - name: Check Licenses Local
         id: localLicenseChecker
         continue-on-error: true
-        run: node_modules/.bin/nx run cf-frontend-licenses:check
+        run: npx nx run cf-frontend-licenses:check
 
       - name: Check Licenses Remote
         if: steps.localLicenseChecker.outcome == 'failure'
@@ -61,7 +61,7 @@ jobs:
 
       - name: Read fossTmp
         id: readFossTmp
-        run: echo "::set-output name=foss_status::$(cat ${{ inputs.FOSS_DIST }}/fossTmp)"
+        run: echo "{foss_status}={$(cat ${{ inputs.FOSS_DIST }}/fossTmp)}" >> $GITHUB_OUTPUT
 
       - name: Check fossTmp
         if: steps.readFossTmp.outputs.foss_status == '1'

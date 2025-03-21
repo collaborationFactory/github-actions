@@ -116,7 +116,7 @@ export class Utils {
     base?: string,
     target?: string
   ): string[] {
-    let cmd = `./node_modules/.bin/nx show projects --affected=${affected} `;
+    let cmd = `npx nx show projects --affected=${affected} `;
     if (base) {
       cmd = cmd.concat(`--base=${base} `);
     }
@@ -298,7 +298,8 @@ export class Utils {
       ) {
         fs.writeFileSync(
           gitHubCommentsFile,
-          `:tada: Snapshots of the following projects have been published: \n`
+          `:tada: Snapshots of the following projects have been published:
+                        Last updated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()} \n`
         );
       }
       fs.appendFileSync(gitHubCommentsFile, `${message}\n`);

@@ -42,6 +42,11 @@ jobs:
       - name: Install Cypress Binary
         run: npx cypress install
 
+      - name: Install Chrome
+        uses: browser-actions/setup-chrome@latest
+        with:
+          chrome-version: stable
+
       - name: Affected Regression Tests
         uses: collaborationFactory/github-actions/.github/actions/run-many@master
         with:
@@ -54,6 +59,7 @@ jobs:
           PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
           PERCY_PARTIAL_BUILD: 1
           DEV_STORIES: true
+          CYPRESS_INTERNAL_BROWSER_CONNECT_TIMEOUT: 300000
 
       - name: Upload E2E Videos
         uses: actions/upload-artifact@v4
