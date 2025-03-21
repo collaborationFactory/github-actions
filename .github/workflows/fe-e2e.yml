@@ -48,7 +48,7 @@ jobs:
           chrome-version: stable
 
       - name: Affected Regression Tests
-        uses: collaborationFactory/github-actions/.github/actions/run-many@fix/PFM-ISSUE-29449-Nx19-migration-related-adjustments-in-github
+        uses: collaborationFactory/github-actions/.github/actions/run-many@master
         with:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}
