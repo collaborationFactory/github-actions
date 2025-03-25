@@ -3,7 +3,7 @@ import { execSync } from 'child_process';
 import * as core from '@actions/core';
 
 function getE2ECommand(command: string, base: string): string {
-  command = command.concat(` -c ci --base=${base} --verbose --browser chrome`);
+  command = command.concat(` -c ci --base=${base} --verbose`);
   return command;
 }
 
