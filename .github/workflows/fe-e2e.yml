@@ -16,6 +16,9 @@ on:
 jobs:
   e2e:
     runs-on: ubuntu-latest
+    container:
+      image: cypress/browsers:24.14.0
+      options: --user 1001
     timeout-minutes: 120
     strategy:
       matrix:
@@ -29,9 +32,6 @@ jobs:
           ref: ${{ inputs.GHA_REF }}
           fetch-depth: 0
 
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 22.15.0
       - name: Cache Node Modules
         id: npm-cache
         uses: actions/cache@v4
@@ -61,6 +61,7 @@ jobs:
           DEV_STORIES: true
           CYPRESS_INTERNAL_BROWSER_CONNECT_TIMEOUT: 300000
           NODE_OPTIONS: --max-old-space-size=4096
+          CYPRESS_NO_COMMAND_LOG: 1
 
       - name: Upload E2E Videos
         uses: actions/upload-artifact@v4
