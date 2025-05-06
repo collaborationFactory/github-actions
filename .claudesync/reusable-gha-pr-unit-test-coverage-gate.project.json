@@ -1,0 +1,14 @@
+{
+  "project_name": "reusable-gha-pr-unit-test-coverage-gate",
+  "project_description": "Reusable github actions for unit test coverage gate with PR workflow",
+  "includes": [
+    "tools",
+    ".github",
+    "jest.config.ts",
+    "package.json",
+    "tsconfig.json"
+  ],
+  "excludes": [],
+  "use_ignore_files": true,
+  "push_roots": []
+}

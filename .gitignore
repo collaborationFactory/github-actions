@@ -1,3 +1,10 @@
 .idea
 **/node_modules
 /githubCommentsForPR.txt
+
+
+# claude ai
+.venv
+.claudeignore
+.claudesync/*.project_id.json
+.claudesync/active_project.json
