@@ -314,7 +314,6 @@ export class Utils {
     }
   }
 
-
   public static parseScopeFromPackageJson(): string {
     const gitRootDir = Utils.getRootDir();
     const pathToRootPackageJson = path.join(gitRootDir, NxProject.PACKAGEJSON);
