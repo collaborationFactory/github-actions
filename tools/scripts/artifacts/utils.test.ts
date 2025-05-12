@@ -157,8 +157,18 @@ test('can get all versions of a npm package', async () => {
   expect(snapshots).toHaveLength(3);
 });
 
-test('can create comments for github actions', () => {
+test('can create comments for github actions with CET/CEST timestamp', () => {
   jest.spyOn(Utils, 'getRootDir').mockReturnValue(rootDir);
+
+  const fixedDate = new Date('2024-05-10T14:30:00Z'); // UTC
+  const RealDate = Date;
+  global.Date = class extends RealDate {
+    constructor() {
+      super();
+      return fixedDate;
+    }
+  } as unknown as DateConstructor;
+
   const gitHubCommentsFile = Utils.GITHUB_COMMENTS_FILE;
   if (fs.existsSync(gitHubCommentsFile)) fs.rmSync(gitHubCommentsFile);
   Utils.initGithubActionsFile();
@@ -171,11 +181,17 @@ test('can create comments for github actions', () => {
   let comments = '';
   if (fs.existsSync(gitHubCommentsFile))
     comments = fs.readFileSync(gitHubCommentsFile).toString();
+
+  const expectedDate = fixedDate.toLocaleDateString('en-GB', { timeZone: 'Europe/Berlin' });
+  const expectedTime = fixedDate.toLocaleTimeString('en-GB', { timeZone: 'Europe/Berlin' });
+
   expect(comments).toBe(
-    ':tada: Snapshots of the following projects have been published: \n' +
-      '@cplace-next/cf-platform@0.0.0-feat-PFM-ISSUE-10014-Notify-the-developer-about-th-488\n' +
-      '@cplace-next/cf-platform@0.0.0-SNAPSHOT-l484devc-20220610\n'
+    `:tada: Snapshots of the following projects have been published:
+                        Last updated: ${expectedDate} ${expectedTime} (CET/CEST) \n` +
+    `@cplace-next/cf-platform@0.0.0-feat-PFM-ISSUE-10014-Notify-the-developer-about-th-488\n` +
+    `@cplace-next/cf-platform@0.0.0-SNAPSHOT-l484devc-20220610\n`
   );
+  global.Date = RealDate;
 });
 
 test('parseScopeFromPackageJson can parse scope from packageJson', () => {
