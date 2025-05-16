@@ -287,6 +287,14 @@ export class Utils {
 
   public static writePublishedProjectToGithubCommentsFile(message: string) {
     const gitHubCommentsFile = Utils.getGitHubCommentsFile();
+    const currentDate = new Date();
+    const dateString = currentDate.toLocaleDateString("en-GB", {
+      timeZone: "Europe/Berlin",
+    });
+    const timeString = currentDate.toLocaleTimeString("en-GB", {
+      timeZone: "Europe/Berlin",
+    });
+
     if (!fs.existsSync(gitHubCommentsFile)) {
       fs.writeFileSync(gitHubCommentsFile, `${message}\n`);
     } else {
@@ -299,7 +307,7 @@ export class Utils {
         fs.writeFileSync(
           gitHubCommentsFile,
           `:tada: Snapshots of the following projects have been published:
-                        Last updated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()} \n`
+                        Last updated: ${dateString} ${timeString} (CET/CEST) \n`
         );
       }
       fs.appendFileSync(gitHubCommentsFile, `${message}\n`);
