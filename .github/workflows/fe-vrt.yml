@@ -1,0 +1,47 @@
+name: Frontend Visual Regression Testing Workflow
+
+on:
+  workflow_call:
+    secrets:
+      PERCY_TOKEN:
+        required: false
+    inputs:
+      GHA_REF:
+        type: string
+        required: true
+      GHA_BASE:
+        type: string
+        required: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      matrix:
+        target: ['e2e']
+        jobIndex: [1, 2, 3, 4]
+    env:
+      jobCount: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.GHA_REF }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18.19.1
+      - name: Cache Node Modules
+        id: npm-cache
+        uses: actions/cache@v4
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install modules
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Helles UI Visual Regression Testing
+        run: npx nx run helles-ui:vrt
