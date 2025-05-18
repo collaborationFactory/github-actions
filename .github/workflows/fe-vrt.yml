@@ -14,19 +14,17 @@ on:
         required: true
 
 jobs:
-  e2e:
+  vrt:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
-    strategy:
-      matrix:
-        target: ['e2e']
-        jobIndex: [1, 2, 3, 4]
-    env:
-      jobCount: 4
     steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.9.1
+        with:
+          access_token: ${{ github.token }}
+
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.GHA_REF }}
+          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
       - uses: actions/setup-node@v3
@@ -38,6 +36,11 @@ jobs:
         with:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Use .npmrc
+        uses: bduff9/use-npmrc@v1.1
+        with:
+          dot-npmrc: ${{ secrets.DOT_NPMRC }}
 
       - name: Install modules
         if: steps.npm-cache.outputs.cache-hit != 'true'
