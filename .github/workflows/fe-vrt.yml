@@ -51,3 +51,12 @@ jobs:
 
       - name: Helles UI Visual Regression Testing
         run: npx nx run helles-ui:vrt
+
+      - name: Upload VRT Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-ubuntu-vrt-reports
+          path: |
+            libs/helles-ui/backstop_data/ci_report/
+            libs/helles-ui/backstop_data/html_report/
+          retention-days: 3
