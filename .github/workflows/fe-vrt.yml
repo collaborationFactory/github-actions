@@ -46,5 +46,8 @@ jobs:
         if: steps.npm-cache.outputs.cache-hit != 'true'
         run: npm ci
 
+      - name: Install chrome
+        run: npx puppeteer browsers install chrome
+
       - name: Helles UI Visual Regression Testing
         run: npx nx run helles-ui:vrt
