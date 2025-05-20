@@ -6,9 +6,14 @@
     ".github",
     "jest.config.ts",
     "package.json",
-    "tsconfig.json"
+    "tsconfig.json",
+    ".claudesync"
   ],
   "excludes": [],
   "use_ignore_files": true,
-  "push_roots": []
+  "push_roots": [
+    "tools",
+    ".github",
+    ".claudesync"
+  ]
 }
