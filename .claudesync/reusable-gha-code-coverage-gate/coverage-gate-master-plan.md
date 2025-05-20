@@ -103,13 +103,13 @@ function evaluateCoverage(projects: string[], thresholds: any): boolean {
   if (!process.env.COVERAGE_THRESHOLDS) {
     return true; // No thresholds defined, pass by default
   }
-
+  
   let allProjectsPassed = true;
   const coverageResults = [];
-
+  
   for (const project of projects) {
     const projectThresholds = getProjectThresholds(project, thresholds);
-
+    
     // Skip projects with null thresholds
     if (projectThresholds === null) {
       core.info(`Coverage evaluation skipped for ${project}`);
@@ -121,9 +121,9 @@ function evaluateCoverage(projects: string[], thresholds: any): boolean {
       });
       continue;
     }
-
+    
     const coveragePath = path.resolve(process.cwd(), `coverage/${project}/coverage-summary.json`);
-
+    
     if (!fs.existsSync(coveragePath)) {
       core.warning(`No coverage report found for ${project} at ${coveragePath}`);
       coverageResults.push({
@@ -135,20 +135,20 @@ function evaluateCoverage(projects: string[], thresholds: any): boolean {
       allProjectsPassed = false;
       continue;
     }
-
+    
     const coverageData = JSON.parse(fs.readFileSync(coveragePath, 'utf8'));
     const summary = coverageData.total; // Use the summary from Jest coverage report
-
-    const projectPassed =
+    
+    const projectPassed = 
       summary.lines.pct >= projectThresholds.lines &&
       summary.statements.pct >= projectThresholds.statements &&
       summary.functions.pct >= projectThresholds.functions &&
       summary.branches.pct >= projectThresholds.branches;
-
+    
     if (!projectPassed) {
       allProjectsPassed = false;
     }
-
+    
     coverageResults.push({
       project,
       thresholds: projectThresholds,
@@ -161,15 +161,15 @@ function evaluateCoverage(projects: string[], thresholds: any): boolean {
       status: projectPassed ? 'PASSED' : 'FAILED'
     });
   }
-
+  
   // Post results to PR comment
   postCoverageComment(coverageResults);
-
+  
   return allProjectsPassed;
 }
 ```
 
-#### 2.3 Generate Coverage Reports and PR Comment
+#### 2.3 Generate PR Comment with Tabular Results
 
 ```typescript
 function formatCoverageComment(results: any[], artifactUrl: string): string {
@@ -304,15 +304,7 @@ The PR comment will look like this:
 | | branches | 70% | 72.40% | ✅ PASSED |
 
 ### Overall Status: ❌ FAILED
-
-📊 [View Detailed HTML Coverage Reports](https://github.com/collaborationFactory/cplace-frontend/actions/runs/12345678)
 ```
-
-The comment includes:
-1. A tabular view of all projects with their thresholds and actual coverage metrics
-2. Statuses (PASSED, FAILED, SKIPPED) for each metric and project
-3. An overall status summary
-4. A link to the detailed HTML coverage reports uploaded as GitHub artifacts
 
 ## 4. Implementation Steps
 
@@ -322,19 +314,7 @@ The comment includes:
   - Add coverage report generation
   - Modify test command to generate HTML and JUnit reports
 
-2. Update the Jest configuration to output multiple formats:
-   ```javascript
-   // In jest.config.js or similar
-   module.exports = {
-     // Other configuration...
-     coverageReporters: ['json', 'lcov', 'text', 'clover', 'html', 'junit'],
-     reporters: ['default', 'jest-junit'],
-     // Make sure HTML reports go to a consistent location
-     coverageDirectory: 'coverage'
-   };
-   ```
-
-3. Update the GitHub workflow file to:
+2. Update the GitHub workflow file to:
   - Pass the COVERAGE_THRESHOLDS secret as an environment variable to the run-many.ts script
   - Add steps to upload coverage reports as artifacts
   - Add a step to post the coverage report as a PR comment using thollander/actions-comment-pull-request@v3
@@ -362,6 +342,8 @@ The comment includes:
        comment_tag: 'coverage-report'
        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
    ```
+
+3. Update the Jest configuration if needed to ensure coverage reports are generated in the expected format and location.
 
 ## 5. Testing Approach
 
