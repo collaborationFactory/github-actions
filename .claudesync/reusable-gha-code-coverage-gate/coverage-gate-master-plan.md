@@ -66,7 +66,7 @@ function getCoverageThresholds(): any {
   if (!process.env.COVERAGE_THRESHOLDS) {
     return { global: {}, projects: {} };
   }
-  
+
   try {
     return JSON.parse(process.env.COVERAGE_THRESHOLDS);
   } catch (error) {
@@ -80,17 +80,17 @@ function getProjectThresholds(project: string, thresholds: any): any {
   if (thresholds.projects && thresholds.projects[project] === null) {
     return null;
   }
-  
+
   // If project has specific thresholds, use those
   if (thresholds.projects && thresholds.projects[project]) {
     return thresholds.projects[project];
   }
-  
+
   // Otherwise, use global thresholds if available
   if (thresholds.global) {
     return thresholds.global;
   }
-  
+
   // If no thresholds defined, return null
   return null;
 }
@@ -103,13 +103,13 @@ function evaluateCoverage(projects: string[], thresholds: any): boolean {
   if (!process.env.COVERAGE_THRESHOLDS) {
     return true; // No thresholds defined, pass by default
   }
-  
+
   let allProjectsPassed = true;
   const coverageResults = [];
-  
+
   for (const project of projects) {
     const projectThresholds = getProjectThresholds(project, thresholds);
-    
+
     // Skip projects with null thresholds
     if (projectThresholds === null) {
       core.info(`Coverage evaluation skipped for ${project}`);
@@ -121,9 +121,9 @@ function evaluateCoverage(projects: string[], thresholds: any): boolean {
       });
       continue;
     }
-    
+
     const coveragePath = path.resolve(process.cwd(), `coverage/${project}/coverage-summary.json`);
-    
+
     if (!fs.existsSync(coveragePath)) {
       core.warning(`No coverage report found for ${project} at ${coveragePath}`);
       coverageResults.push({
@@ -135,20 +135,20 @@ function evaluateCoverage(projects: string[], thresholds: any): boolean {
       allProjectsPassed = false;
       continue;
     }
-    
+
     const coverageData = JSON.parse(fs.readFileSync(coveragePath, 'utf8'));
     const summary = coverageData.total; // Use the summary from Jest coverage report
-    
-    const projectPassed = 
+
+    const projectPassed =
       summary.lines.pct >= projectThresholds.lines &&
       summary.statements.pct >= projectThresholds.statements &&
       summary.functions.pct >= projectThresholds.functions &&
       summary.branches.pct >= projectThresholds.branches;
-    
+
     if (!projectPassed) {
       allProjectsPassed = false;
     }
-    
+
     coverageResults.push({
       project,
       thresholds: projectThresholds,
@@ -161,18 +161,18 @@ function evaluateCoverage(projects: string[], thresholds: any): boolean {
       status: projectPassed ? 'PASSED' : 'FAILED'
     });
   }
-  
+
   // Post results to PR comment
   postCoverageComment(coverageResults);
-  
+
   return allProjectsPassed;
 }
 ```
 
-#### 2.3 Generate PR Comment with Tabular Results
+#### 2.3 Generate Coverage Reports and PR Comment
 
 ```typescript
-function formatCoverageComment(results: any[]): string {
+function formatCoverageComment(results: any[], artifactUrl: string): string {
   let comment = '## Test Coverage Results\n\n';
   comment += '| Project | Metric | Threshold | Actual | Status |\n';
   comment += '|---------|--------|-----------|--------|--------|\n';
@@ -201,11 +201,19 @@ function formatCoverageComment(results: any[]): string {
   const overallStatus = results.every(r => r.status !== 'FAILED') ? '✅ PASSED' : '❌ FAILED';
   comment += `\n### Overall Status: ${overallStatus}\n`;
   
+  // Add link to detailed HTML reports
+  if (artifactUrl) {
+    comment += `\n📊 [View Detailed HTML Coverage Reports](${artifactUrl})\n`;
+  }
+  
   return comment;
 }
 
 function postCoverageComment(results: any[]): void {
-  const comment = formatCoverageComment(results);
+  // The actual artifact URL will be provided by GitHub Actions in the workflow
+  const artifactUrl = process.env.COVERAGE_ARTIFACT_URL || '';
+  
+  const comment = formatCoverageComment(results, artifactUrl);
   
   // Write to a file that will be used by thollander/actions-comment-pull-request action
   const gitHubCommentsFile = path.resolve(process.cwd(), 'coverage-report.txt');
@@ -245,7 +253,8 @@ function main() {
   
   // Add coverage flag if enabled and target is test
   if (coverageEnabled && target === 'test') {
-    cmd += ' --coverage';
+    // Add coverage reporters for HTML, JSON, and JUnit output
+    cmd += ' --coverage --coverageReporters=json,lcov,text,clover,html,junit --reporters=default,jest-junit';
   }
 
   if (target.includes('e2e')) {
@@ -295,7 +304,15 @@ The PR comment will look like this:
 | | branches | 70% | 72.40% | ✅ PASSED |
 
 ### Overall Status: ❌ FAILED
+
+📊 [View Detailed HTML Coverage Reports](https://github.com/collaborationFactory/cplace-frontend/actions/runs/12345678)
 ```
+
+The comment includes:
+1. A tabular view of all projects with their thresholds and actual coverage metrics
+2. Statuses (PASSED, FAILED, SKIPPED) for each metric and project
+3. An overall status summary
+4. A link to the detailed HTML coverage reports uploaded as GitHub artifacts
 
 ## 4. Implementation Steps
 
@@ -303,23 +320,48 @@ The PR comment will look like this:
   - Add functions to parse coverage thresholds
   - Implement thresholds evaluation logic
   - Add coverage report generation
+  - Modify test command to generate HTML and JUnit reports
 
-2. Update the GitHub workflow file to:
+2. Update the Jest configuration to output multiple formats:
+   ```javascript
+   // In jest.config.js or similar
+   module.exports = {
+     // Other configuration...
+     coverageReporters: ['json', 'lcov', 'text', 'clover', 'html', 'junit'],
+     reporters: ['default', 'jest-junit'],
+     // Make sure HTML reports go to a consistent location
+     coverageDirectory: 'coverage'
+   };
+   ```
+
+3. Update the GitHub workflow file to:
   - Pass the COVERAGE_THRESHOLDS secret as an environment variable to the run-many.ts script
+  - Add steps to upload coverage reports as artifacts
   - Add a step to post the coverage report as a PR comment using thollander/actions-comment-pull-request@v3
 
    ```yaml
-   # Example step to add to the workflow file
+   # Example steps to add to the workflow file
+   - name: Upload Coverage Reports
+     if: always() && env.COVERAGE_THRESHOLDS != ''
+     uses: actions/upload-artifact@v3
+     with:
+       name: coverage-reports
+       path: coverage/
+       retention-days: 7
+
+   - name: Set Artifact URL
+     if: github.event_name == 'pull_request' && always() && env.COVERAGE_THRESHOLDS != ''
+     run: |
+       echo "COVERAGE_ARTIFACT_URL=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
+
    - name: Comment PR with Coverage Report
-     if: github.event_name == 'pull_request' && always()
+     if: github.event_name == 'pull_request' && always() && env.COVERAGE_THRESHOLDS != ''
      uses: thollander/actions-comment-pull-request@v3
      with:
        message_path: 'coverage-report.txt'
        comment_tag: 'coverage-report'
        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
    ```
-
-3. Update the Jest configuration if needed to ensure coverage reports are generated in the expected format and location.
 
 ## 5. Testing Approach
 
@@ -379,6 +421,19 @@ jobs:
         env:
           COVERAGE_THRESHOLDS: ${{ secrets.COVERAGE_THRESHOLDS }}
       
+      - name: Upload Coverage Reports
+        if: always() && env.COVERAGE_THRESHOLDS != ''
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-reports
+          path: coverage/
+          retention-days: 7
+
+      - name: Set Artifact URL
+        if: github.event_name == 'pull_request' && always() && env.COVERAGE_THRESHOLDS != ''
+        run: |
+          echo "COVERAGE_ARTIFACT_URL=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
+      
       - name: Comment PR with Coverage Report
         if: github.event_name == 'pull_request' && always() && env.COVERAGE_THRESHOLDS != ''
         uses: thollander/actions-comment-pull-request@v3
@@ -388,4 +443,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-The complete implementation will modify the existing `run-many.ts` script to add coverage gate functionality while providing clear feedback via PR comments using the thollander/actions-comment-pull-request action.
+The complete implementation will modify the existing `run-many.ts` script to add coverage gate functionality while providing HTML reports as GitHub artifacts and clear feedback via PR comments using the thollander/actions-comment-pull-request action.
