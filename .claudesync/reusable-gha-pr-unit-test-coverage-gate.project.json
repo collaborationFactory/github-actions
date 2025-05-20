@@ -4,10 +4,11 @@
   "includes": [
     "tools",
     ".github",
+    ".claudesync",
     "jest.config.ts",
     "package.json",
-    "tsconfig.json",
-    ".claudesync"
+    "tsconfig.json"
+
   ],
   "excludes": [],
   "use_ignore_files": true,
