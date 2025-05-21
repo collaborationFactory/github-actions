@@ -2,6 +2,11 @@ name: Frontend Code Quality Workflow
 
 on:
   workflow_call:
+    inputs:
+      ENABLE_COVERAGE_GATE:
+        required: false
+        type: boolean
+        default: false
     secrets:
       COVERAGE_THRESHOLDS:
         required: false
@@ -15,6 +20,7 @@ jobs:
         jobIndex: [ 1, 2, 3, 4 ]
     env:
       jobCount: 4
+      HAS_COVERAGE_THRESHOLDS: ${{ inputs.ENABLE_COVERAGE_GATE }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,7 +44,7 @@ jobs:
         run: npx nx affected --target=lint --parallel --configuration=dev --base=origin/${{ github.event.pull_request.base.ref }}
 
       - name: Unit Tests
-        uses: collaborationFactory/github-actions/.github/actions/run-many@improvement/PFM-TASK-6308-Create-reusable-GHA-for-code-coverage-gate
+        uses: collaborationFactory/github-actions/.github/actions/run-many@master
         with:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}
@@ -49,7 +55,7 @@ jobs:
           COVERAGE_THRESHOLDS: ${{ secrets.COVERAGE_THRESHOLDS }}
 
       - name: Upload Coverage Reports
-        if: always() && matrix.jobIndex == 1 && secrets.COVERAGE_THRESHOLDS != ''
+        if: always() && matrix.jobIndex == 1 && env.HAS_COVERAGE_THRESHOLDS == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-reports
@@ -57,12 +63,12 @@ jobs:
           retention-days: 7
 
       - name: Set Artifact URL
-        if: github.event_name == 'pull_request' && always() && matrix.jobIndex == 1 && secrets.COVERAGE_THRESHOLDS != ''
+        if: github.event_name == 'pull_request' && always() && matrix.jobIndex == 1 && env.HAS_COVERAGE_THRESHOLDS == 'true'
         run: |
           echo "COVERAGE_ARTIFACT_URL=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
 
       - name: Comment PR with Coverage Report
-        if: github.event_name == 'pull_request' && always() && matrix.jobIndex == 1 && secrets.COVERAGE_THRESHOLDS != ''
+        if: github.event_name == 'pull_request' && always() && matrix.jobIndex == 1 && env.HAS_COVERAGE_THRESHOLDS == 'true'
         uses: thollander/actions-comment-pull-request@v3
         with:
           file_path: 'coverage-report.txt'
