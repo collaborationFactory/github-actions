@@ -1,6 +1,10 @@
 name: Frontend Code Quality Workflow
 
-on: workflow_call
+on:
+  workflow_call:
+    secrets:
+      COVERAGE_THRESHOLDS:
+        required: false
 
 jobs:
   code-quality:
@@ -8,7 +12,7 @@ jobs:
     strategy:
       matrix:
         target: [ 'test' ]
-        jobIndex: [ 1, 2, 3,4 ]
+        jobIndex: [ 1, 2, 3, 4 ]
     env:
       jobCount: 4
     steps:
@@ -41,3 +45,26 @@ jobs:
           jobCount: ${{ env.jobCount }}
           base: ${{ github.event.pull_request.base.ref }}
           ref: ${{ github.event.pull_request.head.ref }}
+        env:
+          COVERAGE_THRESHOLDS: ${{ secrets.COVERAGE_THRESHOLDS }}
+
+      - name: Upload Coverage Reports
+        if: always() && matrix.jobIndex == 1 && secrets.COVERAGE_THRESHOLDS != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: coverage/
+          retention-days: 7
+
+      - name: Set Artifact URL
+        if: github.event_name == 'pull_request' && always() && matrix.jobIndex == 1 && secrets.COVERAGE_THRESHOLDS != ''
+        run: |
+          echo "COVERAGE_ARTIFACT_URL=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
+
+      - name: Comment PR with Coverage Report
+        if: github.event_name == 'pull_request' && always() && matrix.jobIndex == 1 && secrets.COVERAGE_THRESHOLDS != ''
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          file_path: 'coverage-report.txt'
+          comment_tag: 'coverage-report'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

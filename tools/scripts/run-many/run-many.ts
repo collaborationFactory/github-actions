@@ -1,6 +1,9 @@
 import { getAffectedProjects } from './affected-projects';
 import { execSync } from 'child_process';
 import * as core from '@actions/core';
+import * as path from 'path';
+import { getCoverageThresholds } from './threshold-handler';
+import { evaluateCoverage } from './coverage-evaluator';
 
 function getE2ECommand(command: string, base: string): string {
   command = command.concat(` -c ci --base=${base} --verbose`);
@@ -11,7 +14,7 @@ function runCommand(command: string): void {
   core.info(`Running > ${command}`);
 
   try {
-    const output = execSync(command, { stdio: 'pipe', maxBuffer: 1024 * 1024 * 1024, encoding: 'utf-8' }); // 10MB
+    const output = execSync(command, { stdio: 'pipe', maxBuffer: 1024 * 1024 * 1024, encoding: 'utf-8' }); // 1GB
     core.info(output.toString())
   } catch (error) {
     if (error.signal === 'SIGTERM') {
@@ -43,10 +46,21 @@ function main() {
 
   core.info(`Inputs:\n target ${target},\n jobIndex: ${jobIndex},\n jobCount ${jobCount},\n base ${base},\n ref ${ref}`)
 
-  const projects = getAffectedProjects(target, jobIndex, jobCount, base, ref);
+  const projectsString = getAffectedProjects(target, jobIndex, jobCount, base, ref);
+  const projects = projectsString ? projectsString.split(',') : [];
 
-  const runManyProjectsCmd = `npx nx run-many --targets=${target} --projects="${projects}"`;
+  // Check if coverage gate is enabled
+  const coverageEnabled = !!process.env.COVERAGE_THRESHOLDS;
+
+  // Modified command construction
+  const runManyProjectsCmd = `npx nx run-many --targets=${target} --projects="${projectsString}"`;
   let cmd = `${runManyProjectsCmd} --parallel=false --prod`;
+
+  // Add coverage flag if enabled and target is test
+  if (coverageEnabled && target === 'test') {
+    // Add coverage reporters for HTML, JSON, and JUnit output
+    cmd += ' --coverage --coverageReporters=json,lcov,text,clover,html,json-summary --reporters=default,jest-junit';
+  }
 
   if (target.includes('e2e')) {
     cmd = getE2ECommand(cmd, base);
@@ -54,6 +68,17 @@ function main() {
 
   if (projects.length > 0) {
     runCommand(cmd);
+
+    // Evaluate coverage if enabled and target is test
+    if (coverageEnabled && target === 'test') {
+      const thresholds = getCoverageThresholds();
+      const passed = evaluateCoverage(projects, thresholds);
+
+      if (!passed) {
+        core.setFailed('One or more projects failed to meet coverage thresholds');
+        process.exit(1);
+      }
+    }
   } else {
     core.info('No affected projects :)');
   }
