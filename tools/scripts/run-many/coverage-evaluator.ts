@@ -27,11 +27,14 @@ interface ProjectCoverageResult {
  */
 export function evaluateCoverage(projects: string[], thresholds: ThresholdConfig): boolean {
   if (!process.env.COVERAGE_THRESHOLDS) {
+    core.info('No coverage thresholds defined, skipping evaluation');
     return true; // No thresholds defined, pass by default
   }
   
   let allProjectsPassed = true;
   const coverageResults: ProjectCoverageResult[] = [];
+  
+  core.info(`Evaluating coverage for ${projects.length} projects`);
   
   for (const project of projects) {
     const projectThresholds = getProjectThresholds(project, thresholds);
@@ -66,14 +69,35 @@ export function evaluateCoverage(projects: string[], thresholds: ThresholdConfig
       const coverageData = JSON.parse(fs.readFileSync(coveragePath, 'utf8'));
       const summary = coverageData.total as CoverageSummary;
       
-      const projectPassed = 
-        (!projectThresholds.lines || summary.lines.pct >= projectThresholds.lines) &&
-        (!projectThresholds.statements || summary.statements.pct >= projectThresholds.statements) &&
-        (!projectThresholds.functions || summary.functions.pct >= projectThresholds.functions) &&
-        (!projectThresholds.branches || summary.branches.pct >= projectThresholds.branches);
+      let projectPassed = true;
+      const failedMetrics: string[] = [];
+      
+      // Check each metric if threshold is defined
+      if (projectThresholds.lines !== undefined && summary.lines.pct < projectThresholds.lines) {
+        projectPassed = false;
+        failedMetrics.push(`lines: ${summary.lines.pct.toFixed(2)}% < ${projectThresholds.lines}%`);
+      }
+      
+      if (projectThresholds.statements !== undefined && summary.statements.pct < projectThresholds.statements) {
+        projectPassed = false;
+        failedMetrics.push(`statements: ${summary.statements.pct.toFixed(2)}% < ${projectThresholds.statements}%`);
+      }
+      
+      if (projectThresholds.functions !== undefined && summary.functions.pct < projectThresholds.functions) {
+        projectPassed = false;
+        failedMetrics.push(`functions: ${summary.functions.pct.toFixed(2)}% < ${projectThresholds.functions}%`);
+      }
+      
+      if (projectThresholds.branches !== undefined && summary.branches.pct < projectThresholds.branches) {
+        projectPassed = false;
+        failedMetrics.push(`branches: ${summary.branches.pct.toFixed(2)}% < ${projectThresholds.branches}%`);
+      }
       
       if (!projectPassed) {
+        core.error(`Project ${project} failed coverage thresholds: ${failedMetrics.join(', ')}`);
         allProjectsPassed = false;
+      } else {
+        core.info(`Project ${project} passed all coverage thresholds`);
       }
       
       coverageResults.push({

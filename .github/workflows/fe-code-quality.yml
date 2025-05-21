@@ -2,11 +2,6 @@ name: Frontend Code Quality Workflow
 
 on:
   workflow_call:
-    inputs:
-      ENABLE_COVERAGE_GATE:
-        required: false
-        type: boolean
-        default: false
     secrets:
       COVERAGE_THRESHOLDS:
         required: false
@@ -20,7 +15,6 @@ jobs:
         jobIndex: [ 1, 2, 3, 4 ]
     env:
       jobCount: 4
-      HAS_COVERAGE_THRESHOLDS: ${{ inputs.ENABLE_COVERAGE_GATE }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -30,6 +24,7 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: 18.19.1
+
       - name: Cache Node Modules
         id: npm-cache
         uses: actions/cache@v4
@@ -55,7 +50,7 @@ jobs:
           COVERAGE_THRESHOLDS: ${{ secrets.COVERAGE_THRESHOLDS }}
 
       - name: Upload Coverage Reports
-        if: always() && matrix.jobIndex == 1 && env.HAS_COVERAGE_THRESHOLDS == 'true'
+        if: always() && matrix.jobIndex == 1 && secrets.COVERAGE_THRESHOLDS != ''
         uses: actions/upload-artifact@v4
         with:
           name: coverage-reports
@@ -63,12 +58,12 @@ jobs:
           retention-days: 7
 
       - name: Set Artifact URL
-        if: github.event_name == 'pull_request' && always() && matrix.jobIndex == 1 && env.HAS_COVERAGE_THRESHOLDS == 'true'
+        if: github.event_name == 'pull_request' && always() && matrix.jobIndex == 1 && secrets.COVERAGE_THRESHOLDS != ''
         run: |
           echo "COVERAGE_ARTIFACT_URL=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
 
       - name: Comment PR with Coverage Report
-        if: github.event_name == 'pull_request' && always() && matrix.jobIndex == 1 && env.HAS_COVERAGE_THRESHOLDS == 'true'
+        if: github.event_name == 'pull_request' && always() && matrix.jobIndex == 1 && secrets.COVERAGE_THRESHOLDS != ''
         uses: thollander/actions-comment-pull-request@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -50,7 +50,11 @@ function main() {
   const projects = projectsString ? projectsString.split(',') : [];
 
   // Check if coverage gate is enabled
-  const coverageEnabled = process.env.ENABLE_COVERAGE_GATE;
+  const coverageEnabled = !!process.env.COVERAGE_THRESHOLDS;
+
+  if (coverageEnabled && target === 'test') {
+    core.info('Coverage gate is enabled');
+  }
 
   // Modified command construction
   const runManyProjectsCmd = `npx nx run-many --targets=${target} --projects="${projectsString}"`;
@@ -72,6 +76,11 @@ function main() {
     // Evaluate coverage if enabled and target is test
     if (coverageEnabled && target === 'test') {
       const thresholds = getCoverageThresholds();
+
+      // Log the current coverage thresholds for debugging
+      core.info('Coverage threshold configuration:');
+      core.info(JSON.stringify(thresholds, null, 2));
+
       const passed = evaluateCoverage(projects, thresholds);
 
       if (!passed) {
