@@ -38,7 +38,7 @@ jobs:
         run: npx nx affected --target=lint --parallel --configuration=dev --base=origin/${{ github.event.pull_request.base.ref }}
 
       - name: Unit Tests
-        uses: collaborationFactory/github-actions/.github/actions/run-many@master
+        uses: collaborationFactory/github-actions/.github/actions/run-many@improvement/PFM-TASK-6308-Create-reusable-GHA-for-code-coverage-gate
         with:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}
