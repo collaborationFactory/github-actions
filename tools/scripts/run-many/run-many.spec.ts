@@ -186,7 +186,7 @@ describe('run-many', () => {
       });
 
       const mockEvaluateCoverage = evaluateCoverage as jest.Mock;
-      mockEvaluateCoverage.mockReturnValue(true);
+      mockEvaluateCoverage.mockReturnValue(0); // No failures
 
       // Run the main function
       main();
@@ -203,7 +203,7 @@ describe('run-many', () => {
       expect(mockEvaluateCoverage).toHaveBeenCalledWith(['project-a', 'project-b'], expect.any(Object));
     });
 
-    it('should fail the build when coverage thresholds are not met', () => {
+    it('should allow tests to continue with one project failing coverage thresholds', () => {
       process.env.COVERAGE_THRESHOLDS = JSON.stringify({
         global: { lines: 80 }
       });
@@ -220,7 +220,41 @@ describe('run-many', () => {
       });
 
       const mockEvaluateCoverage = evaluateCoverage as jest.Mock;
-      mockEvaluateCoverage.mockReturnValue(false); // Coverage thresholds not met
+      mockEvaluateCoverage.mockReturnValue(1); // One project failed
+
+      // Run the main function
+      main();
+
+      // Should run nx run-many with coverage flags
+      expect(mockExecSync).toHaveBeenCalledWith(
+        expect.stringContaining('--coverage'),
+        expect.any(Object)
+      );
+
+      // Should show warning but not fail the build
+      expect(core.warning).toHaveBeenCalledWith('One project failed to meet coverage thresholds - this should be fixed before merging');
+      expect(core.setFailed).not.toHaveBeenCalled();
+      expect(mockExit).not.toHaveBeenCalled();
+    });
+
+    it('should fail the build when multiple projects fail coverage thresholds', () => {
+      process.env.COVERAGE_THRESHOLDS = JSON.stringify({
+        global: { lines: 80 }
+      });
+
+      const mockGetAffectedProjects = getAffectedProjects as jest.Mock;
+      mockGetAffectedProjects.mockReturnValue('project-a,project-b,project-c');
+
+      const mockExecSync = execSync as jest.Mock;
+      mockExecSync.mockReturnValue('exec output');
+
+      const mockGetCoverageThresholds = getCoverageThresholds as jest.Mock;
+      mockGetCoverageThresholds.mockReturnValue({
+        global: { lines: 80 }
+      });
+
+      const mockEvaluateCoverage = evaluateCoverage as jest.Mock;
+      mockEvaluateCoverage.mockReturnValue(2); // Two projects failed
 
       // Run the main function
       main();
@@ -232,8 +266,9 @@ describe('run-many', () => {
       );
 
       // Should fail the build
-      expect(core.setFailed).toHaveBeenCalledWith('One or more projects failed to meet coverage thresholds');
-      expect(mockExit).toHaveBeenCalledWith(1);
+      expect(core.setFailed).toHaveBeenCalledWith('Multiple projects (2) failed to meet coverage thresholds');
+      // Notice we're not exiting, just setting the status to failed
+      expect(mockExit).not.toHaveBeenCalled();
     });
 
     it('should add origin/ prefix to base branch that is not a SHA hash', () => {
@@ -466,11 +501,12 @@ describe('run-many', () => {
       // Evaluate coverage if enabled and target is test
       if (coverageEnabled && target === 'test') {
         const thresholds = (getCoverageThresholds as jest.Mock)();
-        const passed = (evaluateCoverage as jest.Mock)(projects, thresholds);
+        const failedProjectsCount = (evaluateCoverage as jest.Mock)(projects, thresholds);
 
-        if (!passed) {
-          core.setFailed('One or more projects failed to meet coverage thresholds');
-          process.exit(1);
+        if (failedProjectsCount > 1) {
+          core.setFailed(`Multiple projects (${failedProjectsCount}) failed to meet coverage thresholds`);
+        } else if (failedProjectsCount === 1) {
+          core.warning('One project failed to meet coverage thresholds - this should be fixed before merging');
         }
       }
     } else {

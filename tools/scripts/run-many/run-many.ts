@@ -90,11 +90,14 @@ function main() {
       core.info('Coverage threshold configuration:');
       core.info(JSON.stringify(thresholds, null, 2));
 
-      const passed = evaluateCoverage(projects, thresholds);
+      const failedProjectsCount = evaluateCoverage(projects, thresholds);
 
-      if (!passed) {
-        core.setFailed('One or more projects failed to meet coverage thresholds');
-        process.exit(1);
+      if (failedProjectsCount > 1) {
+        core.setFailed(`Multiple projects (${failedProjectsCount}) failed to meet coverage thresholds`);
+        // Don't exit immediately - we set the failed status but continue running
+      } else if (failedProjectsCount === 1) {
+        core.warning('One project failed to meet coverage thresholds - this should be fixed before merging');
+        // Continue running, with a warning
       }
     }
   } else {

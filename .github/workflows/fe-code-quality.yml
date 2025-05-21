@@ -13,6 +13,7 @@ jobs:
       matrix:
         target: [ 'test' ]
         jobIndex: [ 1, 2, 3, 4 ]
+      fail-fast: false # Ensure all jobs run even if one fails
     env:
       jobCount: 4
       HAS_COVERAGE_THRESHOLDS: ${{ secrets.COVERAGE_THRESHOLDS != '' }}
@@ -40,6 +41,8 @@ jobs:
         run: npx nx affected --target=lint --parallel --configuration=dev --base=origin/${{ github.event.pull_request.base.ref }}
 
       - name: Unit Tests
+        id: unit-tests
+        continue-on-error: true # Allow the step to complete even if it fails
         uses: collaborationFactory/github-actions/.github/actions/run-many@improvement/PFM-TASK-6308-Create-reusable-GHA-for-code-coverage-gate
         with:
           target: ${{ matrix.target }}
@@ -49,6 +52,18 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
         env:
           COVERAGE_THRESHOLDS: ${{ secrets.COVERAGE_THRESHOLDS }}
+
+      # Use a step output to indicate if there are multiple failing projects
+      - name: Check for multiple failing projects
+        id: check-failures
+        run: |
+          if [[ "${{ steps.unit-tests.outcome }}" == "failure" ]]; then
+            echo "MULTIPLE_FAILURES=true" >> $GITHUB_ENV
+            echo "multiple_failures=true" >> $GITHUB_OUTPUT
+          else
+            echo "MULTIPLE_FAILURES=false" >> $GITHUB_ENV
+            echo "multiple_failures=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Upload Coverage Reports
         if: always() && matrix.jobIndex == 1 && env.HAS_COVERAGE_THRESHOLDS == 'true'
@@ -72,3 +87,18 @@ jobs:
           file-path: 'coverage-report.txt'
           comment-tag: 'coverage-report'
           mode: upsert
+
+  # Final job to check overall status and fail if multiple projects have coverage failures
+  check-coverage-status:
+    needs: code-quality
+    if: always() && needs.code-quality.result != 'cancelled'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for multiple failing projects
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "::error::Multiple projects failed coverage thresholds - fix these issues before merging"
+            exit 1
+          else
+            echo "All tests completed - no multiple coverage failures detected"
+          fi

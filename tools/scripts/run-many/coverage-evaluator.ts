@@ -25,13 +25,13 @@ interface ProjectCoverageResult {
 /**
  * Evaluates coverage for all projects against their thresholds
  */
-export function evaluateCoverage(projects: string[], thresholds: ThresholdConfig): boolean {
+export function evaluateCoverage(projects: string[], thresholds: ThresholdConfig): number {
   if (!process.env.COVERAGE_THRESHOLDS) {
     core.info('No coverage thresholds defined, skipping evaluation');
-    return true; // No thresholds defined, pass by default
+    return 0; // No thresholds defined, 0 failures
   }
 
-  let allProjectsPassed = true;
+  let failedProjectsCount = 0;
   const coverageResults: ProjectCoverageResult[] = [];
 
   core.info(`Evaluating coverage for ${projects.length} projects`);
@@ -61,7 +61,7 @@ export function evaluateCoverage(projects: string[], thresholds: ThresholdConfig
         actual: null,
         status: 'FAILED' // Mark as failed if no coverage report is found
       });
-      allProjectsPassed = false;
+      failedProjectsCount++;
       continue;
     }
 
@@ -95,7 +95,7 @@ export function evaluateCoverage(projects: string[], thresholds: ThresholdConfig
 
       if (!projectPassed) {
         core.error(`Project ${project} failed coverage thresholds: ${failedMetrics.join(', ')}`);
-        allProjectsPassed = false;
+        failedProjectsCount++;
       } else {
         core.info(`Project ${project} passed all coverage thresholds`);
       }
@@ -119,20 +119,20 @@ export function evaluateCoverage(projects: string[], thresholds: ThresholdConfig
         actual: null,
         status: 'FAILED'
       });
-      allProjectsPassed = false;
+      failedProjectsCount++;
     }
   }
 
   // Post results to PR comment
-  postCoverageComment(coverageResults);
+  postCoverageComment(coverageResults, failedProjectsCount);
 
-  return allProjectsPassed;
+  return failedProjectsCount;
 }
 
 /**
  * Formats the coverage results into a markdown table
  */
-function formatCoverageComment(results: ProjectCoverageResult[], artifactUrl: string): string {
+function formatCoverageComment(results: ProjectCoverageResult[], artifactUrl: string, failedProjectsCount: number): string {
   let comment = '## Test Coverage Results\n\n';
 
   if (results.length === 0) {
@@ -166,9 +166,17 @@ function formatCoverageComment(results: ProjectCoverageResult[], artifactUrl: st
     }
   });
 
-  // Add overall status
-  const overallStatus = results.every(r => r.status !== 'FAILED') ? '✅ PASSED' : '❌ FAILED';
+  // Add overall status with failed project count
+  const overallStatus = failedProjectsCount === 0 ? '✅ PASSED' :
+    failedProjectsCount === 1 ? '⚠️ WARNING (1 project failing)' :
+      `❌ FAILED (${failedProjectsCount} projects failing)`;
   comment += `\n### Overall Status: ${overallStatus}\n`;
+
+  if (failedProjectsCount === 1) {
+    comment += '\n> Note: The build will continue, but this project should be fixed before merging.\n';
+  } else if (failedProjectsCount > 1) {
+    comment += '\n> Note: Multiple projects fail coverage thresholds. This PR will be blocked until fixed.\n';
+  }
 
   // Add link to detailed HTML reports
   if (artifactUrl) {
@@ -181,11 +189,11 @@ function formatCoverageComment(results: ProjectCoverageResult[], artifactUrl: st
 /**
  * Writes the coverage results to a file for PR comment
  */
-function postCoverageComment(results: ProjectCoverageResult[]): void {
+function postCoverageComment(results: ProjectCoverageResult[], failedProjectsCount: number): void {
   // The actual artifact URL will be provided by GitHub Actions in the workflow
   const artifactUrl = process.env.COVERAGE_ARTIFACT_URL || '';
 
-  const comment = formatCoverageComment(results, artifactUrl);
+  const comment = formatCoverageComment(results, artifactUrl, failedProjectsCount);
 
   // Write to a file that will be used by thollander/actions-comment-pull-request action
   const gitHubCommentsFile = path.resolve(process.cwd(), 'coverage-report.txt');
