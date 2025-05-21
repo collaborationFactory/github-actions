@@ -24,12 +24,12 @@ export function getCoverageThresholds(): ThresholdConfig {
   try {
     const thresholdConfig = JSON.parse(process.env.COVERAGE_THRESHOLDS);
     core.info(`Successfully parsed coverage thresholds`);
-    
+
     // Validate structure
     if (!thresholdConfig.global) {
       core.warning('No global thresholds defined in configuration');
     }
-    
+
     return thresholdConfig;
   } catch (error) {
     core.error(`Error parsing COVERAGE_THRESHOLDS: ${error.message}`);
