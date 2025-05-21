@@ -70,7 +70,9 @@ jobs:
       - name: Comment PR with Coverage Report
         if: github.event_name == 'pull_request' && always() && matrix.jobIndex == 1 && env.HAS_COVERAGE_THRESHOLDS == 'true'
         uses: thollander/actions-comment-pull-request@v3
-        with:
-          file_path: 'coverage-report.txt'
-          comment_tag: 'coverage-report'
+        env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          file-path: 'coverage-report.txt'
+          comment-tag: 'coverage-report'
+          mode: upsert

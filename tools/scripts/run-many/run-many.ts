@@ -50,7 +50,7 @@ function main() {
   const projects = projectsString ? projectsString.split(',') : [];
 
   // Check if coverage gate is enabled
-  const coverageEnabled = !!process.env.COVERAGE_THRESHOLDS;
+  const coverageEnabled = process.env.ENABLE_COVERAGE_GATE;
 
   // Modified command construction
   const runManyProjectsCmd = `npx nx run-many --targets=${target} --projects="${projectsString}"`;
