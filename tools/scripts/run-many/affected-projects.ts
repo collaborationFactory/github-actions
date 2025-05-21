@@ -21,7 +21,7 @@ export function getAffectedProjects(
   jobCount: number,
   base: string,
   ref: string
-) {
+): string {
   let allAffectedProjects = [];
   if (target === 'e2e' && ref === '') {
     allAffectedProjects = Utils.getAllProjects(false, null, target);
@@ -32,5 +32,17 @@ export function getAffectedProjects(
   const projects = distributeProjectsEvenly(allAffectedProjects, jobCount);
   console.log(`Affected Projects:`);
   console.table(projects);
+
+  // Handle case when no projects are assigned to this job index
+  if (jobIndex - 1 >= projects.length || !projects[jobIndex - 1] || projects[jobIndex - 1].length === 0) {
+    return '';
+  }
+
   return projects[jobIndex - 1].join(',');
+}
+
+// Check if there are any affected projects
+export function hasAffectedProjects(base: string, target?: string): boolean {
+  const projects = Utils.getAllProjects(true, base, target);
+  return projects.length > 0;
 }

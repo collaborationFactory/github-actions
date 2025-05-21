@@ -8,3 +8,6 @@
 .claudeignore
 .claudesync/*.project_id.json
 .claudesync/active_project.json
+
+#claudesync
+.github
