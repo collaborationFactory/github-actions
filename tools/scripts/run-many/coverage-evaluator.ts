@@ -147,7 +147,27 @@ function formatCoverageComment(results: ProjectCoverageResult[], artifactUrl: st
     if (result.status === 'SKIPPED') {
       comment += `| ${result.project} | All | N/A | N/A | ⏩ SKIPPED |\n`;
     } else if (result.actual === null) {
-      comment += `| ${result.project} | All | Defined | No Data | ❌ FAILED |\n`;
+      // Show individual thresholds even when coverage data is missing
+      const metrics = ['lines', 'statements', 'functions', 'branches'];
+      let hasAnyThreshold = false;
+
+      metrics.forEach((metric, index) => {
+        // Skip metrics that don't have a threshold
+        if (!result.thresholds[metric]) return;
+
+        hasAnyThreshold = true;
+        const threshold = result.thresholds[metric];
+
+        // Only include project name in the first row for this project
+        const projectCell = index === 0 ? result.project : '';
+
+        comment += `| ${projectCell} | ${metric} | ${threshold}% | No Data | ❌ FAILED |\n`;
+      });
+
+      // Fallback if no specific thresholds are defined
+      if (!hasAnyThreshold) {
+        comment += `| ${result.project} | All | Defined | No Data | ❌ FAILED |\n`;
+      }
     } else {
       const metrics = ['lines', 'statements', 'functions', 'branches'];
       metrics.forEach((metric, index) => {

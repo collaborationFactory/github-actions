@@ -66,7 +66,7 @@ describe('coverage-evaluator', () => {
 
     it('should count as one failure when coverage report is missing', () => {
       const mockGetProjectThresholds = getProjectThresholds as jest.Mock;
-      mockGetProjectThresholds.mockReturnValue({ lines: 80 });
+      mockGetProjectThresholds.mockReturnValue({ lines: 80, statements: 75 });
 
       const mockExistsSync = fs.existsSync as jest.Mock;
       mockExistsSync.mockReturnValue(false);
@@ -76,11 +76,11 @@ describe('coverage-evaluator', () => {
       expect(result).toBe(1);
       expect(core.warning).toHaveBeenCalledWith('No coverage report found for project-a at coverage/project-a/coverage-summary.json');
 
-      // Verify that the comment indicates the project failed due to missing report
+      // Verify that the comment shows individual thresholds with "No Data"
       const writeFileSyncMock = fs.writeFileSync as jest.Mock;
       const comment = writeFileSyncMock.mock.calls[0][1];
-      expect(comment).toContain('❌ FAILED');
-      expect(comment).toContain('No Data');
+      expect(comment).toContain('| project-a | lines | 80% | No Data | ❌ FAILED |');
+      expect(comment).toContain('|  | statements | 75% | No Data | ❌ FAILED |');
       expect(comment).toContain('⚠️ WARNING (1 project failing)');
     });
 
@@ -181,11 +181,13 @@ describe('coverage-evaluator', () => {
       expect(result).toBe(1);
       expect(core.error).toHaveBeenCalledWith('Error processing coverage for project-a: Test error');
 
-      // Verify that the comment shows an error status
+      // Verify that the comment shows individual thresholds with "No Data"
       const writeFileSyncMock = fs.writeFileSync as jest.Mock;
       const comment = writeFileSyncMock.mock.calls[0][1];
-      expect(comment).toContain('❌ FAILED');
-      expect(comment).toContain('No Data');
+      expect(comment).toContain('| project-a | lines | 80% | No Data | ❌ FAILED |');
+      expect(comment).toContain('|  | statements | 80% | No Data | ❌ FAILED |');
+      expect(comment).toContain('|  | functions | 75% | No Data | ❌ FAILED |');
+      expect(comment).toContain('|  | branches | 70% | No Data | ❌ FAILED |');
       expect(comment).toContain('### Overall Status: ⚠️ WARNING (1 project failing)');
     });
 
@@ -328,7 +330,10 @@ describe('coverage-evaluator', () => {
       expect(comment).toContain('| project-c | lines | 70% | 65.00% | ❌ FAILED |');
 
       // Project D has no coverage data
-      expect(comment).toContain('| project-d | All | Defined | No Data | ❌ FAILED |');
+      expect(comment).toContain('| project-d | lines | 90% | No Data | ❌ FAILED |');
+      expect(comment).toContain('|  | statements | 90% | No Data | ❌ FAILED |');
+      expect(comment).toContain('|  | functions | 90% | No Data | ❌ FAILED |');
+      expect(comment).toContain('|  | branches | 90% | No Data | ❌ FAILED |');
 
       // Overall status is failed with multiple projects
       expect(comment).toContain('### Overall Status: ❌ FAILED (2 projects failing)');
