@@ -441,4 +441,48 @@ describe('coverage-evaluator', () => {
       expect(core.info).toHaveBeenCalledWith('Empty coverage report generated (no affected projects)');
     });
   });
+
+  describe('generateTestFailureReport', () => {
+    it('should generate a test failure report with project names', () => {
+      const { generateTestFailureReport } = require('./coverage-evaluator');
+
+      generateTestFailureReport(['project-a', 'project-b']);
+
+      const writeFileCalls = (fs.writeFileSync as jest.Mock).mock.calls;
+      expect(writeFileCalls.length).toBeGreaterThan(0);
+
+      const coverageReportCall = writeFileCalls.find(call => call[0].includes('coverage-report.txt'));
+      expect(coverageReportCall).toBeDefined();
+
+      const [filePath, content] = coverageReportCall;
+      expect(filePath).toContain('coverage-report.txt');
+      expect(content).toContain('## Test Coverage Results');
+      expect(content).toContain('Tests failed to execute');
+      expect(content).toContain('project-a, project-b');
+      expect(content).toContain('Overall Status: ❌ FAILED (Test execution failed)');
+
+      expect(core.info).toHaveBeenCalledWith('Test failure report generated for PR comment');
+    });
+
+    it('should generate a test failure report with no specific projects', () => {
+      const { generateTestFailureReport } = require('./coverage-evaluator');
+
+      generateTestFailureReport([]);
+
+      const writeFileCalls = (fs.writeFileSync as jest.Mock).mock.calls;
+      expect(writeFileCalls.length).toBeGreaterThan(0);
+
+      const coverageReportCall = writeFileCalls.find(call => call[0].includes('coverage-report.txt'));
+      expect(coverageReportCall).toBeDefined();
+
+      const [filePath, content] = coverageReportCall;
+      expect(filePath).toContain('coverage-report.txt');
+      expect(content).toContain('## Test Coverage Results');
+      expect(content).toContain('Tests failed to execute');
+      expect(content).toContain('affected projects');
+      expect(content).toContain('Overall Status: ❌ FAILED (Test execution failed)');
+
+      expect(core.info).toHaveBeenCalledWith('Test failure report generated for PR comment');
+    });
+  });
 });

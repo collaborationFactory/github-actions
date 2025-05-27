@@ -40,6 +40,15 @@ jobs:
       - name: Linter
         run: npx nx affected --target=lint --parallel --configuration=dev --base=origin/${{ github.event.pull_request.base.ref }}
 
+      # Ensure coverage-report.txt exists before running tests (for job 1 only)
+      - name: Initialize Coverage Report
+        if: matrix.jobIndex == 1 && env.HAS_COVERAGE_THRESHOLDS == 'true'
+        run: |
+          mkdir -p coverage
+          echo "## Test Coverage Results" > coverage-report.txt
+          echo "" >> coverage-report.txt
+          echo "⏳ Coverage evaluation is in progress..." >> coverage-report.txt
+
       - name: Unit Tests
         id: unit-tests
         continue-on-error: true # Allow the step to complete even if it fails
@@ -63,6 +72,22 @@ jobs:
           else
             echo "MULTIPLE_FAILURES=false" >> $GITHUB_ENV
             echo "multiple_failures=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Ensure coverage-report.txt still exists after tests (fallback)
+      - name: Ensure Coverage Report Exists
+        if: always() && matrix.jobIndex == 1 && env.HAS_COVERAGE_THRESHOLDS == 'true'
+        run: |
+          if [ ! -f coverage-report.txt ]; then
+            echo "## Test Coverage Results" > coverage-report.txt
+            echo "" >> coverage-report.txt
+            if [[ "${{ steps.unit-tests.outcome }}" == "failure" ]]; then
+              echo "❌ **Test execution failed**" >> coverage-report.txt
+              echo "" >> coverage-report.txt
+              echo "> Please check the test logs above for detailed error information." >> coverage-report.txt
+            else
+              echo "⏩ No coverage data available for this change." >> coverage-report.txt
+            fi
           fi
 
       - name: Upload Coverage Reports

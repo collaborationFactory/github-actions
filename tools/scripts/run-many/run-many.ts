@@ -4,19 +4,21 @@ import * as core from '@actions/core';
 import * as fs from 'fs';
 import * as path from 'path';
 import { getCoverageThresholds } from './threshold-handler';
-import { evaluateCoverage, generateEmptyCoverageReport } from './coverage-evaluator';
+import { evaluateCoverage, generateEmptyCoverageReport, generateTestFailureReport, generatePlaceholderCoverageReport } from './coverage-evaluator';
+import { Utils } from '../artifacts/utils';
 
 function getE2ECommand(command: string, base: string): string {
   command = command.concat(` -c ci --base=${base} --verbose`);
   return command;
 }
 
-function runCommand(command: string): void {
+function runCommand(command: string): boolean {
   core.info(`Running > ${command}`);
 
   try {
     const output = execSync(command, { stdio: 'pipe', maxBuffer: 1024 * 1024 * 1024, encoding: 'utf-8' }); // 1GB
     core.info(output.toString())
+    return true; // Command succeeded
   } catch (error) {
     if (error.signal === 'SIGTERM') {
       core.error('Timed out');
@@ -29,6 +31,7 @@ function runCommand(command: string): void {
     core.error(`Error name: ${error.name}`);
     core.error(`Stacktrace:\n${error.stack}`);
     core.setFailed(error);
+    return false; // Command failed
   }
 }
 
@@ -64,6 +67,23 @@ function main() {
   const areAffectedProjects = projects.length > 0;
   const isFirstJob = jobIndex === 1;
 
+  // For the first job with coverage enabled, ensure a coverage report is always created
+  // This handles cases where job 1 has no projects but other jobs do
+  if (coverageEnabled && target === 'test' && isFirstJob && !areAffectedProjects) {
+    // Ensure coverage directory exists for artifact upload
+    ensureDirectoryExists(path.resolve(process.cwd(), 'coverage'));
+
+    // Check if there are any affected projects across all jobs
+    const allAffectedProjects = Utils.getAllProjects(true, base, target);
+    if (allAffectedProjects.length === 0) {
+      // No projects affected at all
+      generateEmptyCoverageReport();
+    } else {
+      // Other jobs will have projects, so create a placeholder that indicates processing
+      generatePlaceholderCoverageReport();
+    }
+  }
+
   // Modified command construction
   const runManyProjectsCmd = `npx nx run-many --targets=${target} --projects="${projectsString}"`;
 
@@ -84,9 +104,9 @@ function main() {
   }
 
   if (areAffectedProjects) {
-    runCommand(cmd);
+    const commandSucceeded = runCommand(cmd);
 
-    // Evaluate coverage if enabled and target is test
+    // Always evaluate coverage or generate report if enabled and target is test
     if (coverageEnabled && target === 'test') {
       const thresholds = getCoverageThresholds();
 
@@ -94,26 +114,41 @@ function main() {
       core.info('Coverage threshold configuration:');
       core.info(JSON.stringify(thresholds, null, 2));
 
-      const failedProjectsCount = evaluateCoverage(projects, thresholds);
+      if (commandSucceeded) {
+        // Command succeeded, evaluate actual coverage
+        const failedProjectsCount = evaluateCoverage(projects, thresholds);
 
-      if (failedProjectsCount > 1) {
-        core.setFailed(`Multiple projects (${failedProjectsCount}) failed to meet coverage thresholds`);
-        // Don't exit immediately - we set the failed status but continue running
-      } else if (failedProjectsCount === 1) {
-        core.warning('One project failed to meet coverage thresholds - this should be fixed before merging');
-        // Continue running, with a warning
+        if (failedProjectsCount > 1) {
+          core.setFailed(`Multiple projects (${failedProjectsCount}) failed to meet coverage thresholds`);
+          // Don't exit immediately - we set the failed status but continue running
+        } else if (failedProjectsCount === 1) {
+          core.warning('One project failed to meet coverage thresholds - this should be fixed before merging');
+          // Continue running, with a warning
+        }
+      } else {
+        // Command failed, generate a failure report for first job only
+        if (isFirstJob) {
+          generateTestFailureReport(projects);
+        }
       }
     }
   } else {
-    core.info('No affected projects :)');
+    core.info('No affected projects in this job');
 
-    // Generate empty coverage report for first job only when coverage is enabled
+    // For the first job, generate an appropriate coverage report when coverage is enabled
     if (coverageEnabled && target === 'test' && isFirstJob) {
       // Ensure coverage directory exists for artifact upload
       ensureDirectoryExists(path.resolve(process.cwd(), 'coverage'));
 
-      // Generate empty report
-      generateEmptyCoverageReport();
+      // Check if there are any affected projects across all jobs
+      const allAffectedProjects = Utils.getAllProjects(true, base, target);
+      if (allAffectedProjects.length === 0) {
+        // No projects affected at all
+        generateEmptyCoverageReport();
+      } else {
+        // Other jobs will handle the projects, let the workflow's fallback handle the report
+        core.info('Other jobs will process affected projects - coverage report will be generated by workflow fallback if needed');
+      }
     }
   }
 }

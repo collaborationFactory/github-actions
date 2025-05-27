@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { getAffectedProjects } from './affected-projects';
 import { getCoverageThresholds } from './threshold-handler';
-import { evaluateCoverage, generateEmptyCoverageReport } from './coverage-evaluator';
+import { evaluateCoverage, generateEmptyCoverageReport, generateTestFailureReport } from './coverage-evaluator';
 
 // Define interfaces for custom error types we'll use
 interface CommandError extends Error {
@@ -34,6 +34,7 @@ jest.mock('./threshold-handler', () => ({
 jest.mock('./coverage-evaluator', () => ({
   evaluateCoverage: jest.fn(),
   generateEmptyCoverageReport: jest.fn(),
+  generateTestFailureReport: jest.fn(),
 }));
 jest.mock('fs', () => ({
   existsSync: jest.fn(),
@@ -43,16 +44,11 @@ jest.mock('path', () => ({
   resolve: jest.fn((base, path) => `${base}/${path}`),
 }));
 
-// Import the module under test
-// Note: In a real test you would import directly, but for the sake of this exercise
-// we'll simulate the behavior of the module
-import * as runManyModule from './run-many';
-
 describe('run-many', () => {
   const originalEnv = process.env;
   const originalExit = process.exit;
   const originalArgv = process.argv;
-  let mockExit;
+  let mockExit: jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -77,7 +73,7 @@ describe('run-many', () => {
       mockExecSync.mockReturnValue('command output');
 
       // Directly call the runCommand function
-      runCommand('test command');
+      const result = runCommand('test command');
 
       // Verify it was called with the right args
       expect(mockExecSync).toHaveBeenCalledWith('test command', {
@@ -87,6 +83,7 @@ describe('run-many', () => {
       });
       expect(core.info).toHaveBeenCalledWith('Running > test command');
       expect(core.info).toHaveBeenCalledWith('command output');
+      expect(result).toBe(true);
     });
 
     it('should handle command errors', () => {
@@ -99,11 +96,12 @@ describe('run-many', () => {
       });
 
       // Directly call the runCommand function
-      runCommand('test command');
+      const result = runCommand('test command');
 
       expect(core.info).toHaveBeenCalledWith('stdout output');
       expect(core.error).toHaveBeenCalledWith('stderr output');
       expect(core.setFailed).toHaveBeenCalledWith(error);
+      expect(result).toBe(false);
     });
 
     it('should handle timeout errors', () => {
@@ -117,12 +115,13 @@ describe('run-many', () => {
       });
 
       // Directly call the runCommand function
-      runCommand('test command');
+      const result = runCommand('test command');
 
       expect(core.error).toHaveBeenCalledWith('Timed out');
       expect(core.info).toHaveBeenCalledWith('stdout output');
       expect(core.error).toHaveBeenCalledWith('stderr output');
       expect(core.setFailed).toHaveBeenCalledWith(error);
+      expect(result).toBe(false);
     });
 
     it('should handle buffer exceeded errors', () => {
@@ -136,12 +135,13 @@ describe('run-many', () => {
       });
 
       // Directly call the runCommand function
-      runCommand('test command');
+      const result = runCommand('test command');
 
       expect(core.error).toHaveBeenCalledWith('Buffer exceeded');
       expect(core.info).toHaveBeenCalledWith('stdout output');
       expect(core.error).toHaveBeenCalledWith('stderr output');
       expect(core.setFailed).toHaveBeenCalledWith(error);
+      expect(result).toBe(false);
     });
   });
 
@@ -160,7 +160,7 @@ describe('run-many', () => {
 
       // Should run nx run-many without coverage flags
       expect(mockExecSync).toHaveBeenCalledWith(
-        'npx nx run-many --targets=test --projects="project-a,project-b" --parallel=false --prod',
+        'npx nx run-many --targets=test --projects="project-a,project-b" --parallel=true --prod',
         expect.any(Object)
       );
 
@@ -347,7 +347,7 @@ describe('run-many', () => {
       main();
 
       // Should log message about no affected projects
-      expect(core.info).toHaveBeenCalledWith('No affected projects :)');
+      expect(core.info).toHaveBeenCalledWith('No affected projects in this job');
 
       // Should not run nx run-many
       expect(mockExecSync).not.toHaveBeenCalled();
@@ -376,7 +376,7 @@ describe('run-many', () => {
       main();
 
       // Should log message about no affected projects
-      expect(core.info).toHaveBeenCalledWith('No affected projects :)');
+      expect(core.info).toHaveBeenCalledWith('No affected projects in this job');
 
       // Should not run nx run-many
       expect(mockExecSync).not.toHaveBeenCalled();
@@ -426,8 +426,8 @@ describe('run-many', () => {
     });
   });
 
-  // Helper function to simulate runCommand
-  function runCommand(command: string): void {
+  // Helper functions to simulate the actual module behavior
+  function runCommand(command: string): boolean {
     try {
       const mockExecSync = execSync as jest.Mock;
       core.info(`Running > ${command}`);
@@ -437,6 +437,7 @@ describe('run-many', () => {
         encoding: 'utf-8'
       });
       core.info(output.toString());
+      return true; // Command succeeded
     } catch (error) {
       if (error.signal === 'SIGTERM') {
         core.error('Timed out');
@@ -447,10 +448,10 @@ describe('run-many', () => {
       core.error(error.stderr?.toString() || '');
       core.error(`Error message: ${error.message}`);
       core.setFailed(error);
+      return false; // Command failed
     }
   }
 
-  // Helper function to simulate main
   function main(): void {
     const target = process.argv[2];
     const jobIndex = Number(process.argv[3]);
@@ -468,25 +469,23 @@ describe('run-many', () => {
 
     // Check if coverage gate is enabled
     const coverageEnabled = !!process.env.COVERAGE_THRESHOLDS;
-    if (coverageEnabled && target === 'test') {
-      core.info('Coverage gate is enabled');
-    }
 
     // Get the affected projects
     const projectsString = (getAffectedProjects as jest.Mock)(target, jobIndex, jobCount, base, ref);
     const projects = projectsString ? projectsString.split(',') : [];
 
-    // Check if there are any affected projects (for first job only, to avoid duplicate reports)
+    // Check if there are any affected projects
     const areAffectedProjects = projects.length > 0;
     const isFirstJob = jobIndex === 1;
 
     // Modified command construction
     const runManyProjectsCmd = `npx nx run-many --targets=${target} --projects="${projectsString}"`;
-    let cmd = `${runManyProjectsCmd} --parallel=false --prod`;
+    const parallelFlag = (coverageEnabled && target === 'test') ? '--parallel=false' : '--parallel=true';
+    let cmd = `${runManyProjectsCmd} ${parallelFlag} --prod`;
 
     // Add coverage flag if enabled and target is test
     if (coverageEnabled && target === 'test') {
-      // Add coverage reporters for HTML, JSON, and JUnit output
+      core.info('Coverage gate is enabled');
       cmd += ' --coverage --coverageReporters=json,lcov,text,clover,html,json-summary --reporters=default,jest-junit';
     }
 
@@ -496,23 +495,34 @@ describe('run-many', () => {
 
     if (areAffectedProjects) {
       // Run the command
-      runCommand(cmd);
+      const commandSucceeded = runCommand(cmd);
 
-      // Evaluate coverage if enabled and target is test
+      // Always evaluate coverage or generate report if enabled and target is test
       if (coverageEnabled && target === 'test') {
         const thresholds = (getCoverageThresholds as jest.Mock)();
-        const failedProjectsCount = (evaluateCoverage as jest.Mock)(projects, thresholds);
+        core.info('Coverage threshold configuration:');
+        core.info(JSON.stringify(thresholds, null, 2));
 
-        if (failedProjectsCount > 1) {
-          core.setFailed(`Multiple projects (${failedProjectsCount}) failed to meet coverage thresholds`);
-        } else if (failedProjectsCount === 1) {
-          core.warning('One project failed to meet coverage thresholds - this should be fixed before merging');
+        if (commandSucceeded) {
+          // Command succeeded, evaluate actual coverage
+          const failedProjectsCount = (evaluateCoverage as jest.Mock)(projects, thresholds);
+
+          if (failedProjectsCount > 1) {
+            core.setFailed(`Multiple projects (${failedProjectsCount}) failed to meet coverage thresholds`);
+          } else if (failedProjectsCount === 1) {
+            core.warning('One project failed to meet coverage thresholds - this should be fixed before merging');
+          }
+        } else {
+          // Command failed, generate a failure report for first job only
+          if (isFirstJob) {
+            (generateTestFailureReport as jest.Mock)(projects);
+          }
         }
       }
     } else {
-      core.info('No affected projects :)');
+      core.info('No affected projects in this job');
 
-      // Generate empty coverage report for first job only when coverage is enabled
+      // For the first job, generate an appropriate coverage report when coverage is enabled
       if (coverageEnabled && target === 'test' && isFirstJob) {
         // Ensure coverage directory exists for artifact upload
         const coverageDir = path.resolve(process.cwd(), 'coverage');

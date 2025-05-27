@@ -432,3 +432,38 @@ export function generateEmptyCoverageReport(): void {
 
   core.info('Empty coverage report generated (no affected projects)');
 }
+
+/**
+ * Generates a placeholder coverage report when job 1 has no projects but other jobs do
+ */
+export function generatePlaceholderCoverageReport(): void {
+  const comment = '## Test Coverage Results\n\n⏳ Coverage evaluation is in progress on other parallel jobs...\n\n' +
+    '> This report will be updated once all test jobs complete.\n';
+
+  const gitHubCommentsFile = path.resolve(process.cwd(), 'coverage-report.txt');
+  fs.writeFileSync(gitHubCommentsFile, comment);
+
+  core.info('Placeholder coverage report generated (projects running in other jobs)');
+}
+
+/**
+ * Generates a coverage report when tests fail to execute
+ */
+export function generateTestFailureReport(projects: string[]): void {
+  const projectsList = projects.length > 0 ? projects.join(', ') : 'affected projects';
+  const comment = `## Test Coverage Results
+
+❌ **Tests failed to execute** for: ${projectsList}
+
+The unit tests failed to run, likely due to compilation errors or configuration issues. Coverage evaluation cannot be performed until the tests can execute successfully.
+
+### Overall Status: ❌ FAILED (Test execution failed)
+
+> Note: Fix the test execution issues before coverage can be evaluated.
+`;
+
+  const gitHubCommentsFile = path.resolve(process.cwd(), 'coverage-report.txt');
+  fs.writeFileSync(gitHubCommentsFile, comment);
+
+  core.info('Test failure report generated for PR comment');
+}
