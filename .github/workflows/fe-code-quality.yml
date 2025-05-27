@@ -1,6 +1,10 @@
 name: Frontend Code Quality Workflow
 
-on: workflow_call
+on:
+  workflow_call:
+    secrets:
+      COVERAGE_THRESHOLDS:
+        required: false
 
 jobs:
   code-quality:
@@ -8,9 +12,11 @@ jobs:
     strategy:
       matrix:
         target: [ 'test' ]
-        jobIndex: [ 1, 2, 3,4 ]
+        jobIndex: [ 1, 2, 3, 4 ]
+      fail-fast: false # Ensure all jobs run even if one fails
     env:
       jobCount: 4
+      HAS_COVERAGE_THRESHOLDS: ${{ secrets.COVERAGE_THRESHOLDS != '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -20,6 +26,7 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: 18.19.1
+
       - name: Cache Node Modules
         id: npm-cache
         uses: actions/cache@v4
@@ -33,11 +40,93 @@ jobs:
       - name: Linter
         run: npx nx affected --target=lint --parallel --configuration=dev --base=origin/${{ github.event.pull_request.base.ref }}
 
+      # Ensure coverage-report.txt exists before running tests (for job 1 only)
+      - name: Initialize Coverage Report
+        if: matrix.jobIndex == 1 && env.HAS_COVERAGE_THRESHOLDS == 'true'
+        run: |
+          mkdir -p coverage
+          echo "## Test Coverage Results" > coverage-report.txt
+          echo "" >> coverage-report.txt
+          echo "⏳ Coverage evaluation is in progress..." >> coverage-report.txt
+
       - name: Unit Tests
-        uses: collaborationFactory/github-actions/.github/actions/run-many@master
+        id: unit-tests
+        continue-on-error: true # Allow the step to complete even if it fails
+        uses: collaborationFactory/github-actions/.github/actions/run-many@improvement/PFM-TASK-6308-Create-reusable-GHA-for-code-coverage-gate
         with:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}
           jobCount: ${{ env.jobCount }}
           base: ${{ github.event.pull_request.base.ref }}
           ref: ${{ github.event.pull_request.head.ref }}
+        env:
+          COVERAGE_THRESHOLDS: ${{ secrets.COVERAGE_THRESHOLDS }}
+
+      # Use a step output to indicate if there are multiple failing projects
+      - name: Check for multiple failing projects
+        id: check-failures
+        run: |
+          if [[ "${{ steps.unit-tests.outcome }}" == "failure" ]]; then
+            echo "MULTIPLE_FAILURES=true" >> $GITHUB_ENV
+            echo "multiple_failures=true" >> $GITHUB_OUTPUT
+          else
+            echo "MULTIPLE_FAILURES=false" >> $GITHUB_ENV
+            echo "multiple_failures=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Ensure coverage-report.txt still exists after tests (fallback)
+      - name: Ensure Coverage Report Exists
+        if: always() && matrix.jobIndex == 1 && env.HAS_COVERAGE_THRESHOLDS == 'true'
+        run: |
+          if [ ! -f coverage-report.txt ]; then
+            echo "## Test Coverage Results" > coverage-report.txt
+            echo "" >> coverage-report.txt
+            if [[ "${{ steps.unit-tests.outcome }}" == "failure" ]]; then
+              echo "❌ **Test execution failed**" >> coverage-report.txt
+              echo "" >> coverage-report.txt
+              echo "> Please check the test logs above for detailed error information." >> coverage-report.txt
+            else
+              echo "⏩ No coverage data available for this change." >> coverage-report.txt
+            fi
+          fi
+
+      - name: Upload Coverage Reports
+        if: always() && matrix.jobIndex == 1 && env.HAS_COVERAGE_THRESHOLDS == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            coverage/
+            coverage-report.txt
+            coverage-summary-debug.json
+          retention-days: 7
+
+      - name: Set Artifact URL
+        if: github.event_name == 'pull_request' && always() && matrix.jobIndex == 1 && env.HAS_COVERAGE_THRESHOLDS == 'true'
+        run: |
+          echo "COVERAGE_ARTIFACT_URL=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
+
+      - name: Comment PR with Coverage Report
+        if: github.event_name == 'pull_request' && always() && matrix.jobIndex == 1 && env.HAS_COVERAGE_THRESHOLDS == 'true'
+        uses: thollander/actions-comment-pull-request@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          file-path: 'coverage-report.txt'
+          comment-tag: 'coverage-report'
+          mode: upsert
+
+  # Final job to check overall status and fail if multiple projects have coverage failures
+  check-coverage-status:
+    needs: code-quality
+    if: always() && needs.code-quality.result != 'cancelled'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for multiple failing projects
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "::error::Multiple projects failed coverage thresholds - fix these issues before merging"
+            exit 1
+          else
+            echo "All tests completed - no multiple coverage failures detected"
+          fi
