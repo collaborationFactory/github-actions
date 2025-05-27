@@ -293,7 +293,10 @@ The PR comment will look like this:
 | | statements | 85% | 86.10% | ✅ PASSED |
 | | functions | 80% | 82.23% | ✅ PASSED |
 | | branches | 75% | 77.18% | ✅ PASSED |
-| cf-components | All | N/A | N/A | ⏩ SKIPPED |
+| cf-components | lines | N/A | N/A | ⏩ SKIPPED |
+| | statements | N/A | N/A | ⏩ SKIPPED |
+| | functions | N/A | N/A | ⏩ SKIPPED |
+| | branches | N/A | N/A | ⏩ SKIPPED |
 | cf-utils | lines | 70% | 65.30% | ❌ FAILED |
 | | statements | 70% | 68.45% | ❌ FAILED |
 | | functions | 65% | 62.60% | ❌ FAILED |
@@ -303,7 +306,11 @@ The PR comment will look like this:
 | | functions | 75% | 78.30% | ✅ PASSED |
 | | branches | 70% | 72.40% | ✅ PASSED |
 
-### Overall Status: ❌ FAILED
+### Overall Status: ❌ FAILED (1 project failing)
+
+> Note: The build will continue, but this project should be fixed before merging.
+
+📊 [View Detailed HTML Coverage Reports](https://github.com/example/repo/actions/runs/12345)
 ```
 
 ## 4. Implementation Steps

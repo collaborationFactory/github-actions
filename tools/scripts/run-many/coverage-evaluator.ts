@@ -310,7 +310,17 @@ function formatCoverageComment(results: ProjectCoverageResult[], artifactUrl: st
 
   results.forEach(result => {
     if (result.status === 'SKIPPED') {
-      comment += `| ${result.project} | All | N/A | N/A | ⏩ SKIPPED |\n`;
+      // Show individual metrics for skipped projects to maintain consistent table format
+      const metrics = ['lines', 'statements', 'functions', 'branches'];
+      let firstRow = true;
+
+      metrics.forEach((metric) => {
+        // Only include project name in the first row for this project
+        const projectCell = firstRow ? result.project : '';
+        firstRow = false;
+
+        comment += `| ${projectCell} | ${metric} | N/A | N/A | ⏩ SKIPPED |\n`;
+      });
     } else if (result.actual === null) {
       // Show individual thresholds when coverage data is missing
       const metrics = ['lines', 'statements', 'functions', 'branches'];

@@ -74,11 +74,22 @@ describe('coverage-evaluator', () => {
       expect(result).toBe(0);
       expect(core.info).toHaveBeenCalledWith('Coverage evaluation skipped for project-a');
 
-      // Should write coverage report with skipped project
+      // Should write coverage report with skipped project showing individual metrics
       expect(fs.writeFileSync).toHaveBeenCalledWith(
         expect.stringContaining('coverage-report.txt'),
         expect.stringContaining('⏩ SKIPPED')
       );
+
+      // Verify that the comment shows individual metrics for skipped project
+      const writeFileCalls = (fs.writeFileSync as jest.Mock).mock.calls;
+      const coverageReportCall = writeFileCalls.find(call => call[0].includes('coverage-report.txt'));
+      expect(coverageReportCall).toBeDefined();
+
+      const comment = coverageReportCall[1];
+      expect(comment).toContain('| project-a | lines | N/A | N/A | ⏩ SKIPPED |');
+      expect(comment).toContain('|  | statements | N/A | N/A | ⏩ SKIPPED |');
+      expect(comment).toContain('|  | functions | N/A | N/A | ⏩ SKIPPED |');
+      expect(comment).toContain('|  | branches | N/A | N/A | ⏩ SKIPPED |');
     });
 
     it('should count as one failure when coverage report is missing', () => {
@@ -402,8 +413,11 @@ describe('coverage-evaluator', () => {
       // Project A passes
       expect(comment).toContain('| project-a | lines | 80% | 85.00% | ✅ PASSED |');
 
-      // Project B is skipped
-      expect(comment).toContain('| project-b | All | N/A | N/A | ⏩ SKIPPED |');
+      // Project B is skipped (now shows individual metrics)
+      expect(comment).toContain('| project-b | lines | N/A | N/A | ⏩ SKIPPED |');
+      expect(comment).toContain('|  | statements | N/A | N/A | ⏩ SKIPPED |');
+      expect(comment).toContain('|  | functions | N/A | N/A | ⏩ SKIPPED |');
+      expect(comment).toContain('|  | branches | N/A | N/A | ⏩ SKIPPED |');
 
       // Project C fails
       expect(comment).toContain('| project-c | lines | 70% | 65.00% | ❌ FAILED |');
