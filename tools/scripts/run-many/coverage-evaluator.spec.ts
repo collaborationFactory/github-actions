@@ -299,19 +299,52 @@ describe('coverage-evaluator', () => {
       expect(comment).not.toContain('|  | branches |');
     });
 
-    it('should treat empty threshold objects as valid thresholds', () => {
+    it('should skip projects with empty threshold objects', () => {
       const mockGetProjectThresholds = getProjectThresholds as jest.Mock;
       // Return an empty object instead of null
       mockGetProjectThresholds.mockReturnValue({});
 
-      // Mock coverage directory and files exist
+      // Mock coverage directory exists but is empty
+      (fs.existsSync as jest.Mock).mockImplementation((filePath) => {
+        return filePath.includes('coverage') && !filePath.includes('coverage-summary.json');
+      });
+
+      const result = evaluateCoverage(['project-a'], { global: {}, projects: {} });
+
+      // Should skip because no specific thresholds were set (empty object)
+      expect(result).toBe(0);
+      expect(core.info).toHaveBeenCalledWith('Coverage evaluation skipped for project-a (no thresholds defined)');
+
+      // Verify that the comment shows skipped status
+      const writeFileCalls = (fs.writeFileSync as jest.Mock).mock.calls;
+      const coverageReportCall = writeFileCalls.find(call => call[0].includes('coverage-report.txt'));
+      expect(coverageReportCall).toBeDefined();
+
+      const comment = coverageReportCall[1];
+      expect(comment).toContain('| project-a | lines | N/A | N/A | ⏩ SKIPPED |');
+      expect(comment).toContain('|  | statements | N/A | N/A | ⏩ SKIPPED |');
+      expect(comment).toContain('|  | functions | N/A | N/A | ⏩ SKIPPED |');
+      expect(comment).toContain('|  | branches | N/A | N/A | ⏩ SKIPPED |');
+    });
+
+    it('should correctly handle mix of skipped, passed, and failed projects', () => {
+      const mockGetProjectThresholds = getProjectThresholds as jest.Mock;
+      mockGetProjectThresholds
+        .mockReturnValueOnce(null) // project-a: explicitly null (skip)
+        .mockReturnValueOnce({}) // project-b: empty thresholds (skip)
+        .mockReturnValueOnce({ lines: 80, statements: 80 }) // project-c: has thresholds
+        .mockReturnValueOnce({ lines: 90, statements: 90 }); // project-d: has thresholds
+
+      // Mock coverage directory and files exist for projects that aren't skipped
       (fs.existsSync as jest.Mock).mockImplementation((filePath) => {
         if (filePath.includes('coverage') && !filePath.includes('coverage-summary.json')) {
           return true; // Coverage directory exists
         }
-        return filePath.includes('coverage-summary.json'); // Coverage file exists
+        // Coverage files exist for project-c only
+        return filePath.includes('project-c') && filePath.includes('coverage-summary.json');
       });
-      (fs.readdirSync as jest.Mock).mockReturnValue(['project-a']);
+
+      (fs.readdirSync as jest.Mock).mockReturnValue(['project-c']);
       (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => true });
 
       const mockReadFileSync = fs.readFileSync as jest.Mock;
@@ -324,11 +357,41 @@ describe('coverage-evaluator', () => {
         }
       }));
 
-      const result = evaluateCoverage(['project-a'], { global: {}, projects: {} });
+      const result = evaluateCoverage(['project-a', 'project-b', 'project-c', 'project-d'], {
+        global: { lines: 80, statements: 80 },
+        projects: {}
+      });
 
-      // Should pass because no specific thresholds were set
-      expect(result).toBe(0);
-      expect(core.info).toHaveBeenCalledWith('Project project-a passed all coverage thresholds');
+      // One project failed (project-d - no coverage data), two were skipped, one passed
+      expect(result).toBe(1);
+
+      // Verify logs
+      expect(core.info).toHaveBeenCalledWith('Coverage evaluation skipped for project-a (null thresholds)');
+      expect(core.info).toHaveBeenCalledWith('Coverage evaluation skipped for project-b (no thresholds defined)');
+      expect(core.info).toHaveBeenCalledWith('Project project-c passed all coverage thresholds');
+      expect(core.warning).toHaveBeenCalledWith('No coverage data found for project-d in any location');
+
+      // Verify that the comment shows correct status for each project
+      const writeFileCalls = (fs.writeFileSync as jest.Mock).mock.calls;
+      const coverageReportCall = writeFileCalls.find(call => call[0].includes('coverage-report.txt'));
+      expect(coverageReportCall).toBeDefined();
+
+      const comment = coverageReportCall[1];
+
+      // project-a: skipped (null)
+      expect(comment).toContain('| project-a | lines | N/A | N/A | ⏩ SKIPPED |');
+
+      // project-b: skipped (empty)
+      expect(comment).toContain('| project-b | lines | N/A | N/A | ⏩ SKIPPED |');
+
+      // project-c: passed
+      expect(comment).toContain('| project-c | lines | 80% | 85.00% | ✅ PASSED |');
+
+      // project-d: failed (no coverage data)
+      expect(comment).toContain('| project-d | lines | 90% | No Data | ❌ FAILED |');
+
+      // Overall status should show 1 project failing (warning level)
+      expect(comment).toContain('### Overall Status: ⚠️ WARNING (1 project failing)');
     });
 
     it('should count multiple failures correctly', () => {

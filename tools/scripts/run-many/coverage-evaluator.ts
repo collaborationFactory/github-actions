@@ -176,6 +176,13 @@ function extractCoverageData(filePath: string, project: string): CoverageSummary
 }
 
 /**
+ * Determines if a project should be skipped based on its thresholds
+ */
+function shouldSkipProject(thresholds: CoverageThreshold | null): boolean {
+  return thresholds === null || (thresholds && Object.keys(thresholds).length === 0);
+}
+
+/**
  * Evaluates coverage for all projects against their thresholds
  */
 export function evaluateCoverage(projects: string[], thresholds: ThresholdConfig): number {
@@ -195,12 +202,13 @@ export function evaluateCoverage(projects: string[], thresholds: ThresholdConfig
   for (const project of projects) {
     const projectThresholds = getProjectThresholds(project, thresholds);
 
-    // Skip projects with null thresholds
-    if (projectThresholds === null) {
-      core.info(`Coverage evaluation skipped for ${project}`);
+    // Skip projects with null thresholds or explicitly empty thresholds
+    if (shouldSkipProject(projectThresholds)) {
+      const reason = projectThresholds === null ? 'null thresholds' : 'no thresholds defined';
+      core.info(`Coverage evaluation skipped for ${project} (${reason})`);
       coverageResults.push({
         project,
-        thresholds: null,
+        thresholds: projectThresholds,
         actual: null,
         status: 'SKIPPED'
       });
@@ -364,11 +372,6 @@ function formatCoverageComment(results: ProjectCoverageResult[], artifactUrl: st
 
         comment += `| ${projectCell} | ${metric} | ${threshold}% | ${actual}% | ${status} |\n`;
       });
-
-      // Handle case where project has actual data but no thresholds defined
-      if (Object.keys(result.thresholds || {}).length === 0) {
-        comment += `| ${result.project} | All | No thresholds | ${result.actual.lines.toFixed(2)}% (lines) | ⏩ SKIPPED |\n`;
-      }
     }
   });
 

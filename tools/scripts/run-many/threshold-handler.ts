@@ -14,6 +14,21 @@ export interface ThresholdConfig {
 
 /**
  * Parses the COVERAGE_THRESHOLDS environment variable
+ *
+ * Configuration format:
+ * {
+ *   "global": { "lines": 80, "statements": 80, "functions": 75, "branches": 70 },
+ *   "projects": {
+ *     "project-a": { "lines": 90 },     // Override global thresholds
+ *     "project-b": null,                // Explicitly skip this project
+ *     "project-c": {}                   // Skip this project (empty thresholds)
+ *   }
+ * }
+ *
+ * Projects are skipped when:
+ * - Explicitly set to null in the projects configuration
+ * - Have empty threshold objects ({})
+ * - No thresholds defined anywhere (no global, no project-specific)
  */
 export function getCoverageThresholds(): ThresholdConfig {
   if (!process.env.COVERAGE_THRESHOLDS) {
