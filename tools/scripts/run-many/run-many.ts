@@ -72,7 +72,7 @@ function main() {
   if (coverageEnabled && target === 'test') {
     core.info('Coverage gate is enabled');
     // Add coverage reporters for HTML, JSON, and JUnit output
-    cmd += ' --coverage --coverageReporters=json,lcov,text,clover,html,json-summary --reporters=default,jest-junit';
+    cmd += ' --coverage --coverageDirectory=./coverage --coverageReporters=json,lcov,text,clover,html,json-summary --reporters=default,jest-junit';
   }
 
   if (target.includes('e2e')) {
