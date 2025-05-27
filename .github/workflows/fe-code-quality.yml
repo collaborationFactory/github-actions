@@ -12,10 +12,10 @@ jobs:
     strategy:
       matrix:
         target: [ 'test' ]
-        jobIndex: [ 1 ]
+        jobIndex: [ 1, 2, 3, 4 ]
       fail-fast: false # Ensure all jobs run even if one fails
     env:
-      jobCount: 1
+      jobCount: 4
       HAS_COVERAGE_THRESHOLDS: ${{ secrets.COVERAGE_THRESHOLDS != '' }}
     steps:
       - uses: actions/checkout@v4
