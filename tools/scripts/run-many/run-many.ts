@@ -66,13 +66,17 @@ function main() {
 
   // Modified command construction
   const runManyProjectsCmd = `npx nx run-many --targets=${target} --projects="${projectsString}"`;
-  let cmd = `${runManyProjectsCmd} --parallel=true --prod`;
+
+  // Disable parallel execution when coverage is enabled to avoid conflicts
+  const parallelFlag = (coverageEnabled && target === 'test') ? '--parallel=false' : '--parallel=true';
+  let cmd = `${runManyProjectsCmd} ${parallelFlag} --prod`;
 
   // Add coverage flag if enabled and target is test
   if (coverageEnabled && target === 'test') {
     core.info('Coverage gate is enabled');
     // Add coverage reporters for HTML, JSON, and JUnit output
-    cmd += ' --coverage --coverageDirectory=./coverage --coverageReporters=json,lcov,text,clover,html,json-summary --reporters=default,jest-junit';
+    // Note: Using individual project coverage directories
+    cmd += ' --coverage --coverageReporters=json,lcov,text,clover,html,json-summary --reporters=default,jest-junit';
   }
 
   if (target.includes('e2e')) {

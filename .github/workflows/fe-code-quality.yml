@@ -70,7 +70,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-reports
-          path: coverage/
+          path: |
+            coverage/
+            coverage-report.txt
+            coverage-summary-debug.json
           retention-days: 7
 
       - name: Set Artifact URL

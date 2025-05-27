@@ -9,9 +9,12 @@ jest.mock('fs', () => ({
   existsSync: jest.fn(),
   readFileSync: jest.fn(),
   writeFileSync: jest.fn(),
+  readdirSync: jest.fn(),
+  statSync: jest.fn(),
 }));
 jest.mock('path', () => ({
-  resolve: jest.fn((_, p) => p),
+  resolve: jest.fn((...args) => args.join('/')),
+  join: jest.fn((...args) => args.join('/')),
 }));
 jest.mock('@actions/core', () => ({
   info: jest.fn(),
@@ -32,6 +35,14 @@ describe('coverage-evaluator', () => {
       global: { lines: 80, statements: 80, functions: 75, branches: 70 },
       projects: {}
     });
+
+    // Setup default mocks for file system operations
+    (fs.existsSync as jest.Mock).mockReturnValue(false);
+    (fs.readdirSync as jest.Mock).mockReturnValue([]);
+    (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => false });
+    (fs.writeFileSync as jest.Mock).mockReturnValue(undefined);
+    (fs.readFileSync as jest.Mock).mockReturnValue('{}');
+    (path.resolve as jest.Mock).mockImplementation((...args) => args.join('/'));
   });
 
   afterEach(() => {
@@ -46,39 +57,51 @@ describe('coverage-evaluator', () => {
 
       expect(result).toBe(0);
       expect(core.info).toHaveBeenCalledWith('No coverage thresholds defined, skipping evaluation');
+      expect(fs.writeFileSync).not.toHaveBeenCalled();
     });
 
     it('should skip projects with null thresholds and not count them as failures', () => {
       const mockGetProjectThresholds = getProjectThresholds as jest.Mock;
       mockGetProjectThresholds.mockReturnValue(null);
 
+      // Mock coverage directory exists but is empty
+      (fs.existsSync as jest.Mock).mockImplementation((filePath) => {
+        return filePath.includes('coverage') && !filePath.includes('coverage-summary.json');
+      });
+
       const result = evaluateCoverage(['project-a'], { global: {}, projects: {} });
 
       expect(result).toBe(0);
       expect(core.info).toHaveBeenCalledWith('Coverage evaluation skipped for project-a');
-      expect(fs.writeFileSync).toHaveBeenCalled();
 
-      // Verify that the comment indicates the project was skipped
-      const writeFileSyncMock = fs.writeFileSync as jest.Mock;
-      const comment = writeFileSyncMock.mock.calls[0][1];
-      expect(comment).toContain('⏩ SKIPPED');
+      // Should write coverage report with skipped project
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        expect.stringContaining('coverage-report.txt'),
+        expect.stringContaining('⏩ SKIPPED')
+      );
     });
 
     it('should count as one failure when coverage report is missing', () => {
       const mockGetProjectThresholds = getProjectThresholds as jest.Mock;
       mockGetProjectThresholds.mockReturnValue({ lines: 80, statements: 75 });
 
-      const mockExistsSync = fs.existsSync as jest.Mock;
-      mockExistsSync.mockReturnValue(false);
+      // Mock coverage directory exists but no coverage files
+      (fs.existsSync as jest.Mock).mockImplementation((filePath) => {
+        return filePath.includes('coverage') && !filePath.includes('coverage-summary.json');
+      });
+      (fs.readdirSync as jest.Mock).mockReturnValue([]); // Empty directory
 
       const result = evaluateCoverage(['project-a'], { global: {}, projects: {} });
 
       expect(result).toBe(1);
-      expect(core.warning).toHaveBeenCalledWith('No coverage report found for project-a at coverage/project-a/coverage-summary.json');
+      expect(core.warning).toHaveBeenCalledWith('No coverage data found for project-a in any location');
 
       // Verify that the comment shows individual thresholds with "No Data"
-      const writeFileSyncMock = fs.writeFileSync as jest.Mock;
-      const comment = writeFileSyncMock.mock.calls[0][1];
+      const writeFileCalls = (fs.writeFileSync as jest.Mock).mock.calls;
+      const coverageReportCall = writeFileCalls.find(call => call[0].includes('coverage-report.txt'));
+      expect(coverageReportCall).toBeDefined();
+
+      const comment = coverageReportCall[1];
       expect(comment).toContain('| project-a | lines | 80% | No Data | ❌ FAILED |');
       expect(comment).toContain('|  | statements | 75% | No Data | ❌ FAILED |');
       expect(comment).toContain('⚠️ WARNING (1 project failing)');
@@ -93,8 +116,15 @@ describe('coverage-evaluator', () => {
         branches: 70
       });
 
-      const mockExistsSync = fs.existsSync as jest.Mock;
-      mockExistsSync.mockReturnValue(true);
+      // Mock coverage directory and files exist
+      (fs.existsSync as jest.Mock).mockImplementation((filePath) => {
+        if (filePath.includes('coverage') && !filePath.includes('coverage-summary.json')) {
+          return true; // Coverage directory exists
+        }
+        return filePath.includes('coverage-summary.json'); // Coverage file exists
+      });
+      (fs.readdirSync as jest.Mock).mockReturnValue(['project-a']);
+      (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => true });
 
       const mockReadFileSync = fs.readFileSync as jest.Mock;
       mockReadFileSync.mockReturnValue(JSON.stringify({
@@ -112,8 +142,11 @@ describe('coverage-evaluator', () => {
       expect(core.error).toHaveBeenCalledWith(expect.stringContaining('Project project-a failed coverage thresholds'));
 
       // Verify that the comment shows the failed metrics with correct values
-      const writeFileSyncMock = fs.writeFileSync as jest.Mock;
-      const comment = writeFileSyncMock.mock.calls[0][1];
+      const writeFileCalls = (fs.writeFileSync as jest.Mock).mock.calls;
+      const coverageReportCall = writeFileCalls.find(call => call[0].includes('coverage-report.txt'));
+      expect(coverageReportCall).toBeDefined();
+
+      const comment = coverageReportCall[1];
       expect(comment).toContain('| project-a | lines | 80% | 75.00% | ❌ FAILED |');
       expect(comment).toContain('|  | statements | 80% | 75.00% | ❌ FAILED |');
       expect(comment).toContain('|  | functions | 75% | 70.00% | ❌ FAILED |');
@@ -131,8 +164,15 @@ describe('coverage-evaluator', () => {
         branches: 70
       });
 
-      const mockExistsSync = fs.existsSync as jest.Mock;
-      mockExistsSync.mockReturnValue(true);
+      // Mock coverage directory and files exist
+      (fs.existsSync as jest.Mock).mockImplementation((filePath) => {
+        if (filePath.includes('coverage') && !filePath.includes('coverage-summary.json')) {
+          return true; // Coverage directory exists
+        }
+        return filePath.includes('coverage-summary.json'); // Coverage file exists
+      });
+      (fs.readdirSync as jest.Mock).mockReturnValue(['project-a']);
+      (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => true });
 
       const mockReadFileSync = fs.readFileSync as jest.Mock;
       mockReadFileSync.mockReturnValue(JSON.stringify({
@@ -150,8 +190,11 @@ describe('coverage-evaluator', () => {
       expect(core.info).toHaveBeenCalledWith('Project project-a passed all coverage thresholds');
 
       // Verify that the comment shows passing status with correct values
-      const writeFileSyncMock = fs.writeFileSync as jest.Mock;
-      const comment = writeFileSyncMock.mock.calls[0][1];
+      const writeFileCalls = (fs.writeFileSync as jest.Mock).mock.calls;
+      const coverageReportCall = writeFileCalls.find(call => call[0].includes('coverage-report.txt'));
+      expect(coverageReportCall).toBeDefined();
+
+      const comment = coverageReportCall[1];
       expect(comment).toContain('| project-a | lines | 80% | 85.00% | ✅ PASSED |');
       expect(comment).toContain('|  | statements | 80% | 85.00% | ✅ PASSED |');
       expect(comment).toContain('|  | functions | 75% | 80.00% | ✅ PASSED |');
@@ -168,8 +211,15 @@ describe('coverage-evaluator', () => {
         branches: 70
       });
 
-      const mockExistsSync = fs.existsSync as jest.Mock;
-      mockExistsSync.mockReturnValue(true);
+      // Mock coverage directory and files exist
+      (fs.existsSync as jest.Mock).mockImplementation((filePath) => {
+        if (filePath.includes('coverage') && !filePath.includes('coverage-summary.json')) {
+          return true; // Coverage directory exists
+        }
+        return filePath.includes('coverage-summary.json'); // Coverage file exists
+      });
+      (fs.readdirSync as jest.Mock).mockReturnValue(['project-a']);
+      (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => true });
 
       const mockReadFileSync = fs.readFileSync as jest.Mock;
       mockReadFileSync.mockImplementation(() => {
@@ -179,11 +229,14 @@ describe('coverage-evaluator', () => {
       const result = evaluateCoverage(['project-a'], { global: {}, projects: {} });
 
       expect(result).toBe(1);
-      expect(core.error).toHaveBeenCalledWith('Error processing coverage for project-a: Test error');
+      expect(core.error).toHaveBeenCalledWith('Error parsing coverage file for project-a: Test error');
 
       // Verify that the comment shows individual thresholds with "No Data"
-      const writeFileSyncMock = fs.writeFileSync as jest.Mock;
-      const comment = writeFileSyncMock.mock.calls[0][1];
+      const writeFileCalls = (fs.writeFileSync as jest.Mock).mock.calls;
+      const coverageReportCall = writeFileCalls.find(call => call[0].includes('coverage-report.txt'));
+      expect(coverageReportCall).toBeDefined();
+
+      const comment = coverageReportCall[1];
       expect(comment).toContain('| project-a | lines | 80% | No Data | ❌ FAILED |');
       expect(comment).toContain('|  | statements | 80% | No Data | ❌ FAILED |');
       expect(comment).toContain('|  | functions | 75% | No Data | ❌ FAILED |');
@@ -199,8 +252,15 @@ describe('coverage-evaluator', () => {
         functions: 75
       });
 
-      const mockExistsSync = fs.existsSync as jest.Mock;
-      mockExistsSync.mockReturnValue(true);
+      // Mock coverage directory and files exist
+      (fs.existsSync as jest.Mock).mockImplementation((filePath) => {
+        if (filePath.includes('coverage') && !filePath.includes('coverage-summary.json')) {
+          return true; // Coverage directory exists
+        }
+        return filePath.includes('coverage-summary.json'); // Coverage file exists
+      });
+      (fs.readdirSync as jest.Mock).mockReturnValue(['project-a']);
+      (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => true });
 
       const mockReadFileSync = fs.readFileSync as jest.Mock;
       mockReadFileSync.mockReturnValue(JSON.stringify({
@@ -217,8 +277,11 @@ describe('coverage-evaluator', () => {
       expect(result).toBe(0);
 
       // Verify that only the defined thresholds are in the comment
-      const writeFileSyncMock = fs.writeFileSync as jest.Mock;
-      const comment = writeFileSyncMock.mock.calls[0][1];
+      const writeFileCalls = (fs.writeFileSync as jest.Mock).mock.calls;
+      const coverageReportCall = writeFileCalls.find(call => call[0].includes('coverage-report.txt'));
+      expect(coverageReportCall).toBeDefined();
+
+      const comment = coverageReportCall[1];
       expect(comment).toContain('| project-a | lines | 80% | 85.00% | ✅ PASSED |');
       expect(comment).toContain('|  | functions | 75% | 80.00% | ✅ PASSED |');
       expect(comment).not.toContain('|  | statements |');
@@ -230,8 +293,15 @@ describe('coverage-evaluator', () => {
       // Return an empty object instead of null
       mockGetProjectThresholds.mockReturnValue({});
 
-      const mockExistsSync = fs.existsSync as jest.Mock;
-      mockExistsSync.mockReturnValue(true);
+      // Mock coverage directory and files exist
+      (fs.existsSync as jest.Mock).mockImplementation((filePath) => {
+        if (filePath.includes('coverage') && !filePath.includes('coverage-summary.json')) {
+          return true; // Coverage directory exists
+        }
+        return filePath.includes('coverage-summary.json'); // Coverage file exists
+      });
+      (fs.readdirSync as jest.Mock).mockReturnValue(['project-a']);
+      (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => true });
 
       const mockReadFileSync = fs.readFileSync as jest.Mock;
       mockReadFileSync.mockReturnValue(JSON.stringify({
@@ -277,14 +347,21 @@ describe('coverage-evaluator', () => {
           branches: 90
         });
 
-      const mockExistsSync = fs.existsSync as jest.Mock;
-      // Make existsSync return true for project-a and project-c, but false for project-d
-      mockExistsSync.mockImplementation((path) => {
-        if (path.includes('project-d')) {
-          return false; // No coverage file for project-d
+      // Mock coverage directory exists
+      (fs.existsSync as jest.Mock).mockImplementation((filePath) => {
+        if (filePath.includes('coverage') && !filePath.includes('coverage-summary.json')) {
+          return true; // Coverage directory exists
         }
-        return true;
+        // Coverage files exist for project-a and project-c
+        if (filePath.includes('project-a') || filePath.includes('project-c')) {
+          return filePath.includes('coverage-summary.json');
+        }
+        // No coverage files for project-d
+        return false;
       });
+
+      (fs.readdirSync as jest.Mock).mockReturnValue(['project-a', 'project-c']);
+      (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => true });
 
       const mockReadFileSync = fs.readFileSync as jest.Mock;
       mockReadFileSync
@@ -304,7 +381,6 @@ describe('coverage-evaluator', () => {
             branches: { pct: 55 }
           }
         }));
-      // No need for third mock since we're making project-d file not exist
 
       process.env.COVERAGE_ARTIFACT_URL = 'https://example.com/artifact';
 
@@ -317,8 +393,11 @@ describe('coverage-evaluator', () => {
       expect(result).toBe(2);
 
       // Verify that the comment shows the correct status for each project
-      const writeFileSyncMock = fs.writeFileSync as jest.Mock;
-      const comment = writeFileSyncMock.mock.calls[0][1];
+      const writeFileCalls = (fs.writeFileSync as jest.Mock).mock.calls;
+      const coverageReportCall = writeFileCalls.find(call => call[0].includes('coverage-report.txt'));
+      expect(coverageReportCall).toBeDefined();
+
+      const comment = coverageReportCall[1];
 
       // Project A passes
       expect(comment).toContain('| project-a | lines | 80% | 85.00% | ✅ PASSED |');
@@ -348,11 +427,14 @@ describe('coverage-evaluator', () => {
     it('should generate an empty report when no projects are affected', () => {
       generateEmptyCoverageReport();
 
-      const writeFileSyncMock = fs.writeFileSync as jest.Mock;
-      expect(writeFileSyncMock).toHaveBeenCalledTimes(1);
+      const writeFileCalls = (fs.writeFileSync as jest.Mock).mock.calls;
+      expect(writeFileCalls.length).toBeGreaterThan(0);
 
-      const [filePath, content] = writeFileSyncMock.mock.calls[0];
-      expect(filePath).toBe('coverage-report.txt');
+      const coverageReportCall = writeFileCalls.find(call => call[0].includes('coverage-report.txt'));
+      expect(coverageReportCall).toBeDefined();
+
+      const [filePath, content] = coverageReportCall;
+      expect(filePath).toContain('coverage-report.txt');
       expect(content).toContain('## Test Coverage Results');
       expect(content).toContain('No projects were affected by this change that require coverage evaluation');
 
