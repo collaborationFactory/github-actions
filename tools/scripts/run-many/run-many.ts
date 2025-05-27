@@ -66,7 +66,7 @@ function main() {
 
   // Modified command construction
   const runManyProjectsCmd = `npx nx run-many --targets=${target} --projects="${projectsString}"`;
-  let cmd = `${runManyProjectsCmd} --parallel=false --prod`;
+  let cmd = `${runManyProjectsCmd} --parallel=true --prod`;
 
   // Add coverage flag if enabled and target is test
   if (coverageEnabled && target === 'test') {
