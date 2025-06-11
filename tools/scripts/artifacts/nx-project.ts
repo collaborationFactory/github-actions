@@ -197,10 +197,17 @@ export class NxProject {
       }@${version.toString()}`
     );
     try {
+      console.log(`Using Jfrog credentials: ${jfrogCredentials ? 'yes' : 'no'}`);
       const pathToProjectInDist = this.getPathToProjectInDist();
+      console.log(`Path to project in dist: ${pathToProjectInDist}`);
       if (!fs.existsSync(pathToProjectInDist) && jfrogCredentials) {
+        console.log(
+          `Path to project in dist does not exist, creating it: ${pathToProjectInDist}`
+        );
         this.writeNPMRCInDist(jfrogCredentials, this.scope);
+        console.log(`Setting version in package.json for ${this.name} to ${version.toString()}`);
         this.setVersionOrGeneratePackageJsonInDist(version, jfrogCredentials.url);
+        console.log(`Generated package.json: ${this.getPrettyPackageJson()}`);
       }
       console.log(
         execSync(`npm unpublish ${this.scope}/${this.name}@${version.toString()}`, {
