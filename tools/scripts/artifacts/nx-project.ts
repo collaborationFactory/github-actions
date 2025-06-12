@@ -197,9 +197,7 @@ export class NxProject {
       }@${version.toString()}`
     );
     try {
-      console.log(`Using Jfrog credentials: ${jfrogCredentials ? 'yes' : 'no'}`);
       const pathToProjectInDist = this.getPathToProjectInDist();
-      console.log(`Path to project in dist: ${pathToProjectInDist}`);
       if (!fs.existsSync(pathToProjectInDist) && jfrogCredentials) {
         console.log(
           `Path to project in dist does not exist, creating it: ${pathToProjectInDist}`
