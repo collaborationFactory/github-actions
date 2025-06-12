@@ -43,6 +43,7 @@ jobs:
         run: npx cypress install
 
       - name: Affected Regression Tests
+        id: regressionTests
         continue-on-error: true
         uses: collaborationFactory/github-actions/.github/actions/run-many@master
         with:
@@ -72,3 +73,10 @@ jobs:
           path: |
             dist/cypress/apps/**/a11y/html/
           retention-days: 3
+
+      - name: Fail pipeline if regressionTests step failed
+        run: |
+          if [ "${{ steps.regressionTests.outcome }}" = "failure" ]; then
+            echo "Regression tests step failed, failing the pipeline."
+            exit 1
+          fi
