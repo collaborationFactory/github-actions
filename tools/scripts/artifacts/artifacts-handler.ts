@@ -115,7 +115,7 @@ export class ArtifactsHandler {
       if (project.isPublishable) {
         if (this.onlyDeleteArtifacts)
           await project.deleteArtifact(
-            this.currentVersion
+            this.currentVersion, this.jfrogCredentials
           );
         else {
           project.build();

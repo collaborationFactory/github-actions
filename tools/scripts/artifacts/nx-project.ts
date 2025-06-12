@@ -183,7 +183,7 @@ export class NxProject {
     return npmPackage.versions.includes(version);
   }
 
-  public async deleteArtifact(version: Version) {
+  public async deleteArtifact(version: Version, jfrogCredentials: JfrogCredentials = null) {
     console.log("Checking if package exists in registry");
     const scopedPackage = `${this.scope}/${this.name}`;
     if(!this.packageExists(scopedPackage, version.toString())) {
@@ -197,6 +197,16 @@ export class NxProject {
       }@${version.toString()}`
     );
     try {
+      const pathToProjectInDist = this.getPathToProjectInDist();
+      if (!fs.existsSync(pathToProjectInDist) && jfrogCredentials) {
+        console.log(
+          `Path to project in dist does not exist, creating it: ${pathToProjectInDist}`
+        );
+        this.writeNPMRCInDist(jfrogCredentials, this.scope);
+        console.log(`Setting version in package.json for ${this.name} to ${version.toString()}`);
+        this.setVersionOrGeneratePackageJsonInDist(version, jfrogCredentials.url);
+        console.log(`Generated package.json: ${this.getPrettyPackageJson()}`);
+      }
       console.log(
         execSync(`npm unpublish ${this.scope}/${this.name}@${version.toString()}`, {
           cwd: `${this.getPathToProjectInDist()}`,
@@ -229,8 +239,12 @@ export class NxProject {
       this.npmrcContent +
       `${jfrogCredentials.getJfrogUrlNoHttp()}:email=${jfrogCredentials.user}`;
     console.log(this.npmrcContent + '\n\n');
-    fs.writeFileSync(this.getNpmrcPathInDist(), this.npmrcContent);
-    console.log('wrote .npmrc to:  ' + this.getNpmrcPathInDist());
+    const npmrcPathInDist = this.getNpmrcPathInDist();
+    if(!fs.existsSync(npmrcPathInDist)){
+      fs.mkdirSync(path.dirname(npmrcPathInDist), { recursive: true });
+    }
+    fs.writeFileSync(npmrcPathInDist, this.npmrcContent);
+    console.log('wrote .npmrc to:  ' + npmrcPathInDist);
   }
 
   public setVersionOrGeneratePackageJsonInDist(version: Version, registry: string) {
