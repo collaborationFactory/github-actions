@@ -34,10 +34,4 @@ jobs:
         run: npx nx affected --target=lint --parallel --configuration=dev --base=origin/${{ github.event.pull_request.base.ref }}
 
       - name: Unit Tests
-        uses: collaborationFactory/github-actions/.github/actions/run-many@master
-        with:
-          target: ${{ matrix.target }}
-          jobIndex: ${{ matrix.jobIndex }}
-          jobCount: ${{ env.jobCount }}
-          base: ${{ github.event.pull_request.base.ref }}
-          ref: ${{ github.event.pull_request.head.ref }}
+        run: npx nx affected --target=test --parallel --maxParallel=1 --base=origin/${{ github.event.pull_request.base.ref }} --shard=${{ matrix.jobIndex }}/${{ env.jobCount }}
