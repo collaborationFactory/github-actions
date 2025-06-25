@@ -41,7 +41,7 @@ jobs:
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
 
       - name: Build and Storybook
-        uses: collaborationFactory/github-actions/.github/actions/run-many@release/25.3
+        uses: collaborationFactory/github-actions/.github/actions/run-many@master
         with:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}
