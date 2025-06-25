@@ -8,7 +8,7 @@ permissions: write-all
 
 jobs:
   check-upmerge:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-check-upmerge.yml@master
+    uses: collaborationFactory/github-actions/.github/workflows/fe-check-upmerge.yml@release/25.3
     secrets:
       SLACK_TOKEN_UPMERGE: ${{ secrets.SLACK_TOKEN_UPMERGE }}
       GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}

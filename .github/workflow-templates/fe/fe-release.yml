@@ -12,7 +12,7 @@ env:
 
 jobs:
   install-deps:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-install-deps.yml@master
+    uses: collaborationFactory/github-actions/.github/workflows/fe-install-deps.yml@release/25.3
     with:
       GHA_REF: ''
     secrets:
@@ -20,7 +20,7 @@ jobs:
 
   e2e-tests:
     needs: install-deps
-    uses: collaborationFactory/github-actions/.github/workflows/fe-e2e.yml@master
+    uses: collaborationFactory/github-actions/.github/workflows/fe-e2e.yml@release/25.3
     with:
       GHA_REF: ''
       GHA_BASE: ${{ github.event.before }}
@@ -29,14 +29,14 @@ jobs:
 
   build:
     needs: install-deps
-    uses: collaborationFactory/github-actions/.github/workflows/fe-build.yml@master
+    uses: collaborationFactory/github-actions/.github/workflows/fe-build.yml@release/25.3
     with:
       GHA_REF: ''
       GHA_BASE: ${{ github.event.before }}
 
   tag:
     needs: [build, e2e-tests]
-    uses: collaborationFactory/github-actions/.github/workflows/fe-tag.yml@master
+    uses: collaborationFactory/github-actions/.github/workflows/fe-tag.yml@release/25.3
     with:
       GHA_REF: ''
       GHA_BASE: ${{ github.event.before }}
