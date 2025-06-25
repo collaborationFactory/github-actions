@@ -23,7 +23,9 @@ export class UpmergeHandler {
       cliResult = execSync('cplace-cli flow --upmerge --release 5.17 --no-push --show-files').toString().split('\n')
       console.log('cliResult: ', cliResult);
     } catch (error) {
-      const linkToAction = `https://github.com/collaborationFactory/cplace-fe/actions/runs/${process.env.GITHUB_RUN_ID}`;
+      const repoNameMatch = repo.match(/github\.com\/[^\/]+\/([^\/\.]+)(\.git)?$/);
+      const repoName = repoNameMatch ? repoNameMatch[1] : 'cplace-fe';
+      const linkToAction = `https://github.com/collaborationFactory/${repoName}/actions/runs/${process.env.GITHUB_RUN_ID}`;
       return {
         message: `There was an error running cplace-cli in repo ${repo}:\n\n${linkToAction}`,
         threadMessage: error.message

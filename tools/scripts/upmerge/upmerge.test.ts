@@ -29,3 +29,15 @@ test('can detect no upmerge is needed', async () => {
     'Merging upmerge-CscNaE/release/23.4 into origin/release/24.1\n');
   expect(new UpmergeHandler().isUpmergeNeeded().message).toBe('');
 });
+
+test('returns error message with correct repo name in link', async () => {
+  jest.spyOn(child_process, 'execSync')
+    .mockReturnValueOnce('https://github.com/collaborationFactory/cplace-paw-fe.git') // repo URL
+    .mockImplementationOnce(() => { throw new Error('cli failed'); }); // simulate error
+
+  process.env.GITHUB_RUN_ID = '123456';
+  const result = new UpmergeHandler().isUpmergeNeeded();
+  expect(result.message).toBe(
+    'There was an error running cplace-cli in repo https://github.com/collaborationFactory/cplace-paw-fe.git:\n\nhttps://github.com/collaborationFactory/cplace-paw-fe/actions/runs/123456'
+  );
+});
