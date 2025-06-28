@@ -45,7 +45,7 @@ jobs:
       - name: Affected Regression Tests
         id: regressionTests
         continue-on-error: true
-        uses: collaborationFactory/github-actions/.github/actions/run-many@release/25.3
+        uses: collaborationFactory/github-actions/.github/actions/run-many@fix/PFM-ISSUE-30550-Cypress-E2E-Tests-Fail-Due-to-Invalid-base
         with:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}
