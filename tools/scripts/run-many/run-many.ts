@@ -8,6 +8,10 @@ function getE2ECommand(command: string, base: string): string {
 }
 
 function runCommand(command: string): void {
+  if (command.includes('--targets=e2e')) {
+    const commandArr = command.split(' ');
+    command = commandArr.filter(c => !c.includes('--base=')).join(' ');
+  }
   core.info(`Running > ${command}`);
 
   try {
