@@ -40,6 +40,9 @@ jobs:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
 
+      - name: Fetch base branch
+        run: git fetch origin ${{ inputs.GHA_BASE }}:${{ inputs.GHA_BASE }} || true
+
       - name: Build and Storybook
         uses: collaborationFactory/github-actions/.github/actions/run-many@master
         with:
