@@ -208,7 +208,7 @@ export class NxProject {
         console.log(`Generated package.json: ${this.getPrettyPackageJson()}`);
       }
       console.log(
-        execSync(`npm unpublish ${this.scope}/${this.name}@${version.toString()}`, {
+        execSync(`npm unpublish ${this.scope}/${this.name}@${version.toString()} --force`, {
           cwd: `${this.getPathToProjectInDist()}`,
         }).toString()
       );
