@@ -195,7 +195,7 @@ export class NxProject {
     );
     try {
       console.log(
-        execSync(`npm unpublish ${this.scope}/${this.name}@${version.toString()}`, {
+        execSync(`npm unpublish ${this.scope}/${this.name}@${version.toString()} --force`, {
           cwd: `${this.getPathToProjectInDist()}`,
         }).toString()
       );
