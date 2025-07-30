@@ -115,17 +115,19 @@ export class ArtifactsHandler {
       if (project.isPublishable) {
         if (this.onlyDeleteArtifacts)
           await project.deleteArtifact(
-            this.currentVersion, this.jfrogCredentials
+            this.currentVersion,
+            this.jfrogCredentials
           );
         else {
           project.build();
           project.writeNPMRCInDist(this.jfrogCredentials, this.scope);
           project.copyFossList();
-          project.setVersionOrGeneratePackageJsonInDist(this.currentVersion, this.jfrogCredentials.url);
+          project.setVersionOrGeneratePackageJsonInDist(
+            this.currentVersion,
+            this.jfrogCredentials.url
+          );
           if (this.task === TASK.PR_SNAPSHOT)
-            await project.deleteArtifact(
-              this.currentVersion
-            );
+            await project.deleteArtifact(this.currentVersion);
           await project.publish();
         }
       }

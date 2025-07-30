@@ -23,6 +23,19 @@ export class Utils {
     });
   }
 
+  public static isE2eAppWithPublicApi(projectName: string): boolean {
+    if (!projectName.endsWith('-e2e')) {
+      return false;
+    }
+
+    // Find the project path
+    const appsDir = Utils.getAppsDir();
+    const projectPath = path.join(appsDir, projectName);
+    const publicApiPath = path.join(projectPath, 'src', 'public_api.ts');
+
+    return fs.existsSync(publicApiPath);
+  }
+
   public static getAffectedNxProjects(
     base: string,
     nxProjectKind: NxProjectKind,
@@ -42,7 +55,13 @@ export class Utils {
       }: ` + affectedProjects.toString()
     );
     let filteredAffected: string[] = affectedProjects
-      .filter((project) => !project.endsWith('-e2e'))
+      .filter((project) => {
+        // Include e2e apps only if they have public_api.ts
+        if (project.endsWith('-e2e')) {
+          return Utils.isE2eAppWithPublicApi(project);
+        }
+        return true;
+      })
       .filter((project) => !project.startsWith('api-'))
       .sort();
     let projects: NxProject[] = [];
@@ -64,7 +83,13 @@ export class Utils {
 
     const projects = [...libs, ...apps];
     const nxProjects: NxProject[] = projects
-      .filter((project) => !project.endsWith('-e2e'))
+      .filter((project) => {
+        // Include e2e apps only if they have public_api.ts
+        if (project.endsWith('-e2e')) {
+          return Utils.isE2eAppWithPublicApi(project);
+        }
+        return true;
+      })
       .filter((project) => !project.startsWith('api-'))
       .map((project) => {
         return new NxProject(
@@ -288,11 +313,11 @@ export class Utils {
   public static writePublishedProjectToGithubCommentsFile(message: string) {
     const gitHubCommentsFile = Utils.getGitHubCommentsFile();
     const currentDate = new Date();
-    const dateString = currentDate.toLocaleDateString("en-GB", {
-      timeZone: "Europe/Berlin",
+    const dateString = currentDate.toLocaleDateString('en-GB', {
+      timeZone: 'Europe/Berlin',
     });
-    const timeString = currentDate.toLocaleTimeString("en-GB", {
-      timeZone: "Europe/Berlin",
+    const timeString = currentDate.toLocaleTimeString('en-GB', {
+      timeZone: 'Europe/Berlin',
     });
 
     if (!fs.existsSync(gitHubCommentsFile)) {

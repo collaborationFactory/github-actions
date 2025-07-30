@@ -34,6 +34,7 @@ export const packageJsonLib1 =
   '{\n' +
   '  "name": "@cplace-frontend-applications/cf-core-lib",\n' +
   '  "version": "1.2.3",\n' +
+  '  "publishable": true,\n' +
   '  "peerDependencies": {\n' +
   '    "@angular/common": "^13.2.6",\n' +
   '    "@angular/core": "^13.2.6"\n' +
