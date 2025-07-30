@@ -4,39 +4,60 @@ import { ChatPostMessageResponse, WebClient } from '@slack/web-api';
 
 interface SlackPost {
   message: string;
-  threadMessage?: string
+  threadMessage?: string;
 }
 
 export class UpmergeHandler {
-
   public async checkUpmergeAndNotifiy() {
-    console.log(execSync(`git config --global user.email ${process.env.GIT_USER_EMAIL}`).toString());
-    console.log(execSync(`git config --global user.name ${process.env.GIT_USER}`).toString());
+    console.log(
+      execSync(
+        `git config --global user.email ${process.env.GIT_USER_EMAIL}`
+      ).toString()
+    );
+    console.log(
+      execSync(
+        `git config --global user.name ${process.env.GIT_USER}`
+      ).toString()
+    );
     const slackMessage = this.isUpmergeNeeded();
     await this.postToSlack(slackMessage);
   }
 
   isUpmergeNeeded(): SlackPost {
-    const repo = execSync('git config --get remote.origin.url').toString().trim();
-    let cliResult: string[] = []
+    const repo = execSync('git config --get remote.origin.url')
+      .toString()
+      .trim();
+    let cliResult: string[] = [];
     try {
-      cliResult = execSync('cplace-cli flow --upmerge --release 5.17 --no-push --show-files').toString().split('\n')
+      cliResult = execSync(
+        'cplace-cli flow --upmerge --release 5.17 --no-push --show-files'
+      )
+        .toString()
+        .split('\n');
       console.log('cliResult: ', cliResult);
     } catch (error) {
-      const repoNameMatch = repo.match(/github\.com\/[^\/]+\/([^\/\.]+)(\.git)?$/);
+      const repoNameMatch = repo.match(
+        /github\.com\/[^\/]+\/([^\/\.]+)(\.git)?$/
+      );
       const repoName = repoNameMatch ? repoNameMatch[1] : 'cplace-fe';
       const linkToAction = `https://github.com/collaborationFactory/${repoName}/actions/runs/${process.env.GITHUB_RUN_ID}`;
       return {
         message: `There was an error running cplace-cli in repo ${repo}:\n\n${linkToAction}`,
-        threadMessage: error.message
+        threadMessage: error.message,
       };
     }
-    const index = cliResult.findIndex(v => v.includes("have been merged"));
-    const releaseThatNeedsUpmerge = cliResult[index - 1]?.split('release')[1]?.split('into')[0]?.trim().replace('\/', '');
+    const index = cliResult.findIndex((v) => v.includes('have been merged'));
+    const releaseThatNeedsUpmerge = cliResult[index - 1]
+      ?.split('release')[1]
+      ?.split('into')[0]
+      ?.trim()
+      .replace('/', '');
     if (releaseThatNeedsUpmerge) {
-      return {'message': `Please upmerge from release ${releaseThatNeedsUpmerge} in repo ${repo}`};
+      return {
+        message: `Please upmerge from release ${releaseThatNeedsUpmerge} in repo ${repo}`,
+      };
     }
-    return {'message': ''};
+    return { message: '' };
   }
 
   public async postToSlack(slackPost: SlackPost) {
@@ -45,17 +66,24 @@ export class UpmergeHandler {
       try {
         const result: ChatPostMessageResponse = await web.chat.postMessage({
           channel: 'frontend-upmerge',
-          text: slackPost.message
+          text: slackPost.message,
         });
-        if (result.ts && slackPost.threadMessage && slackPost.threadMessage.length > 0) {
+        if (
+          result.ts &&
+          slackPost.threadMessage &&
+          slackPost.threadMessage.length > 0
+        ) {
           console.log(`Posting to thread: ${slackPost.threadMessage}`);
-          const threadResult: ChatPostMessageResponse = await web.chat.postMessage({
-            channel: 'frontend-upmerge',
-            text: slackPost.threadMessage,
-            thread_ts: result.ts,
-          });
+          const threadResult: ChatPostMessageResponse =
+            await web.chat.postMessage({
+              channel: 'frontend-upmerge',
+              text: slackPost.threadMessage,
+              thread_ts: result.ts,
+            });
         }
-        console.log(`Successfully posted to Slack\n\nmessage: ${slackPost.message}  \n\nthreadMessage: ${slackPost.threadMessage}`);
+        console.log(
+          `Successfully posted to Slack\n\nmessage: ${slackPost.message}  \n\nthreadMessage: ${slackPost.threadMessage}`
+        );
       } catch (error) {
         console.log(error);
       }
