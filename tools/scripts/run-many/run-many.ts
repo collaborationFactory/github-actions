@@ -69,7 +69,7 @@ function main() {
     core.info('Coverage gate is enabled');
     // Add coverage reporters for HTML, JSON, and JUnit output
     // Note: Using individual project coverage directories
-    cmd += ' --coverage --coverageReporters=json,lcov,text,clover,html,json-summary --reporters=default,jest-junit';
+    cmd += ' --coverage --coverageReporters=lcov,html';
   }
 
   if (projects.length > 0) {
