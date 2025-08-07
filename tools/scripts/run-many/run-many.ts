@@ -65,7 +65,7 @@ function main() {
   }
 
   // Add coverage flag if enabled and target is test
-  if (target.includes('test')) {
+  if (target === 'test') {
     core.info('Coverage gate is enabled');
     // Add coverage reporters for HTML, JSON, and JUnit output
     // Note: Using individual project coverage directories
