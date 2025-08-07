@@ -47,7 +47,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Merge Coverage Reports
-        run: ./node_modules/.bin/lcov-result-merger 'coverage/libs/**/lcov.info' 'coverage/lcov.info'
+        run: npx lcov-result-merger 'coverage/libs/**/lcov.info' 'coverage/lcov.info'
 
       - name: Upload Coverage Reports
         uses: actions/upload-artifact@v4
