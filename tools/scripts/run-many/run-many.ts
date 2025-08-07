@@ -64,6 +64,14 @@ function main() {
     cmd = getE2ECommand(cmd, base);
   }
 
+  // Add coverage flag if enabled and target is test
+  if (target.includes('test')) {
+    core.info('Coverage gate is enabled');
+    // Add coverage reporters for HTML, JSON, and JUnit output
+    // Note: Using individual project coverage directories
+    cmd += ' --coverage --coverageReporters=json,lcov,text,clover,html,json-summary --reporters=default,jest-junit';
+  }
+
   if (projects.length > 0) {
     runCommand(cmd);
   } else {
