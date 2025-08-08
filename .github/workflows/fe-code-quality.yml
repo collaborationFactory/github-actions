@@ -38,7 +38,7 @@ jobs:
         run: git fetch origin ${{ github.event.pull_request.base.ref }}:${{ github.event.pull_request.base.ref }} || true
 
       - name: Install lcov-result-merger and jest-junit
-        run: npm install -g lcov-result-merger@5.0.1, jest-junit@16.0.0
+        run: npm install -g lcov-result-merger@5.0.1 jest-junit@16.0.0
 
       - name: Unit Tests
         uses: collaborationFactory/github-actions/.github/actions/run-many@poc/code-coverage-in-code-quality-pr-pipeline
