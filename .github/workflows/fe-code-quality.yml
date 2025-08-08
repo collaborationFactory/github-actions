@@ -46,6 +46,9 @@ jobs:
           base: ${{ github.event.pull_request.base.ref }}
           ref: ${{ github.event.pull_request.head.ref }}
 
+      - name: Display structure of downloaded files
+        run: ls -R coverage/
+
       - name: Install lcov-result-merger
         run: npm install -g lcov-result-merger
 
