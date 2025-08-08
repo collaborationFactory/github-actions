@@ -67,9 +67,13 @@ jobs:
         with:
           fetch-depth: 0
       - name: download coverage report
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v5
         with:
-          name: coverage-reports-1
+          path: coverage/matrix/
+          pattern: coverage-reports-*
+          merge-multiple: true
+      - name: Merge matrix coverage reports
+        run: npx lcov-result-merger 'coverage/matrix/**/lcov.info' 'coverage/lcov.info'
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
