@@ -47,14 +47,14 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Merge Coverage Reports
-        run: npx lcov-result-merger 'coverage/libs/**/lcov.info' 'coverage/lcov.info'
+        run: npx lcov-result-merger 'coverage/libs/**/lcov.info' 'merger-coverage/lcov.info'
 
       - name: Upload Coverage Reports
         uses: actions/upload-artifact@v4
         with:
           name: coverage-reports-${{ matrix.jobIndex }}
           path: |
-            coverage/
+            merger-coverage/
           retention-days: 7
 
   sonar:
@@ -69,15 +69,15 @@ jobs:
       - name: download coverage report
         uses: actions/download-artifact@v5
         with:
-          path: coverage/matrix/
+          path: merger-coverage/
           pattern: coverage-reports-*
           merge-multiple: true
       - name: Display structure of downloaded files
-        run: ls -R coverage/matrix/
+        run: ls -R merger-coverage/
       - name: Install lcov-result-merger
         run: npm install -g lcov-result-merger
       - name: Merge matrix coverage reports
-        run: npx lcov-result-merger 'coverage/matrix/**/lcov.info' 'coverage/lcov.info'
+        run: npx lcov-result-merger 'merger-coverage/**/lcov.info' 'coverage/overall/lcov.info'
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
