@@ -46,6 +46,9 @@ jobs:
           base: ${{ github.event.pull_request.base.ref }}
           ref: ${{ github.event.pull_request.head.ref }}
 
+      - name: Install lcov-result-merger
+        run: npm install -g lcov-result-merger
+
       - name: Merge Coverage Reports
         run: npx lcov-result-merger 'coverage/libs/**/lcov.info' 'merger-coverage/lcov.info'
 
