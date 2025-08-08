@@ -72,6 +72,8 @@ jobs:
           path: coverage/matrix/
           pattern: coverage-reports-*
           merge-multiple: true
+      - name: Install lcov-result-merger
+        run: npm install -g lcov-result-merger
       - name: Merge matrix coverage reports
         run: npx lcov-result-merger 'coverage/matrix/**/lcov.info' 'coverage/lcov.info'
       - name: SonarCloud Scan
