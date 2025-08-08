@@ -37,6 +37,9 @@ jobs:
       - name: Fetch base branch
         run: git fetch origin ${{ github.event.pull_request.base.ref }}:${{ github.event.pull_request.base.ref }} || true
 
+      - name: Install lcov-result-merger and jest-junit
+        run: npm install -g lcov-result-merger@5.0.1, jest-junit@16.0.0
+
       - name: Unit Tests
         uses: collaborationFactory/github-actions/.github/actions/run-many@poc/code-coverage-in-code-quality-pr-pipeline
         with:
@@ -47,10 +50,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Display structure of downloaded files
-        run: ls -R coverage/
-
-      - name: Install lcov-result-merger
-        run: npm install -g lcov-result-merger
+        run: find coverage/ -name "*.info"
 
       - name: Merge Coverage Reports
         run: npx lcov-result-merger 'coverage/libs/**/lcov.info' 'merger-coverage/lcov.info'
@@ -79,9 +79,9 @@ jobs:
           pattern: coverage-reports-*
           merge-multiple: true
       - name: Display structure of downloaded files
-        run: ls -R merger-coverage/
+        run: find merger-coverage/ -name "*.info"
       - name: Install lcov-result-merger
-        run: npm install -g lcov-result-merger
+        run: npm install -g lcov-result-merger@5.0.1
       - name: Merge matrix coverage reports
         run: npx lcov-result-merger 'merger-coverage/**/lcov.info' 'coverage/overall/lcov.info'
       - name: SonarCloud Scan
