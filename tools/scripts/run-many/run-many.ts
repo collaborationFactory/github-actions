@@ -66,10 +66,9 @@ function main() {
 
   // Add coverage flag if enabled and target is test
   if (target === 'test') {
-    core.info('Coverage gate is enabled');
-    // Add coverage reporters for HTML, JSON, and JUnit output
+    // Add coverage reporters for HTML, lcov and JUnit output
     // Note: Using individual project coverage directories
-    cmd += ' --code-coverage --coverageReporters="lcov,html" --reporters="default" --reporters=["jest-junit", "--outputDirectory=./reports/junit", "--outputName=junit.xml"]';
+    cmd += ' --code-coverage --coverageReporters="lcov,html" --reporters="default,jest-junit"';
   }
 
   if (projects.length > 0) {
