@@ -68,7 +68,7 @@ function main() {
   if (target === 'test') {
     // Add coverage reporters for HTML, lcov and JUnit output
     // Note: Using individual project coverage directories
-    cmd += ' --code-coverage --coverageReporters="lcov,html"';
+    cmd += ' --all --coverage --coverageReporters="lcov,html" --reporters=default,jest-junit';
   }
 
   if (projects.length > 0) {
