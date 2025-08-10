@@ -50,7 +50,7 @@ jobs:
         run: find coverage/ -name "*.info"
 
       - name: Merge Coverage Reports
-        run: npx lcov-result-merger 'coverage/libs/**/lcov.info' 'merger-coverage/lcov.info'
+        run: npx lcov-result-merger 'coverage/libs/**/lcov.info' 'merger-coverage/lcov-${{ matrix.jobIndex }}.info'
 
       - name: Upload Coverage Reports
         uses: actions/upload-artifact@v4
