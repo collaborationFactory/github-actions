@@ -80,7 +80,7 @@ jobs:
       - name: Display structure of downloaded files
         run: find merger-coverage/ -name "*.info"
       - name: Merge matrix coverage reports
-        run: npx lcov-result-merger 'merger-coverage/**/lcov.info' 'coverage/overall/lcov.info'
+        run: mkdir -p coverage/overall && npx lcov-result-merger 'merger-coverage/**/lcov.info' 'coverage/overall/lcov.info'
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
