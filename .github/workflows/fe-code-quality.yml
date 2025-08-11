@@ -102,7 +102,6 @@ jobs:
           SONAR_UPDATE_BASE_LINE: ${{ inputs.sq_update_base_line }}
 
       - name: Dump sonar-project.properties
-        if: ${{ inputs.enable_trace_log == 'true' }}
         run: cat sonar-project.properties
 
       - name: SonarQube Scan
@@ -112,7 +111,6 @@ jobs:
           SONAR_HOST_URL: ${{ env.CB_SONAR_HOST_URL }}
 
       - name: Set baseline for sonar scan
-        if: always() &&  inputs.sq_update_base_line == 'true'
         uses: collaborationFactory/cplace-gh-workflows/.github/actions/sonar-pin-baseline@release/1.0
         with:
           sonar_token: ${{ secrets.SONAR_TOKEN }}
