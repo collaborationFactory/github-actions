@@ -37,6 +37,21 @@ jobs:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
 
+      - name: Validate and fetch base branch
+        run: |
+          BASE_BRANCH="${{ inputs.GHA_BASE }}"
+          echo "Validating base branch: $BASE_BRANCH"
+          
+          if git fetch origin "$BASE_BRANCH:$BASE_BRANCH" 2>/dev/null; then
+            echo "✅ Base branch fetched successfully"
+            echo "VALIDATED_BASE=$BASE_BRANCH" >> $GITHUB_ENV
+          else
+            echo "❌ Base branch '$BASE_BRANCH' not found, using default"
+            DEFAULT_BRANCH=$(git remote show origin | grep 'HEAD branch' | cut -d' ' -f5)
+            git fetch origin "$DEFAULT_BRANCH:$DEFAULT_BRANCH"
+            echo "VALIDATED_BASE=$DEFAULT_BRANCH" >> $GITHUB_ENV
+          fi
+
       - name: Use .npmrc
         uses: bduff9/use-npmrc@v1.1
         with:
@@ -52,7 +67,7 @@ jobs:
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}
           JFROG_USER: ${{ secrets.JFROG_USER }}
-          BASE: ${{ inputs.GHA_BASE }}
+          BASE: ${{ env.VALIDATED_BASE }}
           PR_NUMBER: ${{ github.event.number }}
 
       - name: comment published Artifacts on PR
