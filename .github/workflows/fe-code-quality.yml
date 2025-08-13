@@ -49,15 +49,9 @@ jobs:
       - name: Display structure of downloaded files
         run: find coverage/ -name "*.info"
 
-      - name: Merge Coverage Reports
-        run: mkdir -p merger-coverage && npx lcov-result-merger 'coverage/libs/**/lcov.info' 'merger-coverage/lcov-${{ matrix.jobIndex }}.info'
-      - name: Display structure of merged files
-        run: find merger-coverage/ -name "*.info"
-
       - name: Upload Coverage Reports
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-reports-${{ matrix.jobIndex }}
-          path: |
-            merger-coverage/
+          name: coverage-${{ matrix.jobIndex }}
+          path: merger-coverage/
           retention-days: 7
