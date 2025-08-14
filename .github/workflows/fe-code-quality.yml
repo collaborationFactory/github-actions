@@ -9,6 +9,7 @@ jobs:
       matrix:
         target: [ 'test' ]
         jobIndex: [ 1, 2, 3,4 ]
+      fail-fast: false # Ensure all jobs run even if one fails
     env:
       jobCount: 4
     steps:
@@ -17,7 +18,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: 22.15.0
       - name: Cache Node Modules
@@ -37,10 +38,20 @@ jobs:
         run: git fetch origin ${{ github.event.pull_request.base.ref }}:${{ github.event.pull_request.base.ref }} || true
 
       - name: Unit Tests
-        uses: collaborationFactory/github-actions/.github/actions/run-many@master
+        uses: collaborationFactory/github-actions/.github/actions/run-many@poc/code-coverage-in-code-quality-pr-pipeline
         with:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}
           jobCount: ${{ env.jobCount }}
           base: ${{ github.event.pull_request.base.ref }}
           ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Display structure of downloaded files
+        run: find coverage/ -name "*.info"
+
+      - name: Upload Coverage Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.jobIndex }}
+          path: coverage/
+          retention-days: 7

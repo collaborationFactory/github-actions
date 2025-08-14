@@ -56,6 +56,13 @@ function main() {
     cmd = getE2ECommand(cmd, base);
   }
 
+  // Add coverage flag if enabled and target is test
+  if (target === 'test') {
+    // Add coverage reporters for HTML, lcov and JUnit output
+    // Note: Using individual project coverage directories
+    cmd += ' --all --coverage --coverageReporters="lcov,html" --reporters=default,jest-junit';
+  }
+
   if (projects.length > 0) {
     runCommand(cmd);
   } else {
