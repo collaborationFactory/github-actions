@@ -37,7 +37,7 @@ jobs:
         run: git fetch origin ${{ github.event.pull_request.base.ref }}:${{ github.event.pull_request.base.ref }} || true
 
       - name: Unit Tests
-        uses: collaborationFactory/github-actions/.github/actions/run-many@master
+        uses: collaborationFactory/github-actions/.github/actions/run-many@feature/PFM-TASK-6575-Adjust-build-to-release-e2e-apps-
         with:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}
