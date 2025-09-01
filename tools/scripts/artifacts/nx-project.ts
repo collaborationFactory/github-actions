@@ -54,13 +54,12 @@ export class NxProject {
         if (this.packageJsonContent.publishable === true)
           this.isPublishable = true;
       }
+    }
+    // For e2e apps, check if public_api.ts exists
+    if (this.name.endsWith(Utils.E2E_APP_SUFFIX)) {
+      this.isPublishable = this.hasPublicApi();
     } else {
-      // For e2e apps, check if public_api.ts exists
-      if (this.name.endsWith(Utils.E2E_APP_SUFFIX)) {
-        this.isPublishable = this.hasPublicApi();
-      } else {
-        this.isPublishable = true;
-      }
+      this.isPublishable = true;
     }
   }
 
@@ -170,7 +169,7 @@ export class NxProject {
     }
   }
 
-  public async deleteSnapshots(jfrogCredentials: JfrogCredentials) {
+  public async deleteSnapshots() {
     const snapshots = Utils.getAllSnapshotVersionsOfPackage(
       this.name,
       this.getPathToProjectInDist(),
@@ -331,7 +330,7 @@ export class NxProject {
     const nestedPath = this.pathToProject;
     const projectType =
       this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs';
-    const subPath = nestedPath ? nestedPath : path.join(projectType, this.name);
+    const subPath = nestedPath || path.join(projectType, this.name);
     const base = subPath.split(projectType)[0];
     const relativePath = subPath.split(projectType)[1];
     return path.join(base, 'dist', projectType, relativePath);
@@ -347,13 +346,9 @@ export class NxProject {
 
   public getPathToProjectInSource(): string {
     const nestedPath = this.pathToProject;
+    const projectType = this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs';
     return path.resolve(
-      nestedPath
-        ? nestedPath
-        : path.join(
-            this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs',
-            this.name
-          )
+      nestedPath || path.join(projectType, this.name)
     );
   }
 

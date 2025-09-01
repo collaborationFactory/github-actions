@@ -45,7 +45,7 @@ export class Utils {
     version: Version = new Version(),
     scope: string = ''
   ): NxProject[] {
-    let affectedProjects = [];
+    let affectedProjects: string[];
     if (nxProjectKind === NxProjectKind.Application) {
       affectedProjects = Utils.getListOfAllAffectedApps(base);
     } else {
@@ -65,7 +65,7 @@ export class Utils {
         return true;
       })
       .filter((project) => !project.startsWith('api-'))
-      .sort();
+      .sort((a, b) => a.localeCompare(b));
     let projects: NxProject[] = [];
     filteredAffected.forEach((affected) => {
       projects.push(
@@ -349,7 +349,7 @@ export class Utils {
       fs.readFileSync(pathToRootPackageJson).toString()
     );
     const name = packageJsonContent.name;
-    let scope = (name.match(/@[\S]+\//) || '')[0]?.replace('/', '');
+    let scope = (name.match(/@\S+\//) || '')[0]?.replace('/', '');
     if (!scope || scope === '') {
       console.error(
         `No scope could be found, please provide a scope in root package.json (e.g. @YourScope/yourAppOrLib)`
