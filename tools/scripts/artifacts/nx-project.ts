@@ -54,12 +54,13 @@ export class NxProject {
         if (this.packageJsonContent.publishable === true)
           this.isPublishable = true;
       }
-    }
-    // For e2e apps, check if public_api.ts exists
-    if (this.name.endsWith(Utils.E2E_APP_SUFFIX)) {
-      this.isPublishable = this.hasPublicApi();
     } else {
-      this.isPublishable = true;
+      // For e2e apps, check if public_api.ts exists
+      if (this.name.endsWith(Utils.E2E_APP_SUFFIX)) {
+        this.isPublishable = this.hasPublicApi();
+      } else {
+        this.isPublishable = true;
+      }
     }
   }
 
