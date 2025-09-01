@@ -7,7 +7,6 @@ import { TASK } from './artifacts-handler';
 import { JfrogCredentials } from './jfrog-credentials';
 import { Version } from './version';
 import { getJfrogUrl } from './configuration';
-import { NpmPackage } from './types';
 
 interface PackageJson {
   author: string;
@@ -57,7 +56,7 @@ export class NxProject {
       }
     } else {
       // For e2e apps, check if public_api.ts exists
-      if (this.name.endsWith('-e2e')) {
+      if (this.name.endsWith(Utils.E2E_APP_SUFFIX)) {
         this.isPublishable = this.hasPublicApi();
       } else {
         this.isPublishable = true;
@@ -69,7 +68,7 @@ export class NxProject {
     const publicApiPath = path.join(
       this.getPathToProjectInSource(),
       'src',
-      'public_api.ts'
+      Utils.PUBLIC_API_FILE_NAME
     );
     return fs.existsSync(publicApiPath);
   }

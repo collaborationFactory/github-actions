@@ -7,8 +7,8 @@ import { NxProject, NxProjectKind, VERSION_BUMP } from './nx-project';
 import { Version } from './version';
 
 export class Utils {
-  private static readonly E2E_APP_SUFFIX = '-e2e';
-  private static readonly PUBLIC_API_FILE_NAME = 'public_api.ts';
+  public static readonly E2E_APP_SUFFIX = '-e2e';
+  public static readonly PUBLIC_API_FILE_NAME = 'public_api.ts';
   public static readonly PULL_REQUEST = 'pull_request';
   public static readonly GITHUB_COMMENTS_FILE = 'githubCommentsForPR.txt';
   public static readonly EMPTY_GITHUB_COMMENTS =
