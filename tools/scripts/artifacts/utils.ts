@@ -7,6 +7,8 @@ import { NxProject, NxProjectKind, VERSION_BUMP } from './nx-project';
 import { Version } from './version';
 
 export class Utils {
+  private static readonly E2E_APP_SUFFIX = '-e2e';
+  private static readonly PUBLIC_API_FILE_NAME = 'public_api.ts';
   public static readonly PULL_REQUEST = 'pull_request';
   public static readonly GITHUB_COMMENTS_FILE = 'githubCommentsForPR.txt';
   public static readonly EMPTY_GITHUB_COMMENTS =
@@ -24,14 +26,14 @@ export class Utils {
   }
 
   public static isE2eAppWithPublicApi(projectName: string): boolean {
-    if (!projectName.endsWith('-e2e')) {
+    if (!projectName.endsWith(Utils.E2E_APP_SUFFIX)) {
       return false;
     }
 
     // Find the project path
     const appsDir = Utils.getAppsDir();
     const projectPath = path.join(appsDir, projectName);
-    const publicApiPath = path.join(projectPath, 'src', 'public_api.ts');
+    const publicApiPath = path.join(projectPath, 'src', Utils.PUBLIC_API_FILE_NAME);
 
     return fs.existsSync(publicApiPath);
   }
@@ -57,7 +59,7 @@ export class Utils {
     let filteredAffected: string[] = affectedProjects
       .filter((project) => {
         // Include e2e apps only if they have public_api.ts
-        if (project.endsWith('-e2e')) {
+        if (project.endsWith(Utils.E2E_APP_SUFFIX)) {
           return Utils.isE2eAppWithPublicApi(project);
         }
         return true;
@@ -85,7 +87,7 @@ export class Utils {
     const nxProjects: NxProject[] = projects
       .filter((project) => {
         // Include e2e apps only if they have public_api.ts
-        if (project.endsWith('-e2e')) {
+        if (project.endsWith(Utils.E2E_APP_SUFFIX)) {
           return Utils.isE2eAppWithPublicApi(project);
         }
         return true;
