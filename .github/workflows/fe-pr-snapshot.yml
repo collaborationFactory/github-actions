@@ -62,7 +62,7 @@ jobs:
         run: npm ci
 
       - name: Build and Push to Jfrog NPM Registry
-        uses: collaborationFactory/github-actions/.github/actions/artifacts@feature/PFM-TASK-6575-Adjust-build-to-release-e2e-apps-
+        uses: collaborationFactory/github-actions/.github/actions/artifacts@master
         env:
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}

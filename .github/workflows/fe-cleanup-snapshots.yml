@@ -39,7 +39,7 @@ jobs:
           dot-npmrc: ${{ secrets.DOT_NPMRC }}
 
       - name: Cleanup Snapshot Artifacts
-        uses: collaborationFactory/github-actions/.github/actions/snapshots@feature/PFM-TASK-6575-Adjust-build-to-release-e2e-apps-
+        uses: collaborationFactory/github-actions/.github/actions/snapshots@master
         env:
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}
