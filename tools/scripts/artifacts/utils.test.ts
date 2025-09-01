@@ -76,14 +76,23 @@ test('can look for latest Tag for a given Release Branch Name ', async () => {
   expect(version.toString()).toBe('5.18.120');
 });
 
-test('can find all projects without e2e projects', async () => {
+test('can find all projects excluding e2e projects without public_api.ts', async () => {
   jest
     .spyOn(child_process, 'execSync')
     .mockReturnValueOnce(Buffer.from(affectedLibs))
     .mockReturnValueOnce(Buffer.from(affectedLibs))
     .mockReturnValueOnce(Buffer.from(affectedApps))
     .mockReturnValueOnce(Buffer.from(affectedApps));
-  jest.spyOn(fs, 'existsSync').mockReturnValue(true).mockReturnValue(true);
+  jest.spyOn(fs, 'existsSync').mockImplementation((path) => {
+    const pathStr = path.toString();
+    // Mock for lib package.json files
+    if (pathStr.includes('cf-core-lib/package.json')) return true;
+    if (pathStr.includes('cf-frontend-sdk/package.json')) return true;
+    // Mock for e2e public_api.ts - does not exist
+    if (pathStr.includes('cf-project-planning-lib-e2e/src/public_api.ts'))
+      return false;
+    return false;
+  });
   jest
     .spyOn(fs, 'readFileSync')
     .mockReturnValueOnce('{}')
@@ -95,9 +104,10 @@ test('can find all projects without e2e projects', async () => {
     .mockReturnValueOnce(appsDir)
     .mockReturnValueOnce(appsDir)
     .mockReturnValueOnce(appsDir);
+  jest.spyOn(Utils, 'getAppsDir').mockReturnValue('/mock/apps');
 
   const nxProjects: NxProject[] = Utils.getAllNxProjects();
-  expect(nxProjects).toHaveLength(4);
+  expect(nxProjects).toHaveLength(4); // 2 libs + 2 regular apps, e2e excluded
   expect(nxProjects[0].name).toBe(core);
   expect(nxProjects[1].name).toBe(sdk);
 });
@@ -182,14 +192,18 @@ test('can create comments for github actions with CET/CEST timestamp', () => {
   if (fs.existsSync(gitHubCommentsFile))
     comments = fs.readFileSync(gitHubCommentsFile).toString();
 
-  const expectedDate = fixedDate.toLocaleDateString('en-GB', { timeZone: 'Europe/Berlin' });
-  const expectedTime = fixedDate.toLocaleTimeString('en-GB', { timeZone: 'Europe/Berlin' });
+  const expectedDate = fixedDate.toLocaleDateString('en-GB', {
+    timeZone: 'Europe/Berlin',
+  });
+  const expectedTime = fixedDate.toLocaleTimeString('en-GB', {
+    timeZone: 'Europe/Berlin',
+  });
 
   expect(comments).toBe(
     `:tada: Snapshots of the following projects have been published:
                         Last updated: ${expectedDate} ${expectedTime} (CET/CEST) \n` +
-    `@cplace-next/cf-platform@0.0.0-feat-PFM-ISSUE-10014-Notify-the-developer-about-th-488\n` +
-    `@cplace-next/cf-platform@0.0.0-SNAPSHOT-l484devc-20220610\n`
+      `@cplace-next/cf-platform@0.0.0-feat-PFM-ISSUE-10014-Notify-the-developer-about-th-488\n` +
+      `@cplace-next/cf-platform@0.0.0-SNAPSHOT-l484devc-20220610\n`
   );
   global.Date = RealDate;
 });
@@ -241,4 +255,98 @@ test('can bump version correctly for a release Branch with existing tag', () => 
 test('can create hashed timestamp correctly formatted', () => {
   const timestamp = Utils.getHashedTimestamp();
   expect(timestamp).toEqual('lccjqzk0-20230101');
+});
+
+test('isE2eAppWithPublicApi returns true when e2e app has public_api.ts', () => {
+  jest.spyOn(Utils, 'getAppsDir').mockReturnValue('/mock/apps');
+  jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+
+  const result = Utils.isE2eAppWithPublicApi('my-app-e2e');
+
+  expect(result).toBe(true);
+  expect(fs.existsSync).toHaveBeenCalledWith(
+    '/mock/apps/my-app-e2e/src/public_api.ts'
+  );
+});
+
+test('isE2eAppWithPublicApi returns false when e2e app does not have public_api.ts', () => {
+  jest.spyOn(Utils, 'getAppsDir').mockReturnValue('/mock/apps');
+  jest.spyOn(fs, 'existsSync').mockReturnValue(false);
+
+  const result = Utils.isE2eAppWithPublicApi('my-app-e2e');
+
+  expect(result).toBe(false);
+  expect(fs.existsSync).toHaveBeenCalledWith(
+    '/mock/apps/my-app-e2e/src/public_api.ts'
+  );
+});
+
+test('isE2eAppWithPublicApi returns false when app is not e2e', () => {
+  const result = Utils.isE2eAppWithPublicApi('my-regular-app');
+
+  expect(result).toBe(false);
+});
+
+test('getAllNxProjects includes e2e apps with public_api.ts', async () => {
+  jest
+    .spyOn(child_process, 'execSync')
+    .mockReturnValueOnce(Buffer.from(affectedLibs))
+    .mockReturnValueOnce(Buffer.from(affectedLibs))
+    .mockReturnValueOnce(Buffer.from(affectedApps))
+    .mockReturnValueOnce(Buffer.from(affectedApps));
+  jest.spyOn(fs, 'existsSync').mockImplementation((path) => {
+    const pathStr = path.toString();
+    // Mock for lib package.json files
+    if (pathStr.includes('cf-core-lib/package.json')) return true;
+    if (pathStr.includes('cf-frontend-sdk/package.json')) return true;
+    // Mock for e2e public_api.ts - exists
+    if (pathStr.includes('cf-project-planning-lib-e2e/src/public_api.ts'))
+      return true;
+    return false;
+  });
+  jest
+    .spyOn(fs, 'readFileSync')
+    .mockReturnValueOnce('{}')
+    .mockReturnValueOnce(packageJsonLib1);
+  jest
+    .spyOn(fs, 'readdirSync')
+    .mockReturnValueOnce(libsDir)
+    .mockReturnValueOnce(libsDir)
+    .mockReturnValueOnce(appsDir)
+    .mockReturnValueOnce(appsDir)
+    .mockReturnValueOnce(appsDir);
+  jest.spyOn(Utils, 'getAppsDir').mockReturnValue('/mock/apps');
+
+  const nxProjects: NxProject[] = Utils.getAllNxProjects();
+
+  // Should include 2 libs + 2 regular apps + 1 e2e app with public_api.ts = 5 total
+  expect(nxProjects).toHaveLength(5);
+  const projectNames = nxProjects.map((p) => p.name);
+  expect(projectNames).toContain('cf-project-planning-lib-e2e');
+});
+
+test('getAffectedNxProjects excludes e2e apps without public_api.ts', async () => {
+  jest
+    .spyOn(child_process, 'execSync')
+    .mockReturnValueOnce(Buffer.from(affectedApps));
+  jest.spyOn(Utils, 'getAppsDir').mockReturnValue('/mock/apps');
+  jest.spyOn(fs, 'existsSync').mockImplementation((path) => {
+    const pathStr = path.toString();
+    // Mock for e2e public_api.ts - does not exist
+    if (pathStr.includes('cf-project-planning-lib-e2e/src/public_api.ts'))
+      return false;
+    return false;
+  });
+  jest
+    .spyOn(fs, 'readdirSync')
+    .mockReturnValueOnce(appsDir)
+    .mockReturnValueOnce(appsDir)
+    .mockReturnValueOnce(appsDir);
+
+  const apps = Utils.getAffectedNxProjects(base, NxProjectKind.Application);
+
+  // Should only include the 2 regular apps, not the e2e app
+  expect(apps).toHaveLength(2);
+  expect(apps[0].name).toBe(app1);
+  expect(apps[1].name).toBe(app2);
 });
