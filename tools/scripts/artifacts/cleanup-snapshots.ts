@@ -7,6 +7,7 @@ import { DateTime } from 'luxon';
 import { JfrogCredentials } from './jfrog-credentials';
 import { NpmPackage } from './types';
 
+
 export class CleanupSnapshots {
   private _npmSearchResults: NpmPackage[] = [];
   private scope = '';

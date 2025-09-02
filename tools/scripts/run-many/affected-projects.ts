@@ -6,9 +6,7 @@ export function distributeProjectsEvenly(
 ): string[][] {
   const sortedProjects = [...allProjects].sort((a, b) => a.localeCompare(b));
 
-  const distributedProjects: string[][] = Array(jobCount)
-    .fill([])
-    .map(() => []);
+  const distributedProjects: string[][] = Array(jobCount).fill([]).map(() => []);
   sortedProjects.forEach((project, index) => {
     const jobIndex = index % jobCount;
     distributedProjects[jobIndex].push(project);
@@ -25,7 +23,7 @@ export function getAffectedProjects(
   ref: string
 ) {
   let allAffectedProjects = [];
-  if (ref === '') {
+  if (target === 'e2e' && ref === '') {
     allAffectedProjects = Utils.getAllProjects(false, null, target);
   } else {
     allAffectedProjects = Utils.getAllProjects(true, base, target);

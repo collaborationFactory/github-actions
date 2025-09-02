@@ -9,7 +9,6 @@ import {
   affectedLibs,
   app1,
   app2,
-  app3,
   appsDir,
   base,
   globResult,
@@ -17,7 +16,6 @@ import {
   lib2,
   libsDir,
   npmrc,
-  packageJsonLib1,
   packageJsonLib2,
 } from './test-data';
 import { sep } from 'node:path';
@@ -57,18 +55,33 @@ test('can create and overwrite Snapshots for a Pull Request', async () => {
   const artifactHandler = await exec();
 
   const version = `${ArtifactsHandler.SNAPSHOT_VERSION}-feat-PFM-ISSUE-543-another-feature-222`;
-  expect(artifactHandler.projects).toHaveLength(3);
+  expect(artifactHandler.projects).toHaveLength(4);
   expect(artifactHandler.currentVersion.toString()).toBe(version);
   expect(artifactHandler.isSnapshot).toBe(true);
   expect(deleteArtifactSpy).toBeCalledTimes(3);
   expect(artifactHandler.base).toBe('origin/main');
   expect(artifactHandler.projects[0].getPrettyPackageJson()).toContain(version);
   expect(artifactHandler.projects[1].getPrettyPackageJson()).toContain(version);
-  expect(artifactHandler.projects[2].getPrettyPackageJson()).toContain(version);
+  expect(
+    JSON.parse(artifactHandler.projects[2].getPrettyPackageJson()).version
+  ).toBe(undefined);
+  expect(
+    JSON.parse(artifactHandler.projects[3].getPrettyPackageJson()).version
+  ).toBe(version);
+  expect(
+    JSON.parse(artifactHandler.projects[2].getPrettyPackageJson()).publishable
+  ).toBe(undefined);
+  expect(
+    JSON.parse(artifactHandler.projects[3].getPrettyPackageJson()).publishable
+  ).toBe(true);
   expect(
     JSON.parse(artifactHandler.projects[2].getPrettyPackageJson())
       .peerDependencies
   ).toBe(undefined);
+  expect(
+    JSON.parse(artifactHandler.projects[3].getPrettyPackageJson())
+      .peerDependencies
+  ).not.toBe(undefined);
   expect(
     JSON.parse(artifactHandler.projects[0].getPrettyPackageJson()).publishConfig
       .tag
@@ -79,6 +92,9 @@ test('can create and overwrite Snapshots for a Pull Request', async () => {
   ).toBe('latest-pr-snapshot');
   expect(
     JSON.parse(artifactHandler.projects[2].getPrettyPackageJson()).publishConfig
+  ).toBe(undefined);
+  expect(
+    JSON.parse(artifactHandler.projects[3].getPrettyPackageJson()).publishConfig
       .tag
   ).toBe('latest-pr-snapshot');
 });
@@ -93,7 +109,7 @@ test('can delete artifacts when a Pull Request is closed', async () => {
   const artifactHandler = await exec();
 
   const version = '0.0.0-feat-PFM-ISSUE-543-another-feature-222';
-  expect(artifactHandler.projects).toHaveLength(3);
+  expect(artifactHandler.projects).toHaveLength(4);
   expect(artifactHandler.currentVersion.toString()).toBe(version);
   expect(artifactHandler.isSnapshot).toBe(true);
   expect(deleteArtifactSpy).toBeCalledTimes(3);
@@ -127,12 +143,13 @@ test('can create and overwrite Snapshots in main branch', async () => {
 
   const artifactHandler = await exec();
 
-  expect(artifactHandler.projects).toHaveLength(3);
+  expect(artifactHandler.projects).toHaveLength(4);
   expect(artifactHandler.isSnapshot).toBe(true);
   expect(artifactHandler.currentVersion.toString()).toContain(SNAPSHOT_VERSION);
   expect(artifactHandler.projects[0].name).toBe(app1);
   expect(artifactHandler.projects[1].name).toBe(app2);
-  expect(artifactHandler.projects[2].name).toBe(app3);
+  expect(artifactHandler.projects[2].name).toBe(lib1);
+  expect(artifactHandler.projects[3].name).toBe(lib2);
   expect(artifactHandler.projects[0].getPathToProjectInDist()).toContain(
     `dist/apps/my/${app1}`.replace(/\//g, sep)
   );
@@ -140,7 +157,10 @@ test('can create and overwrite Snapshots in main branch', async () => {
     `dist/apps/${app2}`.replace(/\//g, sep)
   );
   expect(artifactHandler.projects[2].getPathToProjectInDist()).toContain(
-    `dist/apps/${app3}`.replace(/\//g, sep)
+    `dist/libs/${lib1}`.replace(/\//g, sep)
+  );
+  expect(artifactHandler.projects[3].getPathToProjectInDist()).toContain(
+    `dist/libs/${lib2}`.replace(/\//g, sep)
   );
   expect(artifactHandler.projects[0].npmrcContent).toBe(npmrc);
   expect(artifactHandler.projects[1].npmrcContent).toBe(npmrc);
@@ -150,9 +170,26 @@ test('can create and overwrite Snapshots in main branch', async () => {
   expect(artifactHandler.projects[1].getPrettyPackageJson()).toContain(
     SNAPSHOT_VERSION
   );
-  expect(artifactHandler.projects[2].getPrettyPackageJson()).toContain(
-    SNAPSHOT_VERSION
-  );
+  expect(
+    JSON.parse(artifactHandler.projects[2].getPrettyPackageJson()).version
+  ).toBe(undefined);
+  expect(
+    JSON.parse(artifactHandler.projects[3].getPrettyPackageJson()).version
+  ).toContain(SNAPSHOT_VERSION);
+  expect(
+    JSON.parse(artifactHandler.projects[2].getPrettyPackageJson()).publishable
+  ).toBe(undefined);
+  expect(
+    JSON.parse(artifactHandler.projects[3].getPrettyPackageJson()).publishable
+  ).toBe(true);
+  expect(
+    JSON.parse(artifactHandler.projects[2].getPrettyPackageJson())
+      .peerDependencies
+  ).toBe(undefined);
+  expect(
+    JSON.parse(artifactHandler.projects[3].getPrettyPackageJson())
+      .peerDependencies
+  ).not.toBe(undefined);
   expect(
     JSON.parse(artifactHandler.projects[0].getPrettyPackageJson()).publishConfig
       .tag
@@ -163,6 +200,9 @@ test('can create and overwrite Snapshots in main branch', async () => {
   ).toBe('snapshot');
   expect(
     JSON.parse(artifactHandler.projects[2].getPrettyPackageJson()).publishConfig
+  ).toBe(undefined);
+  expect(
+    JSON.parse(artifactHandler.projects[3].getPrettyPackageJson()).publishConfig
       .tag
   ).toBe('snapshot');
 });
@@ -203,19 +243,12 @@ async function exec() {
   jest
     .spyOn(fs, 'readFileSync')
     .mockReturnValueOnce(packageJsonLib2)
-    .mockReturnValueOnce(packageJsonLib2)
-    .mockReturnValueOnce(packageJsonLib1)
-    .mockReturnValueOnce(packageJsonLib1);
-  jest.spyOn(fs, 'existsSync').mockImplementation((path) => {
-    const pathStr = path.toString();
-    // Mock for lib package.json files
-    if (pathStr.includes('cf-core-lib/package.json')) return true;
-    if (pathStr.includes('cf-frontend-sdk/package.json')) return true;
-    // Mock for e2e public_api.ts - exists, so e2e app will be publishable
-    if (pathStr.includes('cf-project-planning-lib-e2e/src/public_api.ts'))
-      return true;
-    return true;
-  });
+    .mockReturnValueOnce(packageJsonLib2);
+  jest
+    .spyOn(fs, 'existsSync')
+    .mockReturnValueOnce(false)
+    .mockReturnValueOnce(true)
+    .mockReturnValueOnce(true);
 
   jest
     .spyOn(fs, 'readdirSync')
@@ -225,9 +258,6 @@ async function exec() {
     .mockReturnValueOnce(libsDir)
     .mockReturnValueOnce(libsDir)
     .mockReturnValueOnce(libsDir);
-
-  jest.spyOn(Utils, 'getAppsDir').mockReturnValue('/mock/apps');
-  jest.spyOn(Utils, 'getLibsDir').mockReturnValue('/mock/libs');
 
   deleteArtifactSpy = jest
     .spyOn(NxProject.prototype as any, 'deleteArtifact')

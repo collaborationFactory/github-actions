@@ -54,9 +54,7 @@ test('NxProject can find folder in src', async () => {
     undefined,
     '@cplace-next'
   );
-  expect(nxProject.getPathToProjectInSource()).toContain(
-    'libs/my-lib'.replace(/\//g, sep)
-  );
+  expect(nxProject.getPathToProjectInSource()).toContain('libs/my-lib'.replace(/\//g, sep));
 });
 
 test('NxProject can find folder in dist', async () => {
@@ -67,49 +65,5 @@ test('NxProject can find folder in dist', async () => {
     undefined,
     '@cplace-next'
   );
-  expect(nxProject.getPathToProjectInDist()).toContain(
-    'dist/apps/my-app'.replace(/\//g, sep)
-  );
-});
-
-test('e2e app is publishable when public_api.ts exists', async () => {
-  jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-
-  const nxProject = new NxProject(
-    'my-app-e2e',
-    NxProjectKind.Application,
-    undefined,
-    undefined,
-    '@cplace-next'
-  );
-
-  expect(nxProject.isPublishable).toBe(true);
-});
-
-test('e2e app is not publishable when public_api.ts does not exist', async () => {
-  jest.spyOn(fs, 'existsSync').mockReturnValue(false);
-
-  const nxProject = new NxProject(
-    'my-app-e2e',
-    NxProjectKind.Application,
-    undefined,
-    undefined,
-    '@cplace-next'
-  );
-
-  expect(nxProject.isPublishable).toBe(false);
-});
-
-test('regular app is always publishable regardless of public_api.ts', async () => {
-  jest.spyOn(fs, 'existsSync').mockReturnValue(false);
-
-  const nxProject = new NxProject(
-    'my-regular-app',
-    NxProjectKind.Application,
-    undefined,
-    undefined,
-    '@cplace-next'
-  );
-
-  expect(nxProject.isPublishable).toBe(true);
+  expect(nxProject.getPathToProjectInDist()).toContain( 'dist/apps/my-app'.replace(/\//g, sep));
 });

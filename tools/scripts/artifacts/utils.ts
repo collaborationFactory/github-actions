@@ -7,8 +7,6 @@ import { NxProject, NxProjectKind, VERSION_BUMP } from './nx-project';
 import { Version } from './version';
 
 export class Utils {
-  public static readonly E2E_APP_SUFFIX = '-e2e';
-  public static readonly PUBLIC_API_FILE_NAME = 'public_api.ts';
   public static readonly PULL_REQUEST = 'pull_request';
   public static readonly GITHUB_COMMENTS_FILE = 'githubCommentsForPR.txt';
   public static readonly EMPTY_GITHUB_COMMENTS =
@@ -25,19 +23,6 @@ export class Utils {
     });
   }
 
-  public static isE2eAppWithPublicApi(projectName: string): boolean {
-    if (!projectName.endsWith(Utils.E2E_APP_SUFFIX)) {
-      return false;
-    }
-
-    // Find the project path
-    const appsDir = Utils.getAppsDir();
-    const projectPath = path.join(appsDir, projectName);
-    const publicApiPath = path.join(projectPath, 'src', Utils.PUBLIC_API_FILE_NAME);
-
-    return fs.existsSync(publicApiPath);
-  }
-
   public static getAffectedNxProjects(
     base: string,
     nxProjectKind: NxProjectKind,
@@ -45,7 +30,7 @@ export class Utils {
     version: Version = new Version(),
     scope: string = ''
   ): NxProject[] {
-    let affectedProjects: string[];
+    let affectedProjects = [];
     if (nxProjectKind === NxProjectKind.Application) {
       affectedProjects = Utils.getListOfAllAffectedApps(base);
     } else {
@@ -57,15 +42,9 @@ export class Utils {
       }: ` + affectedProjects.toString()
     );
     let filteredAffected: string[] = affectedProjects
-      .filter((project) => {
-        // Include e2e apps only if they have public_api.ts
-        if (project.endsWith(Utils.E2E_APP_SUFFIX)) {
-          return Utils.isE2eAppWithPublicApi(project);
-        }
-        return true;
-      })
+      .filter((project) => !project.endsWith('-e2e'))
       .filter((project) => !project.startsWith('api-'))
-      .sort((a, b) => a.localeCompare(b));
+      .sort();
     let projects: NxProject[] = [];
     filteredAffected.forEach((affected) => {
       projects.push(
@@ -85,13 +64,7 @@ export class Utils {
 
     const projects = [...libs, ...apps];
     const nxProjects: NxProject[] = projects
-      .filter((project) => {
-        // Include e2e apps only if they have public_api.ts
-        if (project.endsWith(Utils.E2E_APP_SUFFIX)) {
-          return Utils.isE2eAppWithPublicApi(project);
-        }
-        return true;
-      })
+      .filter((project) => !project.endsWith('-e2e'))
       .filter((project) => !project.startsWith('api-'))
       .map((project) => {
         return new NxProject(
@@ -315,11 +288,11 @@ export class Utils {
   public static writePublishedProjectToGithubCommentsFile(message: string) {
     const gitHubCommentsFile = Utils.getGitHubCommentsFile();
     const currentDate = new Date();
-    const dateString = currentDate.toLocaleDateString('en-GB', {
-      timeZone: 'Europe/Berlin',
+    const dateString = currentDate.toLocaleDateString("en-GB", {
+      timeZone: "Europe/Berlin",
     });
-    const timeString = currentDate.toLocaleTimeString('en-GB', {
-      timeZone: 'Europe/Berlin',
+    const timeString = currentDate.toLocaleTimeString("en-GB", {
+      timeZone: "Europe/Berlin",
     });
 
     if (!fs.existsSync(gitHubCommentsFile)) {
@@ -349,7 +322,7 @@ export class Utils {
       fs.readFileSync(pathToRootPackageJson).toString()
     );
     const name = packageJsonContent.name;
-    let scope = (name.match(/@\S+\//) || '')[0]?.replace('/', '');
+    let scope = (name.match(/@[\S]+\//) || '')[0]?.replace('/', '');
     if (!scope || scope === '') {
       console.error(
         `No scope could be found, please provide a scope in root package.json (e.g. @YourScope/yourAppOrLib)`
