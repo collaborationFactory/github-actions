@@ -26,8 +26,16 @@ export const globResult = [
   'libs/cf-storybook-lib/project.json',
   'libs/cf-shell-lib/project.json',
   'libs/cf-platform-lib/project.json',
+  'libs/cf-core-lib/project.json',
+  'libs/cf-frontend-sdk/project.json',
+  'libs/my-lib/project.json',
   'apps/cf-shell/project.json',
   'apps/my/cf-platform/project.json',
+  'apps/cf-project-planning/project.json',
+  'apps/cf-project-planning-lib-e2e/project.json',
+  'apps/my-app/project.json',
+  'apps/my-app-e2e/project.json',
+  'apps/my-regular-app/project.json',
 ];
 
 export const packageJsonLib1 =

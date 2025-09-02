@@ -96,11 +96,13 @@ export class NxProject {
       }
       
       // For regular projects, ensure exact match to avoid E2E conflicts
-      // Pattern: {path}/{projectType}/{projectName}/project.json becomes {path}-{projectType}-{projectName}-project
-      const exactPattern = `-${projectType}-${this.name}-project`;
+      // Pattern: {path}/{projectType}/{...}/{projectName}/project.json
+      // Check if path contains projectType and ends with the project name before -project
+      const pathParts = result.replace('/project.json', '').split('/');
+      const lastPart = pathParts[pathParts.length - 1];
       return (
         normalizedPath.includes(projectType) &&
-        normalizedPath.endsWith(exactPattern)
+        lastPart === this.name
       );
     });
     if (foundProjectPath) {
