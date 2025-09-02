@@ -58,8 +58,8 @@ export class Utils {
     );
     let filteredAffected: string[] = affectedProjects
       .filter((project) => {
-        // Include e2e apps only if they have public_api.ts
-        if (project.endsWith(Utils.E2E_APP_SUFFIX)) {
+        // For applications, include e2e apps only if they have public_api.ts
+        if (nxProjectKind === NxProjectKind.Application && project.endsWith(Utils.E2E_APP_SUFFIX)) {
           return Utils.isE2eAppWithPublicApi(project);
         }
         return true;
@@ -86,8 +86,8 @@ export class Utils {
     const projects = [...libs, ...apps];
     const nxProjects: NxProject[] = projects
       .filter((project) => {
-        // Include e2e apps only if they have public_api.ts
-        if (project.endsWith(Utils.E2E_APP_SUFFIX)) {
+        // For apps, include e2e apps only if they have public_api.ts
+        if (apps.includes(project) && project.endsWith(Utils.E2E_APP_SUFFIX)) {
           return Utils.isE2eAppWithPublicApi(project);
         }
         return true;
