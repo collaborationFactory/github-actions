@@ -85,12 +85,22 @@ export class NxProject {
 
     const foundProjectPath = globResults.find((result) => {
       const normalizedPath = result.replace(/\//g, '-');
+      const projectType = this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs';
+      
+      // For E2E apps, match exactly
+      if (this.name.endsWith(Utils.E2E_APP_SUFFIX)) {
+        return (
+          normalizedPath.includes(this.name) &&
+          normalizedPath.includes(projectType)
+        );
+      }
+      
+      // For regular projects, ensure exact match to avoid E2E conflicts
+      // Pattern: {path}/{projectType}/{projectName}/project.json becomes {path}-{projectType}-{projectName}-project
+      const exactPattern = `-${projectType}-${this.name}-project`;
       return (
-        normalizedPath.includes(this.name) &&
-        !normalizedPath.includes('-e2e') &&
-        normalizedPath.includes(
-          this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs'
-        )
+        normalizedPath.includes(projectType) &&
+        normalizedPath.endsWith(exactPattern)
       );
     });
     if (foundProjectPath) {
