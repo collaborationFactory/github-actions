@@ -337,9 +337,21 @@ export class NxProject {
     const projectType =
       this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs';
     const subPath = nestedPath ? nestedPath : path.join(projectType, this.name);
-    const base = subPath.split(projectType)[0];
-    const relativePath = subPath.split(projectType)[1];
-    return path.join(base, 'dist', projectType, relativePath);
+    
+    // Find the position of projectType as a complete directory segment
+    const pathParts = subPath.split('/');
+    const projectTypeIndex = pathParts.indexOf(projectType);
+    
+    if (projectTypeIndex === -1) {
+      // Fallback: if projectType not found, assume it's at the root
+      return path.join('dist', projectType, this.name);
+    }
+    
+    const base = pathParts.slice(0, projectTypeIndex).join('/');
+    const relativePath = pathParts.slice(projectTypeIndex + 1).join('/');
+    const basePath = base ? base : '.';
+    
+    return path.join(basePath, 'dist', projectType, relativePath);
   }
 
   public getNpmrcPathInDist() {
