@@ -87,17 +87,9 @@ export class NxProject {
       const normalizedPath = result.replace(/\//g, '-');
       const projectType = this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs';
       
-      // For E2E apps, match exactly
-      if (this.name.endsWith(Utils.E2E_APP_SUFFIX)) {
-        return (
-          normalizedPath.includes(this.name) &&
-          normalizedPath.includes(projectType)
-        );
-      }
-      
-      // For regular projects, ensure exact match to avoid E2E conflicts
+      // For all projects (regular and E2E), use precise path matching
       // Pattern: {path}/{projectType}/{...}/{projectName}/project.json
-      // Check if path contains projectType and ends with the project name before -project
+      // Check if path contains projectType and the last directory segment matches project name
       const pathParts = result.replace('/project.json', '').split('/');
       const lastPart = pathParts[pathParts.length - 1];
       return (
