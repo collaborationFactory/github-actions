@@ -331,7 +331,7 @@ export class NxProject {
     const nestedPath = this.pathToProject;
     const projectType =
       this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs';
-    const subPath = nestedPath || path.join(projectType, this.name);
+    const subPath = nestedPath ? nestedPath : path.join(projectType, this.name);
     const base = subPath.split(projectType)[0];
     const relativePath = subPath.split(projectType)[1];
     return path.join(base, 'dist', projectType, relativePath);
