@@ -85,11 +85,12 @@ export class NxProject {
 
     const foundProjectPath = globResults.find((result) => {
       const normalizedPath = result.replace(/\//g, '-');
+      const projectType = this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs';
+      // Match exact project name to avoid conflicts between regular projects and their e2e counterparts
+      const expectedPath = `${projectType}-${this.name}`;
       return (
-        normalizedPath.includes(this.name) &&
-        normalizedPath.includes(
-          this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs'
-        )
+        normalizedPath.includes(expectedPath) &&
+        normalizedPath.includes(projectType)
       );
     });
     if (foundProjectPath) {
@@ -349,7 +350,7 @@ export class NxProject {
     const nestedPath = this.pathToProject;
     const projectType = this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs';
     return path.resolve(
-      nestedPath || path.join(projectType, this.name)
+      nestedPath ? nestedPath : path.join(projectType, this.name)
     );
   }
 
