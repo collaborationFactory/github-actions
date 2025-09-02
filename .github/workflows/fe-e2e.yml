@@ -48,7 +48,7 @@ jobs:
       - name: Affected Regression Tests
         id: regressionTests
         continue-on-error: true
-        uses: collaborationFactory/github-actions/.github/actions/run-many@master
+        uses: collaborationFactory/github-actions/.github/actions/run-many@fix-build-being-empty
         with:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}
