@@ -85,11 +85,16 @@ export class NxProject {
 
     const foundProjectPath = globResults.find((result) => {
       const normalizedPath = result.replace(/\//g, '-');
+      const projectType = this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs';
+      
+      // For all projects (regular and E2E), use precise path matching
+      // Pattern: {path}/{projectType}/{...}/{projectName}/project.json
+      // Check if path contains projectType and the last directory segment matches project name
+      const pathParts = result.replace('/project.json', '').split('/');
+      const lastPart = pathParts[pathParts.length - 1];
       return (
-        normalizedPath.includes(this.name) &&
-        normalizedPath.includes(
-          this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs'
-        )
+        normalizedPath.includes(projectType) &&
+        lastPart === this.name
       );
     });
     if (foundProjectPath) {
@@ -331,10 +336,22 @@ export class NxProject {
     const nestedPath = this.pathToProject;
     const projectType =
       this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs';
-    const subPath = nestedPath || path.join(projectType, this.name);
-    const base = subPath.split(projectType)[0];
-    const relativePath = subPath.split(projectType)[1];
-    return path.join(base, 'dist', projectType, relativePath);
+    const subPath = nestedPath ? nestedPath : path.join(projectType, this.name);
+    
+    // Find the position of projectType as a complete directory segment
+    const pathParts = subPath.split('/');
+    const projectTypeIndex = pathParts.indexOf(projectType);
+    
+    if (projectTypeIndex === -1) {
+      // Fallback: if projectType not found, assume it's at the root
+      return path.join('dist', projectType, this.name);
+    }
+    
+    const base = pathParts.slice(0, projectTypeIndex).join('/');
+    const relativePath = pathParts.slice(projectTypeIndex + 1).join('/');
+    const basePath = base ? base : '.';
+    
+    return path.join(basePath, 'dist', projectType, relativePath);
   }
 
   public getNpmrcPathInDist() {
@@ -349,7 +366,7 @@ export class NxProject {
     const nestedPath = this.pathToProject;
     const projectType = this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs';
     return path.resolve(
-      nestedPath || path.join(projectType, this.name)
+      nestedPath ? nestedPath : path.join(projectType, this.name)
     );
   }
 

@@ -37,7 +37,7 @@ test('NxProject can provide jfrog Url', async () => {
 
 test('NxProject can get actual folder of project', async () => {
   const nxProject = new NxProject(
-    'my-cf-platform',
+    'cf-platform',
     NxProjectKind.Application,
     undefined,
     undefined,
