@@ -39,6 +39,9 @@ jobs:
         with:
           dot-npmrc: ${{ secrets.DOT_NPMRC }}
 
+      - name: Setup upterm session
+        uses: mxschmitt/action-tmate@v3
+
       - name: Install modules
         if: steps.npm-cache.outputs.cache-hit != 'true'
         run: npm ci
