@@ -7,6 +7,7 @@ import { TASK } from './artifacts-handler';
 import { JfrogCredentials } from './jfrog-credentials';
 import { Version } from './version';
 import { getJfrogUrl } from './configuration';
+import { NpmPackage } from './types';
 
 interface PackageJson {
   author: string;
@@ -55,22 +56,8 @@ export class NxProject {
           this.isPublishable = true;
       }
     } else {
-      // For e2e apps, check if public_api.ts exists
-      if (this.name.endsWith(Utils.E2E_APP_SUFFIX)) {
-        this.isPublishable = this.hasPublicApi();
-      } else {
-        this.isPublishable = true;
-      }
+      this.isPublishable = true;
     }
-  }
-
-  private hasPublicApi(): boolean {
-    const publicApiPath = path.join(
-      this.getPathToProjectInSource(),
-      'src',
-      Utils.PUBLIC_API_FILE_NAME
-    );
-    return fs.existsSync(publicApiPath);
   }
 
   public initPathToProject() {
@@ -85,16 +72,12 @@ export class NxProject {
 
     const foundProjectPath = globResults.find((result) => {
       const normalizedPath = result.replace(/\//g, '-');
-      const projectType = this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs';
-      
-      // For all projects (regular and E2E), use precise path matching
-      // Pattern: {path}/{projectType}/{...}/{projectName}/project.json
-      // Check if path contains projectType and the last directory segment matches project name
-      const pathParts = result.replace('/project.json', '').split('/');
-      const lastPart = pathParts[pathParts.length - 1];
       return (
-        normalizedPath.includes(projectType) &&
-        lastPart === this.name
+        normalizedPath.includes(this.name) &&
+        !normalizedPath.includes('-e2e') &&
+        normalizedPath.includes(
+          this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs'
+        )
       );
     });
     if (foundProjectPath) {
@@ -110,16 +93,11 @@ export class NxProject {
    * we are no longer using this method and can be removed along with the unit tests REF:PFM-ISSUE-28695
    */
   public getJfrogNpmArtifactUrl(): string {
-    return (
-      getJfrogUrl() +
-      `/${this.scope}/${this.name}/-/${this.scope}/${
-        this.name
-      }-${this.version.toString()}.tgz`
-    );
+    return getJfrogUrl() + `/${this.scope}/${this.name}/-/${this.scope}/${this.name}-${this.version.toString()}.tgz`;
   }
 
   public getMarkdownLink(): string {
-    return `[${this.getPackageInstallPath()}](${this.getJfrogNpmArtifactUrl()})`;
+    return `${this.getPackageInstallPath()}`;
   }
 
   public async publish() {
@@ -175,7 +153,7 @@ export class NxProject {
     }
   }
 
-  public async deleteSnapshots() {
+  public async deleteSnapshots(jfrogCredentials: JfrogCredentials) {
     const snapshots = Utils.getAllSnapshotVersionsOfPackage(
       this.name,
       this.getPathToProjectInDist(),
@@ -184,43 +162,34 @@ export class NxProject {
     console.log('The following snapshots have been found and will be removed');
     console.log(...snapshots);
     for (const snapshot of snapshots) {
-      await this.deleteArtifact(Utils.getVersionFromSnapshotString(snapshot));
+      await this.deleteArtifact(
+        Utils.getVersionFromSnapshotString(snapshot)
+      );
     }
   }
 
   private packageExists(pkg: string, version: string) {
-    const scopeSearchResult = execSync(`npm search ${pkg} --json`).toString();
-    const npmSearchResults = JSON.parse(scopeSearchResult);
-    const npmPackage = Array.isArray(npmSearchResults)
-      ? npmSearchResults.find((entry) => entry.name === pkg)
-      : npmSearchResults[pkg] ||
-        Object.values(npmSearchResults).find(
-          (entry: any) => entry.name === pkg
-        );
+    const scopeSearchResult = execSync(`npm show ${pkg} --json`).toString();
+    console.log(`Search result from registry: ${scopeSearchResult}`);
+    const npmPackage = JSON.parse(scopeSearchResult);
     if (!npmPackage) return false;
-    const packageDetails = execSync(`npm view ${pkg} --json`).toString();
-    const npmPackageDetails = JSON.parse(packageDetails);
-    npmPackage.versions = npmPackageDetails.versions || [];
+    console.log(`Package found in registry: ${npmPackage.name}`);
+    console.log(`Package versions in registry: ${npmPackage.versions}`);
     return npmPackage.versions.includes(version);
   }
 
-  public async deleteArtifact(
-    version: Version,
-    jfrogCredentials: JfrogCredentials = null
-  ) {
-    console.log('Checking if package exists in registry');
+  public async deleteArtifact(version: Version, jfrogCredentials: JfrogCredentials = null) {
+    console.log("Checking if package exists in registry");
     const scopedPackage = `${this.scope}/${this.name}`;
-    if (!this.packageExists(scopedPackage, version.toString())) {
-      console.log(
-        `Package ${scopedPackage}@${version.toString()} does not exist in the registry. Skipping deletion.`
-      );
+    if(!this.packageExists(scopedPackage, version.toString())) {
+      console.log(`Package ${scopedPackage}@${version.toString()} does not exist in the registry. Skipping deletion.`);
       return;
     }
+    console.log(`Package ${scopedPackage}@${version.toString()} exists in registry`);
     console.log(
-      `Package ${scopedPackage}@${version.toString()} exists in registry`
-    );
-    console.log(
-      `About to delete artifact from Jfrog: ${this.name}@${version.toString()}`
+      `About to delete artifact from Jfrog: ${
+        this.name
+      }@${version.toString()}`
     );
     try {
       const pathToProjectInDist = this.getPathToProjectInDist();
@@ -229,32 +198,24 @@ export class NxProject {
           `Path to project in dist does not exist, creating it: ${pathToProjectInDist}`
         );
         this.writeNPMRCInDist(jfrogCredentials, this.scope);
-        console.log(
-          `Setting version in package.json for ${
-            this.name
-          } to ${version.toString()}`
-        );
-        this.setVersionOrGeneratePackageJsonInDist(
-          version,
-          jfrogCredentials.url
-        );
+        console.log(`Setting version in package.json for ${this.name} to ${version.toString()}`);
+        this.setVersionOrGeneratePackageJsonInDist(version, jfrogCredentials.url);
         console.log(`Generated package.json: ${this.getPrettyPackageJson()}`);
       }
       console.log(
-        execSync(
-          `npm unpublish ${this.scope}/${
-            this.name
-          }@${version.toString()} --force`,
-          {
-            cwd: `${this.getPathToProjectInDist()}`,
-          }
-        ).toString()
+        execSync(`npm unpublish ${this.scope}/${this.name}@${version.toString()} --force`, {
+          cwd: `${this.getPathToProjectInDist()}`,
+        }).toString()
       );
       console.log(
-        `Deleted artifact from Jfrog: ${this.name}@${version.toString()}`
+        `Deleted artifact from Jfrog: ${
+          this.name
+        }@${version.toString()}`
       );
     } catch (error: any) {
-      console.error(`An error occurred while deleting the artifact: ${error}`);
+      console.error(
+        `An error occurred while deleting the artifact: ${error}`
+      );
       if (error.status !== 0) process.exit(1);
     }
   }
@@ -274,17 +235,14 @@ export class NxProject {
       `${jfrogCredentials.getJfrogUrlNoHttp()}:email=${jfrogCredentials.user}`;
     console.log(this.npmrcContent + '\n\n');
     const npmrcPathInDist = this.getNpmrcPathInDist();
-    if (!fs.existsSync(npmrcPathInDist)) {
+    if(!fs.existsSync(npmrcPathInDist)){
       fs.mkdirSync(path.dirname(npmrcPathInDist), { recursive: true });
     }
     fs.writeFileSync(npmrcPathInDist, this.npmrcContent);
     console.log('wrote .npmrc to:  ' + npmrcPathInDist);
   }
 
-  public setVersionOrGeneratePackageJsonInDist(
-    version: Version,
-    registry: string
-  ) {
+  public setVersionOrGeneratePackageJsonInDist(version: Version, registry: string) {
     if (this.hasPackageJson) {
       try {
         this.packageJsonContent = JSON.parse(
@@ -337,21 +295,9 @@ export class NxProject {
     const projectType =
       this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs';
     const subPath = nestedPath ? nestedPath : path.join(projectType, this.name);
-    
-    // Find the position of projectType as a complete directory segment
-    const pathParts = subPath.split('/');
-    const projectTypeIndex = pathParts.indexOf(projectType);
-    
-    if (projectTypeIndex === -1) {
-      // Fallback: if projectType not found, assume it's at the root
-      return path.join('dist', projectType, this.name);
-    }
-    
-    const base = pathParts.slice(0, projectTypeIndex).join('/');
-    const relativePath = pathParts.slice(projectTypeIndex + 1).join('/');
-    const basePath = base ? base : '.';
-    
-    return path.join(basePath, 'dist', projectType, relativePath);
+    const base = subPath.split(projectType)[0];
+    const relativePath = subPath.split(projectType)[1];
+    return path.join(base, 'dist', projectType, relativePath);
   }
 
   public getNpmrcPathInDist() {
@@ -364,9 +310,13 @@ export class NxProject {
 
   public getPathToProjectInSource(): string {
     const nestedPath = this.pathToProject;
-    const projectType = this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs';
     return path.resolve(
-      nestedPath ? nestedPath : path.join(projectType, this.name)
+      nestedPath
+        ? nestedPath
+        : path.join(
+            this.nxProjectKind === NxProjectKind.Application ? 'apps' : 'libs',
+            this.name
+          )
     );
   }
 
