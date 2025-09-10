@@ -55,10 +55,3 @@ jobs:
           name: coverage-${{ matrix.jobIndex }}
           path: coverage/
           retention-days: 7
-
-      - name: Upload Junit Reports
-        uses: actions/upload-artifact@v4
-        with:
-          name: junit-${{ matrix.jobIndex }}
-          path: reports/
-          retention-days: 7
