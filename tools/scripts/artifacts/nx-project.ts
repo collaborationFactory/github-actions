@@ -166,17 +166,12 @@ export class NxProject {
   }
 
   private packageExists(pkg: string, version: string) {
-    const scopeSearchResult = execSync(
-      `npm search ${pkg} --json`
-    ).toString();
-    const npmSearchResults: NpmPackage[] = JSON.parse(scopeSearchResult);
-    const npmPackage = npmSearchResults.find((entry) => entry.name === pkg);
+    const scopeSearchResult = execSync(`npm show ${pkg} --json`).toString();
+    console.log(`Search result from registry: ${scopeSearchResult}`);
+    const npmPackage = JSON.parse(scopeSearchResult);
     if (!npmPackage) return false;
-    const packageDetails = execSync(
-      `npm view ${pkg} --json`
-    ).toString();
-    const npmPackageDetails = JSON.parse(packageDetails);
-    npmPackage.versions = npmPackageDetails.versions || [];
+    console.log(`Package found in registry: ${npmPackage.name}`);
+    console.log(`Package versions in registry: ${npmPackage.versions}`);
     return npmPackage.versions.includes(version);
   }
 
