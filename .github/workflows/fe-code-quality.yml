@@ -85,13 +85,24 @@ jobs:
             echo "has_token=true" >> $GITHUB_OUTPUT
           else
             echo "has_token=false" >> $GITHUB_OUTPUT
+            echo "SONAR_CLOUD_TOKEN secret must be set to run SonarCloud analysis."
           fi
-        continue-on-error: false
+
+      - name: Check if sonar inputs are provided
+        id: check-inputs
+        if: steps.check-secret.outputs.has_token == 'true'
+        run: |
+          if [ -z "${{ inputs.SONAR_CLOUD_ORG }}" ] || [ -z "${{ inputs.SONAR_CLOUD_PROJECT_KEY }}" ]; then
+            echo "run_sonar=false" >> $GITHUB_OUTPUT
+            echo "SONAR_CLOUD_ORG and SONAR_CLOUD_PROJECT_KEY inputs must be provided when SONAR_CLOUD_TOKEN is set."
+          else
+            echo "run_sonar=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Skip SonarCloud steps if no token
-        if: steps.check-secret.outputs.has_token == 'false'
+        if: steps.check-inputs.outputs.run_sonar == 'false' || steps.check-secret.outputs.has_token == 'false'
         run: |
-          echo "SONAR_CLOUD_TOKEN is not set. Skipping SonarCloud analysis."
+          echo "Skipping SonarCloud analysis."
           exit 0
 
       - name: Checkout
