@@ -5,6 +5,7 @@ on:
     secrets:
       SONAR_CLOUD_TOKEN:
         required: false
+
 jobs:
   code-quality:
     runs-on: ubuntu-latest
@@ -63,8 +64,17 @@ jobs:
     name: SonarCloud
     needs: code-quality
     runs-on: ubuntu-latest
-    if: ${{ secrets.SONAR_CLOUD_TOKEN != '' }}
     steps:
+      - name: Check if SONAR_CLOUD_TOKEN exists
+        id: check-secret
+        run: |
+          if [ -n "${{ secrets.SONAR_CLOUD_TOKEN }}" ]; then
+            echo "has_token=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_token=false" >> $GITHUB_OUTPUT
+          fi
+        continue-on-error: false
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
