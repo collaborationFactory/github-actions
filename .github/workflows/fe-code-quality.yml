@@ -5,6 +5,15 @@ on:
     secrets:
       SONAR_CLOUD_TOKEN:
         required: false
+      SONAR_CLOUD_ORG:
+        required: false
+        description: "SonarCloud organization key, e.g., 'my-org'"
+      SONAR_CLOUD_PROJECT_KEY:
+        required: false
+        description: "SonarCloud project key, e.g., 'my-project'"
+      SONAR_PROPERTIES:
+        required: false
+        description: "Additional sonar-project.properties content"
 
 jobs:
   code-quality:
@@ -75,10 +84,32 @@ jobs:
           fi
         continue-on-error: false
 
+      - name: Skip SonarCloud steps if no token
+        if: steps.check-secret.outputs.has_token == 'false'
+        run: |
+          echo "SONAR_CLOUD_TOKEN is not set. Skipping SonarCloud analysis."
+          exit 0
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Write sonar-project.properties
+        run: |
+          echo "sonar.organization=${{ secrets.SONAR_CLOUD_ORG }}" >> sonar-project.properties
+          echo "sonar.projectKey=${{ secrets.SONAR_CLOUD_PROJECT_KEY }}" >> sonar-project.properties
+          echo "sonar.sources=." >> sonar-project.properties
+          echo "sonar.tests=." >> sonar-project.properties
+          echo "sonar.test.inclusions=**/*.spec.ts,**/*.test.ts,**/*.spec.tsx,**/*.test.tsx" >> sonar-project.properties
+          echo "sonar.javascript.lcov.reportPaths=./coverage/lcov.info" >> sonar-project.properties
+          echo "sonar.testExecutionReportPaths=./reports/**/junit.xml" >> sonar-project.properties
+          echo "sonar.test.exclusions=**/node_modules/**,**/test/**" >> sonar-project.properties
+          echo "sonar.verbose=true" >> sonar-project.properties
+          if [ -n "${{ secrets.SONAR_PROPERTIES }}" ]; then
+            echo "${{ secrets.SONAR_PROPERTIES }}" >> sonar-project.properties
+          fi
+          cat sonar-project.properties
 
       - name: download coverage report
         uses: actions/download-artifact@v5
