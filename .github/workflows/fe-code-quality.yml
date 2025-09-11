@@ -119,7 +119,6 @@ jobs:
           echo "sonar.tests=." >> sonar-project.properties
           echo "sonar.test.inclusions=**/*.spec.ts,**/*.test.ts,**/*.spec.tsx,**/*.test.tsx" >> sonar-project.properties
           echo "sonar.javascript.lcov.reportPaths=./coverage/lcov.info" >> sonar-project.properties
-          echo "sonar.testExecutionReportPaths=./reports/**/junit.xml" >> sonar-project.properties
           echo "sonar.test.exclusions=**/node_modules/**,**/test/**" >> sonar-project.properties
           echo "sonar.verbose=true" >> sonar-project.properties
           if [ -n "${{ inputs.SONAR_PROPERTIES }}" ]; then
