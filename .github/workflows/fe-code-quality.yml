@@ -97,6 +97,7 @@ jobs:
 
       - name: Write sonar-project.properties
         run: |
+          echo "sonar.host.url=https://sonarcloud.io" > sonar-project.properties
           echo "sonar.organization=${{ secrets.SONAR_CLOUD_ORG }}" >> sonar-project.properties
           echo "sonar.projectKey=${{ secrets.SONAR_CLOUD_PROJECT_KEY }}" >> sonar-project.properties
           echo "sonar.sources=." >> sonar-project.properties
