@@ -64,9 +64,6 @@ jobs:
           base: ${{ github.event.pull_request.base.ref }}
           ref: ${{ github.event.pull_request.head.ref }}
 
-      - name: Display structure of downloaded files
-        run: find coverage/ -name "*.info"
-
       - name: Upload Coverage Reports
         uses: actions/upload-artifact@v4
         with:
@@ -130,16 +127,6 @@ jobs:
           pattern: coverage-*
           merge-multiple: true
 
-      - name: download junit report
-        uses: actions/download-artifact@v5
-        with:
-          path: reports/
-          pattern: junit-*
-          merge-multiple: true
-
-      - name: Display structure of downloaded files
-        run: find coverage/ -name "*.info"
-
       - name: Merge matrix coverage reports
         run: npx lcov-result-merger ./coverage/**/lcov*.info ./coverage/lcov.info
 
@@ -149,23 +136,6 @@ jobs:
             sed -i 's|\\|/|g' ./coverage/lcov.info
             echo "Normalized LCOV paths to Unix format"
           fi
-
-      - name: Upload Coverage Reports
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage
-          path: coverage/
-          retention-days: 7
-
-      - name: Upload Junit Reports
-        uses: actions/upload-artifact@v4
-        with:
-          name: reports
-          path: reports/
-          retention-days: 7
-
-      - name: Dump sonar-project.properties
-        run: cat sonar-project.properties
 
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v4
