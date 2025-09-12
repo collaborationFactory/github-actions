@@ -15,7 +15,7 @@ on:
         required: false
         description: "SonarCloud project key, e.g., 'my-project'"
         type: string
-        default: "collaborationFactory_${{ github.repository.name }}"
+        default: ""
       SONAR_PROPERTIES:
         required: false
         description: "Additional sonar-project.properties content"
@@ -89,11 +89,20 @@ jobs:
             echo "SONAR_CLOUD_TOKEN secret must be set to run SonarCloud analysis."
           fi
 
+      - name: Set SonarCloud Project Key
+        id: set-project-key
+        run: |
+          if [ -z "${{ inputs.SONAR_CLOUD_PROJECT_KEY }}" ]; then
+            echo "project_key=collaborationFactory_${{ github.event.repository.name }}" >> $GITHUB_OUTPUT
+          else
+            echo "project_key=${{ inputs.SONAR_CLOUD_PROJECT_KEY }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Check if sonar inputs are provided
         id: check-inputs
         if: steps.check-secret.outputs.has_token == 'true'
         run: |
-          if [ -z "${{ inputs.SONAR_CLOUD_ORG }}" ] || [ -z "${{ inputs.SONAR_CLOUD_PROJECT_KEY }}" ]; then
+          if [ -z "${{ inputs.SONAR_CLOUD_ORG }}" ] || [ -z "${{ steps.set-project-key.outputs.project_key }}" ]; then
             echo "run_sonar=false" >> $GITHUB_OUTPUT
             echo "SONAR_CLOUD_ORG and SONAR_CLOUD_PROJECT_KEY inputs must be provided when SONAR_CLOUD_TOKEN is set."
           else
@@ -115,7 +124,7 @@ jobs:
         run: |
           echo "sonar.host.url=https://sonarcloud.io" > sonar-project.properties
           echo "sonar.organization=${{ inputs.SONAR_CLOUD_ORG }}" >> sonar-project.properties
-          echo "sonar.projectKey=${{ inputs.SONAR_CLOUD_PROJECT_KEY }}" >> sonar-project.properties
+          echo "sonar.projectKey=${{ steps.set-project-key.outputs.project_key }}" >> sonar-project.properties
           echo "sonar.test.inclusions=**/*.spec.ts,**/*.test.ts,**/*.spec.tsx,**/*.test.tsx" >> sonar-project.properties
           echo "sonar.javascript.lcov.reportPaths=./coverage/lcov.info" >> sonar-project.properties
           if [ -n "${{ inputs.SONAR_PROPERTIES }}" ]; then
