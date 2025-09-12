@@ -10,14 +10,17 @@ on:
         required: false
         description: "SonarCloud organization key, e.g., 'my-org'"
         type: string
+        default: "collaborationfactory"
       SONAR_CLOUD_PROJECT_KEY:
         required: false
         description: "SonarCloud project key, e.g., 'my-project'"
         type: string
+        default: "collaborationFactory_${{ github.repository.name }}"
       SONAR_PROPERTIES:
         required: false
         description: "Additional sonar-project.properties content"
         type: string
+        default: ""
 
 jobs:
   code-quality:
