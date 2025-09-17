@@ -169,13 +169,17 @@ export class NxProject {
   }
 
   private packageExists(pkg: string, version: string) {
-    const scopeSearchResult = execSync(`npm show ${pkg} --json`).toString();
-    console.log(`Search result from registry: ${scopeSearchResult}`);
-    const npmPackage = JSON.parse(scopeSearchResult);
-    if (!npmPackage) return false;
-    console.log(`Package found in registry: ${npmPackage.name}`);
-    console.log(`Package versions in registry: ${npmPackage.versions}`);
-    return npmPackage.versions.includes(version);
+    try {
+      const scopeSearchResult = execSync(`npm show ${pkg} --json`).toString();
+      console.log(`Search result from registry: ${scopeSearchResult}`);
+      const npmPackage = JSON.parse(scopeSearchResult);
+      console.log(`Package found in registry: ${npmPackage.name}`);
+      console.log(`Package versions in registry: ${npmPackage.versions}`);
+      return npmPackage.versions.includes(version);
+    }catch(e){
+      console.log(`Package ${pkg} not found in registry.`);
+      return false;
+    }
   }
 
   public async deleteArtifact(version: Version) {
