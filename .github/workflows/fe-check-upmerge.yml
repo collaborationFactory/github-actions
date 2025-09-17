@@ -32,7 +32,7 @@ jobs:
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
 
       - name: check if upmerge is necessary and post to slack
-        uses: collaborationFactory/github-actions/.github/actions/upmerge@master
+        uses: collaborationFactory/github-actions/.github/actions/upmerge@release/25.4
         env:
           SLACK_TOKEN_UPMERGE: ${{ secrets.SLACK_TOKEN_UPMERGE }}
           GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}

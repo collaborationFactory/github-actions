@@ -41,7 +41,7 @@ jobs:
         run: |
           BASE_BRANCH="${{ inputs.GHA_BASE }}"
           echo "Validating base branch: $BASE_BRANCH"
-          
+
           if git fetch origin "$BASE_BRANCH:$BASE_BRANCH" 2>/dev/null; then
             echo "✅ Base branch fetched successfully"
             echo "VALIDATED_BASE=$BASE_BRANCH" >> $GITHUB_ENV
@@ -62,7 +62,7 @@ jobs:
         run: npm ci
 
       - name: Build and Push to Jfrog NPM Registry
-        uses: collaborationFactory/github-actions/.github/actions/artifacts@master
+        uses: collaborationFactory/github-actions/.github/actions/artifacts@release/25.4
         env:
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}

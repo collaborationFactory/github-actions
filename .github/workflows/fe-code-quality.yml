@@ -37,7 +37,7 @@ jobs:
         run: git fetch origin ${{ github.event.pull_request.base.ref }}:${{ github.event.pull_request.base.ref }} || true
 
       - name: Unit Tests
-        uses: collaborationFactory/github-actions/.github/actions/run-many@master
+        uses: collaborationFactory/github-actions/.github/actions/run-many@release/25.4
         with:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}

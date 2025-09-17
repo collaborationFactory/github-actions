@@ -8,7 +8,7 @@ permissions: write-all
 
 jobs:
   cleanup-snapshots:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-cleanup-snapshots.yml@master
+    uses: collaborationFactory/github-actions/.github/workflows/fe-cleanup-snapshots.yml@release/25.4
     secrets:
       JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
       JFROG_URL: ${{ secrets.JFROG_URL }}
