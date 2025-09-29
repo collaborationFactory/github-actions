@@ -1,6 +1,10 @@
 name: Frontend Code Quality Workflow
 
-on: workflow_call
+on:
+  workflow_call:
+    secrets:
+      DOT_NPMRC:
+        required: true
 
 jobs:
   code-quality:
@@ -27,7 +31,13 @@ jobs:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
 
-      - name: npm ci
+      - name: Use .npmrc
+        uses: bduff9/use-npmrc@v1.1
+        with:
+          dot-npmrc: ${{ secrets.DOT_NPMRC }}
+
+      - name: Install modules
+        if: steps.npm-cache.outputs.cache-hit != 'true'
         run: npm ci
 
       - name: Formatter
