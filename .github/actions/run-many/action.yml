@@ -19,7 +19,5 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - run: cd "$GITHUB_ACTION_PATH/../../.." && pwd && npm ci
-      shell: bash
     - run: npx ts-node "$GITHUB_ACTION_PATH/../../../tools/scripts/run-many/run-many.ts" ${{ inputs.target }} ${{ inputs.jobIndex }} ${{ inputs.jobCount }} ${{ inputs.base }} ${{ inputs.ref }}
       shell: bash
