@@ -37,7 +37,6 @@ jobs:
           dot-npmrc: ${{ secrets.DOT_NPMRC }}
 
       - name: Install modules
-        if: steps.npm-cache.outputs.cache-hit != 'true'
         run: npm ci
 
       - name: Formatter
