@@ -27,6 +27,9 @@ jobs:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
 
+      - name: npm ci
+        run: npm ci
+
       - name: Formatter
         run: npx nx format:check --base=origin/${{ github.event.pull_request.base.ref }}
 
