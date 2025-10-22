@@ -155,6 +155,7 @@ jobs:
         run: npx lcov-result-merger ./coverage/**/lcov*.info ./coverage/lcov.info
 
       - name: Normalize LCOV paths for Linux
+        if: steps.check-lcov.outputs.lcov_exists == 'true'
         run: |
           if [ -f "./coverage/lcov.info" ]; then
             sed -i 's|\\|/|g' ./coverage/lcov.info
