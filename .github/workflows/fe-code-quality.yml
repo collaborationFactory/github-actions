@@ -139,7 +139,19 @@ jobs:
           pattern: coverage-*
           merge-multiple: true
 
+      - name: Check for LCOV files
+        id: check-lcov
+        run: |
+          if ls ./coverage/**/lcov*.info 1> /dev/null 2>&1; then
+            echo "lcov_exists=true" >> $GITHUB_OUTPUT
+            echo "LCOV files found, will proceed with merge"
+          else
+            echo "lcov_exists=false" >> $GITHUB_OUTPUT
+            echo "No LCOV files found, skipping merge"
+          fi
+
       - name: Merge matrix coverage reports
+        if: steps.check-lcov.outputs.lcov_exists == 'true'
         run: npx lcov-result-merger ./coverage/**/lcov*.info ./coverage/lcov.info
 
       - name: Normalize LCOV paths for Linux
