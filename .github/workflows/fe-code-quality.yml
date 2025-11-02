@@ -168,8 +168,14 @@ jobs:
       - name: Merge matrix coverage reports
         if: steps.check-lcov.outputs.lcov_exists == 'true'
         run: |
-          shopt -s globstar
-          npx lcov-result-merger ./coverage/**/lcov*.info ./coverage/lcov.info
+          echo "=== Finding all LCOV files ==="
+          find ./coverage -name "lcov*.info" -type f
+          echo ""
+          echo "=== Merging coverage files ==="
+          npx lcov-result-merger "coverage/**/lcov*.info" coverage/lcov.info
+          echo ""
+          echo "=== Merge completed ==="
+          ls -lh ./coverage/lcov.info
 
       - name: Normalize LCOV paths for Linux
         if: steps.check-lcov.outputs.lcov_exists == 'true'
