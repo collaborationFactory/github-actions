@@ -10,7 +10,7 @@ function getE2ECommand(command: string, base: string): string {
 function getCoverageCommand(command: string): string {
   core.info(`Before coverage command: ${command}`);
   command = command.concat(
-    ` --codeCoverage=true --coverageReporters=['lcov']`
+    ` --codeCoverage=true --coverageReporters=lcov --coverageReporters=html`
   );
   core.info(`After coverage command: ${command}`);
   return command;
