@@ -143,7 +143,7 @@ jobs:
       - name: download coverage report
         uses: actions/download-artifact@v5
         with:
-          path: ./
+          path: ./coverage
           pattern: coverage-*
           merge-multiple: true
 
@@ -167,7 +167,9 @@ jobs:
 
       - name: Merge matrix coverage reports
         if: steps.check-lcov.outputs.lcov_exists == 'true'
-        run: npx lcov-result-merger ./coverage/**/lcov*.info ./coverage/lcov.info
+        run: |
+          mkdir -p ./coverage
+          npx lcov-result-merger ./coverage/**/lcov*.info ./coverage/lcov.info
 
       - name: Normalize LCOV paths for Linux
         if: steps.check-lcov.outputs.lcov_exists == 'true'
