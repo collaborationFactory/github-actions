@@ -179,6 +179,24 @@ jobs:
             echo "Normalized LCOV paths to Unix format"
           fi
 
+      - name: Debug - Inspect merged coverage file
+        if: steps.check-lcov.outputs.lcov_exists == 'true'
+        run: |
+          echo "=== Merged coverage file exists ==="
+          ls -lh ./coverage/lcov.info
+          echo ""
+          echo "=== First 50 lines of merged coverage ==="
+          head -n 50 ./coverage/lcov.info
+          echo ""
+          echo "=== Unique source file paths in coverage ==="
+          grep "^SF:" ./coverage/lcov.info | sort -u | head -n 20
+          echo ""
+          echo "=== Current working directory ==="
+          pwd
+          echo ""
+          echo "=== Repository structure (top-level) ==="
+          ls -la
+
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v4
         env:
