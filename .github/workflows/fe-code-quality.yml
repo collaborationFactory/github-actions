@@ -147,6 +147,13 @@ jobs:
           pattern: coverage-*
           merge-multiple: true
 
+      - name: Debug - List downloaded files
+        run: |
+          echo "=== Current directory structure ==="
+          ls -la
+          echo "=== Searching for LCOV files ==="
+          find . -name "*.info" -type f || echo "No .info files found"
+
       - name: Check for LCOV files
         id: check-lcov
         run: |
