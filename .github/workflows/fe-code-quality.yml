@@ -58,6 +58,7 @@ jobs:
         run: git fetch origin ${{ github.event.pull_request.base.ref }}:${{ github.event.pull_request.base.ref }} || true
 
       - name: Unit Tests
+        id: test
         uses: collaborationFactory/github-actions/.github/actions/run-many@poc/code-coverage-in-code-quality-pr-pipeline
         continue-on-error: true
         with:
@@ -73,6 +74,13 @@ jobs:
           name: coverage-${{ matrix.jobIndex }}
           path: coverage/
           retention-days: 7
+
+      - name: Fail pipeline if test step failed
+        run: |
+          if [ "${{ steps.test.outcome }}" = "failure" ]; then
+            echo "Unit tests step failed, failing the pipeline."
+            exit 1
+          fi
 
   sonar:
     name: SonarCloud
