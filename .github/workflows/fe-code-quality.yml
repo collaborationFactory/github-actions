@@ -59,7 +59,7 @@ jobs:
 
       - name: Unit Tests
         id: test
-        uses: collaborationFactory/github-actions/.github/actions/run-many@poc/code-coverage-in-code-quality-pr-pipeline
+        uses: collaborationFactory/github-actions/.github/actions/run-many@feature/PFM-ISSUE-29437-Implement-SonarQube-Scanning-for-PR-Pipeline
         continue-on-error: true
         with:
           target: ${{ matrix.target }}
