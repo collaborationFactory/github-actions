@@ -82,22 +82,29 @@ jobs:
             exit 1
           fi
 
-  sonar:
-    name: SonarCloud
-    needs: code-quality
+  check-sonar:
+    name: Check SonarCloud Configuration
     runs-on: ubuntu-latest
-    if: ${{ secrets.SONAR_CLOUD_TOKEN != '' }}
+    outputs:
+      has_token: ${{ steps.check.outputs.has_token }}
     steps:
       - name: Check if SONAR_CLOUD_TOKEN exists
-        id: check-secret
+        id: check
         run: |
           if [ -n "${{ secrets.SONAR_CLOUD_TOKEN }}" ]; then
             echo "has_token=true" >> $GITHUB_OUTPUT
+            echo "SonarCloud token is configured"
           else
             echo "has_token=false" >> $GITHUB_OUTPUT
-            echo "SONAR_CLOUD_TOKEN secret must be set to run SonarCloud analysis."
+            echo "SonarCloud token is not configured, skipping SonarCloud analysis"
           fi
 
+  sonar:
+    name: SonarCloud
+    needs: [code-quality, check-sonar]
+    if: needs.check-sonar.outputs.has_token == 'true'
+    runs-on: ubuntu-latest
+    steps:
       - name: Set SonarCloud Project Key
         id: set-project-key
         run: |
@@ -106,23 +113,6 @@ jobs:
           else
             echo "project_key=${{ inputs.SONAR_CLOUD_PROJECT_KEY }}" >> $GITHUB_OUTPUT
           fi
-
-      - name: Check if sonar inputs are provided
-        id: check-inputs
-        if: steps.check-secret.outputs.has_token == 'true'
-        run: |
-          if [ -z "${{ inputs.SONAR_CLOUD_ORG }}" ] || [ -z "${{ steps.set-project-key.outputs.project_key }}" ]; then
-            echo "run_sonar=false" >> $GITHUB_OUTPUT
-            echo "SONAR_CLOUD_ORG and SONAR_CLOUD_PROJECT_KEY inputs must be provided when SONAR_CLOUD_TOKEN is set."
-          else
-            echo "run_sonar=true" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Skip SonarCloud steps if no token
-        if: steps.check-inputs.outputs.run_sonar == 'false' || steps.check-secret.outputs.has_token == 'false'
-        run: |
-          echo "Skipping SonarCloud analysis."
-          exit 0
 
       - name: Checkout
         uses: actions/checkout@v4
