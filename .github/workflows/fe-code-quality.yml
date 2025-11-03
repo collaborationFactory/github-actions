@@ -86,7 +86,7 @@ jobs:
     name: SonarCloud
     needs: code-quality
     runs-on: ubuntu-latest
-    if: secrets.SONAR_CLOUD_TOKEN != ''
+    if: ${{ secrets.SONAR_CLOUD_TOKEN != '' }}
     steps:
       - name: Check if SONAR_CLOUD_TOKEN exists
         id: check-secret
