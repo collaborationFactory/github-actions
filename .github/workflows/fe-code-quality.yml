@@ -59,7 +59,7 @@ jobs:
 
       - name: Unit Tests
         id: test
-        uses: collaborationFactory/github-actions/.github/actions/run-many@feature/PFM-ISSUE-29437-Implement-SonarQube-Scanning-for-PR-Pipeline
+        uses: collaborationFactory/github-actions/.github/actions/run-many@master
         continue-on-error: true
         with:
           target: ${{ matrix.target }}
@@ -170,6 +170,6 @@ jobs:
           fi
 
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v4
+        uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_CLOUD_TOKEN }}
