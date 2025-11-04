@@ -6,4 +6,4 @@ Resolves [PFM-ISSUE-xxx](url)
 
 - [ ] Updated documentation if needed
 - [ ] Created Changelog according
-  to [Guidelines](https://docs.cplace.io/frontend-applications/22-3/guides/pr-guideline/)
+      to [Guidelines](https://docs.cplace.io/frontend-applications/22-3/guides/pr-guideline/)
