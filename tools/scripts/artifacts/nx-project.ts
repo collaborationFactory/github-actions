@@ -221,19 +221,22 @@ export class NxProject {
         );
         console.log(`Generated package.json: ${this.getPrettyPackageJson()}`);
       }
-      console.log(
-        execSync(
-          `npm unpublish ${this.scope}/${
-            this.name
-          }@${version.toString()} --force`,
-          {
-            cwd: `${this.getPathToProjectInDist()}`,
-          }
-        ).toString()
-      );
-      console.log(
-        `Deleted artifact from Jfrog: ${this.name}@${version.toString()}`
-      );
+      // console.log(
+      //   execSync(
+      //     `npm unpublish ${this.scope}/${
+      //       this.name
+      //     }@${version.toString()} --force`,
+      //     {
+      //       cwd: `${this.getPathToProjectInDist()}`,
+      //     }
+      //   ).toString()
+      // );
+      // console.log(
+      //   `Deleted artifact from Jfrog: ${this.name}@${version.toString()}`
+      // );
+        console.log(
+            `DEMO: Deleted artifact from Jfrog: ${this.name}@${version.toString()}`
+        );
     } catch (error: any) {
       console.error(`An error occurred while deleting the artifact: ${error}`);
       if (error.status !== 0) process.exit(1);
