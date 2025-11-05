@@ -33,7 +33,11 @@ export class Utils {
     // Find the project path
     const appsDir = Utils.getAppsDir();
     const projectPath = path.join(appsDir, projectName);
-    const publicApiPath = path.join(projectPath, 'src', Utils.PUBLIC_API_FILE_NAME);
+    const publicApiPath = path.join(
+      projectPath,
+      'src',
+      Utils.PUBLIC_API_FILE_NAME
+    );
 
     return fs.existsSync(publicApiPath);
   }
@@ -59,7 +63,10 @@ export class Utils {
     let filteredAffected: string[] = affectedProjects
       .filter((project) => {
         // For applications, include e2e apps only if they have public_api.ts
-        if (nxProjectKind === NxProjectKind.Application && project.endsWith(Utils.E2E_APP_SUFFIX)) {
+        if (
+          nxProjectKind === NxProjectKind.Application &&
+          project.endsWith(Utils.E2E_APP_SUFFIX)
+        ) {
           return Utils.isE2eAppWithPublicApi(project);
         }
         return true;

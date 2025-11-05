@@ -85,6 +85,7 @@ export class CleanupSnapshots {
   private async removeSnapshotArtifacts(npmPackage: NpmPackage) {
     npmPackage.scope = npmPackage.name.split('/')[0];
     npmPackage.name = npmPackage.name.split('/')[1];
+    const jfrogCredentials = new JfrogCredentials();
     for (const sortedVersion of npmPackage.versions) {
       const currentVersion = sortedVersion.replace(
         `${ArtifactsHandler.SNAPSHOT_VERSION}`,
@@ -97,7 +98,7 @@ export class CleanupSnapshots {
         new Version(ArtifactsHandler.SNAPSHOT_VERSION, currentVersion),
         npmPackage.scope
       );
-      await project.deleteArtifact(project.version);
+      await project.deleteArtifact(project.version, jfrogCredentials);
     }
   }
 }

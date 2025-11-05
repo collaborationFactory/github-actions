@@ -93,7 +93,12 @@ export class NxProject {
    * we are no longer using this method and can be removed along with the unit tests REF:PFM-ISSUE-28695
    */
   public getJfrogNpmArtifactUrl(): string {
-    return getJfrogUrl() + `/${this.scope}/${this.name}/-/${this.scope}/${this.name}-${this.version.toString()}.tgz`;
+    return (
+      getJfrogUrl() +
+      `/${this.scope}/${this.name}/-/${this.scope}/${
+        this.name
+      }-${this.version.toString()}.tgz`
+    );
   }
 
   public getMarkdownLink(): string {
@@ -162,9 +167,7 @@ export class NxProject {
     console.log('The following snapshots have been found and will be removed');
     console.log(...snapshots);
     for (const snapshot of snapshots) {
-      await this.deleteArtifact(
-        Utils.getVersionFromSnapshotString(snapshot)
-      );
+      await this.deleteArtifact(Utils.getVersionFromSnapshotString(snapshot));
     }
   }
 
@@ -176,24 +179,29 @@ export class NxProject {
       console.log(`Package found in registry: ${npmPackage.name}`);
       console.log(`Package versions in registry: ${npmPackage.versions}`);
       return npmPackage.versions.includes(version);
-    }catch(e){
+    } catch (e) {
       console.log(`Package ${pkg} not found in registry.`);
       return false;
     }
   }
 
-  public async deleteArtifact(version: Version, jfrogCredentials: JfrogCredentials = null) {
-    console.log("Checking if package exists in registry");
+  public async deleteArtifact(
+    version: Version,
+    jfrogCredentials: JfrogCredentials = null
+  ) {
+    console.log('Checking if package exists in registry');
     const scopedPackage = `${this.scope}/${this.name}`;
-    if(!this.packageExists(scopedPackage, version.toString())) {
-      console.log(`Package ${scopedPackage}@${version.toString()} does not exist in the registry. Skipping deletion.`);
+    if (!this.packageExists(scopedPackage, version.toString())) {
+      console.log(
+        `Package ${scopedPackage}@${version.toString()} does not exist in the registry. Skipping deletion.`
+      );
       return;
     }
-    console.log(`Package ${scopedPackage}@${version.toString()} exists in registry`);
     console.log(
-      `About to delete artifact from Jfrog: ${
-        this.name
-      }@${version.toString()}`
+      `Package ${scopedPackage}@${version.toString()} exists in registry`
+    );
+    console.log(
+      `About to delete artifact from Jfrog: ${this.name}@${version.toString()}`
     );
     try {
       const pathToProjectInDist = this.getPathToProjectInDist();
@@ -202,24 +210,32 @@ export class NxProject {
           `Path to project in dist does not exist, creating it: ${pathToProjectInDist}`
         );
         this.writeNPMRCInDist(jfrogCredentials, this.scope);
-        console.log(`Setting version in package.json for ${this.name} to ${version.toString()}`);
-        this.setVersionOrGeneratePackageJsonInDist(version, jfrogCredentials.url);
+        console.log(
+          `Setting version in package.json for ${
+            this.name
+          } to ${version.toString()}`
+        );
+        this.setVersionOrGeneratePackageJsonInDist(
+          version,
+          jfrogCredentials.url
+        );
         console.log(`Generated package.json: ${this.getPrettyPackageJson()}`);
       }
       console.log(
-        execSync(`npm unpublish ${this.scope}/${this.name}@${version.toString()} --force`, {
-          cwd: `${this.getPathToProjectInDist()}`,
-        }).toString()
+        execSync(
+          `npm unpublish ${this.scope}/${
+            this.name
+          }@${version.toString()} --force`,
+          {
+            cwd: `${this.getPathToProjectInDist()}`,
+          }
+        ).toString()
       );
       console.log(
-        `Deleted artifact from Jfrog: ${
-          this.name
-        }@${version.toString()}`
+        `Deleted artifact from Jfrog: ${this.name}@${version.toString()}`
       );
     } catch (error: any) {
-      console.error(
-        `An error occurred while deleting the artifact: ${error}`
-      );
+      console.error(`An error occurred while deleting the artifact: ${error}`);
       if (error.status !== 0) process.exit(1);
     }
   }
@@ -239,14 +255,17 @@ export class NxProject {
       `${jfrogCredentials.getJfrogUrlNoHttp()}:email=${jfrogCredentials.user}`;
     console.log(this.npmrcContent + '\n\n');
     const npmrcPathInDist = this.getNpmrcPathInDist();
-    if(!fs.existsSync(npmrcPathInDist)){
+    if (!fs.existsSync(npmrcPathInDist)) {
       fs.mkdirSync(path.dirname(npmrcPathInDist), { recursive: true });
     }
     fs.writeFileSync(npmrcPathInDist, this.npmrcContent);
     console.log('wrote .npmrc to:  ' + npmrcPathInDist);
   }
 
-  public setVersionOrGeneratePackageJsonInDist(version: Version, registry: string) {
+  public setVersionOrGeneratePackageJsonInDist(
+    version: Version,
+    registry: string
+  ) {
     if (this.hasPackageJson) {
       try {
         this.packageJsonContent = JSON.parse(
