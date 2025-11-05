@@ -39,7 +39,7 @@ jobs:
           dot-npmrc: ${{ secrets.DOT_NPMRC }}
 
       - name: Cleanup Snapshot Artifacts
-        uses: collaborationFactory/github-actions/.github/actions/snapshots@master
+        uses: collaborationFactory/github-actions/.github/actions/snapshots@fix/PFM-ISSUE-31032-Clean-Snapshot-Action-Not-Working-for-Over-
         env:
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}
