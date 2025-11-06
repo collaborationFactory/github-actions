@@ -8,11 +8,13 @@ function getE2ECommand(command: string, base: string): string {
 }
 
 function getCoverageCommand(command: string): string {
-  core.info(`Before coverage command: ${command}`);
-  command = command.concat(
-    ` --codeCoverage=true --coverageReporters=lcov --coverageReporters=html`
-  );
-  core.info(`After coverage command: ${command}`);
+  const coverageEnabled = process.env.coverageEnabled === 'true';
+  core.info(`Coverage enabled: ${coverageEnabled}`);
+  if(coverageEnabled) {
+    command = command.concat(
+      ` --codeCoverage=true --coverageReporters=lcov --coverageReporters=html`
+    );
+  }
   return command;
 }
 
