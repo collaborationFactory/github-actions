@@ -60,7 +60,7 @@ jobs:
 
       - name: Unit Tests
         id: test
-        uses: collaborationFactory/github-actions/.github/actions/run-many@fix/PFM-ISSUE-31667-Run-coverage-in-code-quality-when-enabled-via
+        uses: collaborationFactory/github-actions/.github/actions/run-many@master
         continue-on-error: true
         with:
           target: ${{ matrix.target }}
