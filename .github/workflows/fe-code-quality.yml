@@ -32,6 +32,7 @@ jobs:
       fail-fast: false # Continue running all matrix combinations even if one fails
     env:
       jobCount: 4
+      coverageEnabled: ${{ secrets.SONAR_CLOUD_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -59,7 +60,7 @@ jobs:
 
       - name: Unit Tests
         id: test
-        uses: collaborationFactory/github-actions/.github/actions/run-many@master
+        uses: collaborationFactory/github-actions/.github/actions/run-many@fix/PFM-ISSUE-31667-Run-coverage-in-code-quality-when-enabled-via
         continue-on-error: true
         with:
           target: ${{ matrix.target }}
@@ -69,6 +70,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Upload Coverage Reports
+        if: ${{ env.coverageEnabled == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: coverage-${{ matrix.jobIndex }}
