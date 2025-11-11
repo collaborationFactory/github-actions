@@ -111,6 +111,7 @@ jobs:
           echo "sonar.projectKey=collaborationFactory_${{ github.event.repository.name }}" >> sonar-project.properties
           echo "sonar.test.inclusions=**/*.spec.ts,**/*.test.ts,**/*.spec.tsx,**/*.test.tsx" >> sonar-project.properties
           echo "sonar.branch.name=${{ inputs.branch || github.ref_name }}" >> sonar-project.properties
+          echo "sonar.projectVersion=${{ inputs.branch || github.ref_name }}" >> sonar-project.properties
           echo "sonar.qualitygate.wait=true" >> sonar-project.properties
           if [ -f "./coverage/lcov.info" ]; then
             echo "sonar.javascript.lcov.reportPaths=./coverage/lcov.info" >> sonar-project.properties
