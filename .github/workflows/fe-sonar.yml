@@ -19,22 +19,10 @@ on:
         default: ""
 
   workflow_dispatch:
-    inputs:
-      branch:
-        description: "Branch to scan (leave empty to scan current branch)"
-        required: false
-        type: string
-        default: "master"
-      start_sonarcloud_scan:
-        description: "Start SonarCloud scan"
-        required: true
-        type: boolean
-        default: true
 
 jobs:
   sonarqube-scan:
     name: SonarQube Code Quality Scan
-    if: ${{ github.event_name == 'workflow_call' || (github.event_name == 'workflow_dispatch' && inputs.start_sonarcloud_scan == true) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -42,7 +30,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.branch || github.ref_name }}
           fetch-depth: 0  # Full history for SonarQube analysis
 
       - name: Setup Node.js
@@ -110,8 +97,8 @@ jobs:
           echo "sonar.organization=${{ inputs.SONAR_CLOUD_ORG || 'collaborationfactory' }}" >> sonar-project.properties
           echo "sonar.projectKey=collaborationFactory_${{ github.event.repository.name }}" >> sonar-project.properties
           echo "sonar.test.inclusions=**/*.spec.ts,**/*.test.ts,**/*.spec.tsx,**/*.test.tsx" >> sonar-project.properties
-          echo "sonar.branch.name=${{ inputs.branch || github.ref_name }}" >> sonar-project.properties
-          echo "sonar.projectVersion=${{ inputs.branch || github.ref_name }}" >> sonar-project.properties
+          echo "sonar.branch.name=${{ github.ref_name }}" >> sonar-project.properties
+          echo "sonar.projectVersion=${{ github.ref_name }}" >> sonar-project.properties
           echo "sonar.qualitygate.wait=true" >> sonar-project.properties
           if [ -f "./coverage/lcov.info" ]; then
             echo "sonar.javascript.lcov.reportPaths=./coverage/lcov.info" >> sonar-project.properties
