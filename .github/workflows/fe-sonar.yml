@@ -1,4 +1,5 @@
 name: Frontend SonarQube Scan
+# Only run the workflow for master/main and release branches
 
 on:
   workflow_call:
@@ -22,18 +23,20 @@ jobs:
   sonarqube-scan:
     name: SonarQube Code Quality Scan
     runs-on: ubuntu-latest
+    # Only run the workflow for master/main and release branches
+    if: github.ref_name == 'master' || github.ref_name == 'main' || startsWith(github.ref_name, 'release/')
     permissions:
       contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0  # Full history for SonarQube analysis
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 22.15.0
+          node-version-file: .nvmrc
 
       - name: Cache Node Modules
         id: npm-cache
