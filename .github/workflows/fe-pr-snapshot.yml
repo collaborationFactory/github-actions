@@ -78,3 +78,16 @@ jobs:
           file-path: githubCommentsForPR.txt
           comment-tag: published-artifacts
           mode: upsert
+
+      - name: Trigger Backend Package Update
+        if: inputs.BACKEND_REPO != ''
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.CROSS_REPO_PAT }}
+          repository: collaborationFactory/${{ inputs.BACKEND_REPO }}
+          event-type: frontend-packages-published
+          client-payload: |
+            {
+              "branch": "${{ github.ref_name }}",
+              "actor": "${{ github.actor }}"
+            }

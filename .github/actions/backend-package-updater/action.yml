@@ -1,0 +1,79 @@
+name: 'Backend Package Updater'
+description: 'Updates NPM packages in backend assets/ folders from JFrog registry'
+
+inputs:
+  branch:
+    description: 'Git branch name to determine dist tag'
+    required: true
+  actor:
+    description: 'GitHub actor who triggered the workflow'
+    required: true
+
+outputs:
+  pr-number:
+    description: 'Pull request number (if created)'
+    value: ${{ steps.create-pr.outputs.pr-number }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install dependencies
+      run: cd "$GITHUB_ACTION_PATH/../../.." && pwd && npm ci
+      shell: bash
+
+    - name: Run package updater
+      shell: bash
+      env:
+        BRANCH: ${{ inputs.branch }}
+        ACTOR: ${{ inputs.actor }}
+      run: npx ts-node "$GITHUB_ACTION_PATH/../../../tools/scripts/backend-package-updater/main.ts
+
+    - name: Check for changes
+      id: check-changes
+      shell: bash
+      run: |
+        if [[ -n $(git status --porcelain) ]]; then
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+        else
+          echo "has_changes=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create Pull Request
+      id: create-pr
+      if: steps.check-changes.outputs.has_changes == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        ACTOR: ${{ inputs.actor }}
+        BRANCH: ${{ inputs.branch }}
+      run: |
+        # Read PR description
+        PR_BODY=$(cat pr-description.md)
+
+        # Create branch
+        BRANCH_NAME="automated/frontend-packages-${BRANCH//\//-}-$(date +%Y%m%d-%H%M%S)"
+        git checkout -b "$BRANCH_NAME"
+
+        # Commit changes
+        git add .
+        git commit -m "Update frontend packages from $BRANCH branch
+
+        Automated update triggered by @$ACTOR
+
+        # Push branch
+        git push -u origin "$BRANCH_NAME"
+
+        # Create PR with assignee, fallback to no assignee if permission denied
+        PR_OUTPUT=$(gh pr create \
+          --title "Update frontend packages from $BRANCH" \
+          --body "$PR_BODY" \
+          --assignee "$ACTOR" 2>&1) || \
+        PR_OUTPUT=$(gh pr create \
+          --title "Update frontend packages from $BRANCH" \
+          --body "$PR_BODY" 2>&1)
+
+        # Extract PR number
+        PR_NUMBER=$(echo "$PR_OUTPUT" | grep -oP 'github.com/.+/pull/\K\d+' || echo "")
+        echo "pr-number=$PR_NUMBER" >> $GITHUB_OUTPUT
+
+        echo "Created PR: $PR_OUTPUT"
