@@ -112,20 +112,42 @@ export class BackendPackageUpdater {
       ...(pkgJsonBefore.devDependencies || {}),
     };
 
-    // Update packages from each scope
-    for (const scope of Array.from(scopes)) {
-      const packagesPattern = `${scope}/*@${distTag}`;
-      console.log(`  Installing: ${packagesPattern}`);
+    // Find packages that match the scopes
+    const packagesToUpdate: string[] = [];
+    for (const [pkgName] of Object.entries(depsBefore)) {
+      for (const scope of Array.from(scopes)) {
+        if (pkgName.startsWith(`${scope}/`)) {
+          packagesToUpdate.push(pkgName);
+          break;
+        }
+      }
+    }
+
+    if (packagesToUpdate.length === 0) {
+      console.log(
+        `  No packages found matching scopes: ${Array.from(scopes).join(', ')}`
+      );
+      return updates;
+    }
+
+    console.log(`  Found ${packagesToUpdate.length} packages to update`);
+
+    // Update each package individually
+    for (const pkgName of packagesToUpdate) {
+      const packageWithTag = `${pkgName}@${distTag}`;
+      console.log(`  Installing: ${packageWithTag}`);
 
       try {
-        execSync(`npm install ${packagesPattern}`, {
+        execSync(`npm install ${packageWithTag}`, {
           cwd: assetsDir,
           stdio: 'pipe', // Capture output instead of inherit
         });
       } catch (error: any) {
-        // npm install exits with code 1 if packages not found
-        console.warn(`  Warning: ${error.message}`);
-        // Continue with other scopes instead of failing completely
+        // npm install exits with code 1 if package/tag not found
+        console.warn(
+          `  Warning: Failed to update ${pkgName}: ${error.message}`
+        );
+        // Continue with other packages instead of failing completely
       }
     }
 

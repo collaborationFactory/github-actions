@@ -15,13 +15,10 @@ describe('DistTagResolver', () => {
       expect(DistTagResolver.getDistTag('release/26.1')).toBe('release-26.1');
     });
 
-    it('should throw error for unsupported branch patterns', () => {
-      expect(() => DistTagResolver.getDistTag('feature/abc')).toThrow(
-        'Unsupported branch pattern: feature/abc'
-      );
-      expect(() => DistTagResolver.getDistTag('develop')).toThrow(
-        'Unsupported branch pattern: develop'
-      );
+    it('should return "snapshot" for other branch patterns', () => {
+      expect(DistTagResolver.getDistTag('feature/abc')).toBe('snapshot');
+      expect(DistTagResolver.getDistTag('develop')).toBe('snapshot');
+      expect(DistTagResolver.getDistTag('bugfix/test')).toBe('snapshot');
     });
   });
 });
