@@ -6,18 +6,18 @@ on:
     secrets:
       SONAR_CLOUD_TOKEN:
         required: true
-        description: "SonarCloud authentication token"
+        description: 'SonarCloud authentication token'
     inputs:
       SONAR_CLOUD_ORG:
         required: false
         description: "SonarCloud organization key, e.g., 'my-org'"
         type: string
-        default: "collaborationfactory"
+        default: 'collaborationfactory'
       SONAR_PROPERTIES:
         required: false
-        description: "Additional sonar-project.properties content"
+        description: 'Additional sonar-project.properties content'
         type: string
-        default: ""
+        default: ''
 
 jobs:
   sonarqube-scan:
@@ -31,7 +31,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
-          fetch-depth: 0  # Full history for SonarQube analysis
+          fetch-depth: 0 # Full history for SonarQube analysis
 
       - name: Setup Node.js
         uses: actions/setup-node@v6

@@ -10,7 +10,7 @@ function getE2ECommand(command: string, base: string): string {
 function getCoverageCommand(command: string): string {
   const coverageEnabled = process.env.coverageEnabled === 'true';
   core.info(`Coverage enabled: ${coverageEnabled}`);
-  if(coverageEnabled) {
+  if (coverageEnabled) {
     command = command.concat(
       ` --codeCoverage=true --coverageReporters=lcov --coverageReporters=html`
     );

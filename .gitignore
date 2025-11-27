@@ -1,6 +1,7 @@
 .idea
 **/node_modules
 /githubCommentsForPR.txt
+dist/
 
 
 # claude ai
