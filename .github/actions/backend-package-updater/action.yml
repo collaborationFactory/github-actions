@@ -8,6 +8,9 @@ inputs:
   actor:
     description: 'GitHub actor who triggered the workflow'
     required: true
+  dot-npmrc:
+    description: 'Content of .npmrc file for private registry authentication'
+    required: true
 
 outputs:
   pr-number:
@@ -17,6 +20,11 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Configure .npmrc for private registry
+      uses: bduff9/use-npmrc@v1.1
+      with:
+        dot-npmrc: ${{ inputs.dot-npmrc }}
+
     - name: Install dependencies
       run: cd "$GITHUB_ACTION_PATH/../../.." && pwd && npm ci
       shell: bash
