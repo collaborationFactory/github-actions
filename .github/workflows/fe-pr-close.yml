@@ -45,7 +45,7 @@ jobs:
         run: npm ci
 
       - name: Delete Snapshots from NPM Registry
-        uses: collaborationFactory/github-actions/.github/actions/artifacts@master
+        uses: collaborationFactory/github-actions/.github/actions/artifacts@feature/automate-frontend-pkg-integration
         env:
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}

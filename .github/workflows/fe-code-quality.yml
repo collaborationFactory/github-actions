@@ -60,7 +60,7 @@ jobs:
 
       - name: Unit Tests
         id: test
-        uses: collaborationFactory/github-actions/.github/actions/run-many@master
+        uses: collaborationFactory/github-actions/.github/actions/run-many@feature/automate-frontend-pkg-integration
         continue-on-error: true
         with:
           target: ${{ matrix.target }}
