@@ -35,15 +35,21 @@ runs:
     - name: Configure .npmrc in backend repo root
       shell: bash
       run: |
-        echo "${{ inputs.dot-npmrc }}" > .npmrc
+        cat > .npmrc << 'NPMRC_EOF'
+        ${{ inputs.dot-npmrc }}
+        NPMRC_EOF
         echo "✓ .npmrc configured in backend repo in $(pwd)"
+        echo "First line of .npmrc:"
+        head -n 1 .npmrc
 
     - name: Run package updater
       shell: bash
       env:
         BRANCH: ${{ inputs.branch }}
         ACTOR: ${{ inputs.actor }}
-      run: npx ts-node "$GITHUB_ACTION_PATH/../../../tools/scripts/backend-package-updater/main.ts"
+      run: |
+        # Use ts-node from github-actions repo node_modules
+        node "$GITHUB_ACTION_PATH/../../../node_modules/ts-node/dist/bin.js" "$GITHUB_ACTION_PATH/../../../tools/scripts/backend-package-updater/main.ts"
 
     - name: Check for changes
       id: check-changes
