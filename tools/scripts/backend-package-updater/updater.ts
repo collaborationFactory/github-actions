@@ -105,6 +105,27 @@ export class BackendPackageUpdater {
       throw new Error(`package.json not found at ${pkgJsonPath}`);
     }
 
+    // Copy root .npmrc to assets directory to ensure authentication works
+    // Local .npmrc files override parent .npmrc, so we need to copy credentials
+    const rootNpmrc = path.join(process.cwd(), '.npmrc');
+    const assetsNpmrc = path.join(assetsDir, '.npmrc');
+
+    if (fs.existsSync(rootNpmrc)) {
+      // Read existing assets .npmrc if it exists
+      let existingConfig = '';
+      if (fs.existsSync(assetsNpmrc)) {
+        existingConfig = fs.readFileSync(assetsNpmrc, 'utf-8');
+      }
+
+      // Read root .npmrc with authentication
+      const rootConfig = fs.readFileSync(rootNpmrc, 'utf-8');
+
+      // Merge: root config first (authentication), then existing config (save-exact, etc)
+      const mergedConfig = rootConfig + '\n' + existingConfig;
+      fs.writeFileSync(assetsNpmrc, mergedConfig);
+      console.log(`  ✓ Copied authentication from root .npmrc to ${assetsDir}`);
+    }
+
     // Read current versions
     const pkgJsonBefore = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8'));
     const depsBefore = {
