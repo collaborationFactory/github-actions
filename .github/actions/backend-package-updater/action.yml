@@ -20,15 +20,30 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - name: Install dependencies
-      run: cd "$GITHUB_ACTION_PATH/../../.." && pwd && npm ci
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22.15.0
+
+    - name: Configure .npmrc for github-actions repo dependencies
       shell: bash
+      run: |
+        cd "$GITHUB_ACTION_PATH/../../.."
+        echo "${{ inputs.dot-npmrc }}" > .npmrc
+        echo "✓ .npmrc configured in github-actions repo"
+
+    - name: Install github-actions dependencies
+      shell: bash
+      run: |
+        cd "$GITHUB_ACTION_PATH/../../.."
+        echo "Installing dependencies in: $(pwd)"
+        npm ci
 
     - name: Configure .npmrc in backend repo root
       shell: bash
       run: |
         echo "${{ inputs.dot-npmrc }}" > .npmrc
-        echo "✓ .npmrc configured in backend repo"
+        echo "✓ .npmrc configured in backend repo in $(pwd)"
 
     - name: Run package updater
       shell: bash
