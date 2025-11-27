@@ -39,8 +39,15 @@ runs:
         ${{ inputs.dot-npmrc }}
         NPMRC_EOF
         echo "✓ .npmrc configured in backend repo in $(pwd)"
-        echo "First line of .npmrc:"
-        head -n 1 .npmrc
+        echo "Debug: .npmrc file contents (sensitive parts masked):"
+        cat .npmrc | sed 's/\(password\|_auth\|_authToken\)=.*/\1=***/g'
+
+    - name: Test npm registry access
+      shell: bash
+      run: |
+        echo "Testing npm access with configured .npmrc..."
+        npm ping || echo "npm ping failed - checking npm config..."
+        npm config list
 
     - name: Run package updater
       shell: bash
