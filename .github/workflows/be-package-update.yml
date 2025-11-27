@@ -3,6 +3,9 @@ name: Backend Package Update
 on:
   repository_dispatch:
     types: [frontend-packages-published]
+    secrets:
+      DOT_NPMRC:
+        required: true
 
 jobs:
   update-packages:
