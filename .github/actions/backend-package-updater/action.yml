@@ -20,14 +20,15 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - name: Configure .npmrc for private registry
-      uses: bduff9/use-npmrc@v1.1
-      with:
-        dot-npmrc: ${{ inputs.dot-npmrc }}
-
     - name: Install dependencies
       run: cd "$GITHUB_ACTION_PATH/../../.." && pwd && npm ci
       shell: bash
+
+    - name: Configure .npmrc in backend repo root
+      shell: bash
+      run: |
+        echo "${{ inputs.dot-npmrc }}" > .npmrc
+        echo "✓ .npmrc configured in backend repo"
 
     - name: Run package updater
       shell: bash
