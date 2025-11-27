@@ -11,19 +11,11 @@ export class DistTagResolver {
    * - "release/X.Y" → "release-X.Y"
    */
   public static getDistTag(branchName: string): string {
-    if (branchName === 'main' || branchName === 'master') {
-      return 'snapshot';
-    }
-
     if (branchName.startsWith('release/')) {
       // Extract version: release/25.4 → release-25.4
-      const version = branchName.replace('release/', 'release-');
-      return version;
+      return branchName.replace('release/', 'release-');
     }
 
-    throw new Error(
-      `Unsupported branch pattern: ${branchName}. ` +
-        `Supported patterns: main, master, release/*`
-    );
+    return 'snapshot';
   }
 }
