@@ -47,9 +47,7 @@ runs:
       env:
         BRANCH: ${{ inputs.branch }}
         ACTOR: ${{ inputs.actor }}
-      run: |
-        # Use ts-node from github-actions repo node_modules
-        node "$GITHUB_ACTION_PATH/../../../node_modules/ts-node/dist/bin.js" "$GITHUB_ACTION_PATH/../../../tools/scripts/backend-package-updater/main.ts"
+      run: npx --yes ts-node "$GITHUB_ACTION_PATH/../../../tools/scripts/backend-package-updater/main.ts"
 
     - name: Check for changes
       id: check-changes
