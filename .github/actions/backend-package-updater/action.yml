@@ -48,6 +48,10 @@ runs:
         echo "Testing npm access with configured .npmrc..."
         npm ping || echo "npm ping failed - checking npm config..."
         npm config list
+        echo ""
+        echo "Testing npm access from subdirectory..."
+        cd cf.cplace.training.extended/assets || true
+        npm config list || true
 
     - name: Run package updater
       shell: bash
@@ -84,9 +88,7 @@ runs:
 
         # Commit changes
         git add .
-        git commit -m "Update frontend packages from $BRANCH branch
-
-        Automated update triggered by @$ACTOR
+        git commit -m "Update frontend packages from $BRANCH branch"
 
         # Push branch
         git push -u origin "$BRANCH_NAME"
