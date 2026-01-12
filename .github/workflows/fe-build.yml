@@ -44,7 +44,7 @@ jobs:
         run: git fetch origin ${{ inputs.GHA_BASE }}:${{ inputs.GHA_BASE }} || true
 
       - name: Build and Storybook
-        uses: collaborationFactory/github-actions/.github/actions/run-many@master
+        uses: collaborationFactory/github-actions/.github/actions/run-many@feature/automate-frontend-pkg-integration
         with:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}

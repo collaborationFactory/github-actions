@@ -9,6 +9,10 @@ on:
       GHA_BASE:
         type: string
         required: true
+      BACKEND_REPO:
+        type: string
+        required: false
+        description: 'Backend repository name to trigger (e.g., "main" or "cplace-paw")'
     secrets:
       JFROG_BASE64_TOKEN:
         required: true
@@ -17,6 +21,8 @@ on:
       JFROG_USER:
         required: true
       GIT_USER_TOKEN:
+        required: false
+      CROSS_REPO_PAT:
         required: false
 
 jobs:
@@ -38,10 +44,23 @@ jobs:
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
 
       - name: Build and Push to Jfrog NPM Registry
-        uses: collaborationFactory/github-actions/.github/actions/artifacts@master
+        uses: collaborationFactory/github-actions/.github/actions/artifacts@feature/automate-frontend-pkg-integration
         env:
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}
           JFROG_USER: ${{ secrets.JFROG_USER }}
           BASE: ${{ inputs.GHA_BASE }}
           SNAPSHOT: true
+
+      - name: Trigger Backend Package Update
+        if: inputs.BACKEND_REPO != ''
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.CROSS_REPO_PAT }}
+          repository: collaborationFactory/${{ inputs.BACKEND_REPO }}
+          event-type: frontend-packages-published
+          client-payload: |
+            {
+              "branch": "${{ github.ref_name }}",
+              "actor": "${{ github.actor }}"
+            }

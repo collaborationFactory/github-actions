@@ -10,25 +10,25 @@ on:
         required: false
         description: "SonarCloud organization key, e.g., 'my-org'"
         type: string
-        default: "collaborationfactory"
+        default: 'collaborationfactory'
       SONAR_CLOUD_PROJECT_KEY:
         required: false
         description: "SonarCloud project key, e.g., 'my-project'"
         type: string
-        default: ""
+        default: ''
       SONAR_PROPERTIES:
         required: false
-        description: "Additional sonar-project.properties content"
+        description: 'Additional sonar-project.properties content'
         type: string
-        default: ""
+        default: ''
 
 jobs:
   code-quality:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [ 'test' ]
-        jobIndex: [ 1, 2, 3,4 ]
+        target: ['test']
+        jobIndex: [1, 2, 3, 4]
       fail-fast: false # Continue running all matrix combinations even if one fails
     env:
       jobCount: 4
@@ -60,7 +60,7 @@ jobs:
 
       - name: Unit Tests
         id: test
-        uses: collaborationFactory/github-actions/.github/actions/run-many@master
+        uses: collaborationFactory/github-actions/.github/actions/run-many@feature/automate-frontend-pkg-integration
         continue-on-error: true
         with:
           target: ${{ matrix.target }}

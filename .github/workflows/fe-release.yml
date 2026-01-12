@@ -2,6 +2,11 @@ name: Frontend Release Workflow
 
 on:
   workflow_call:
+    inputs:
+      BACKEND_REPO:
+        type: string
+        required: false
+        description: 'Backend repository name to trigger'
     secrets:
       JFROG_BASE64_TOKEN:
         required: true
@@ -11,6 +16,8 @@ on:
         required: true
       DOT_NPMRC:
         required: true
+      CROSS_REPO_PAT:
+        required: false
 
 env:
   NX_BRANCH: ${{ github.event.number }}
@@ -50,9 +57,22 @@ jobs:
         uses: dawidd6/action-get-tag@v1
 
       - name: Build and Push to Jfrog NPM Registry
-        uses: collaborationFactory/github-actions/.github/actions/artifacts@master
+        uses: collaborationFactory/github-actions/.github/actions/artifacts@feature/automate-frontend-pkg-integration
         env:
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}
           JFROG_USER: ${{ secrets.JFROG_USER }}
           TAG: ${{ steps.tag.outputs.tag }}
+
+      - name: Trigger Backend Package Update
+        if: inputs.BACKEND_REPO != ''
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.CROSS_REPO_PAT }}
+          repository: collaborationFactory/${{ inputs.BACKEND_REPO }}
+          event-type: frontend-packages-published
+          client-payload: |
+            {
+              "branch": "${{ github.ref_name }}",
+              "actor": "${{ github.actor }}"
+            }
