@@ -40,8 +40,25 @@ jobs:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
 
-      - name: Fetch base branch
-        run: git fetch origin ${{ inputs.GHA_BASE }}:${{ inputs.GHA_BASE }} || true
+      - name: Set base branch for Nx affected
+        id: nx-base
+        run: |
+          if [ -n "${{ github.base_ref }}" ]; then
+            # PR: use base_ref
+            BASE="${{ github.base_ref }}"
+          elif [[ "${{ github.ref_name }}" =~ ^release/[0-9]+\.[0-9]+$ ]]; then
+            # Release branch: use itself (compares against previous commits)
+            BASE="${{ github.ref_name }}"
+          else
+            # Default: try main, fallback to master
+            BASE="main,master"
+          fi
+          echo "branch=$BASE" >> $GITHUB_OUTPUT
+          echo "Using base branch(es): $BASE"
+
+      - uses: nrwl/nx-set-shas@v4
+        with:
+          main-branch-name: ${{ steps.nx-base.outputs.branch }}
 
       - name: Build and Storybook
         uses: collaborationFactory/github-actions/.github/actions/run-many@release/25.4
