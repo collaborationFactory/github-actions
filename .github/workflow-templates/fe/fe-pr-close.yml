@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   remove-artifacts:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-pr-close.yml@release/26.1
+    uses: collaborationFactory/github-actions/.github/workflows/fe-pr-close.yml@feature/PFM-TASK-7221-Restrict-GitHub-Actions-Workflow-Permissions
     with:
       GHA_BASE: ${{ github.event.pull_request.base.ref }}
     secrets:

@@ -17,7 +17,7 @@ env:
 
 jobs:
   check-licenses:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-licenses.yml@release/26.1
+    uses: collaborationFactory/github-actions/.github/workflows/fe-licenses.yml@feature/PFM-TASK-7221-Restrict-GitHub-Actions-Workflow-Permissions
     with:
       FOSS_DIST: dist
       CUSTOM_LICENSES_JSON: custom-licenses/custom-licenses.json

@@ -16,7 +16,7 @@ env:
 
 jobs:
   release-version:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-release.yml@release/26.1
+    uses: collaborationFactory/github-actions/.github/workflows/fe-release.yml@feature/PFM-TASK-7221-Restrict-GitHub-Actions-Workflow-Permissions
     secrets:
       JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
       JFROG_URL: ${{ secrets.JFROG_URL }}
