@@ -39,7 +39,7 @@ jobs:
           dot-npmrc: ${{ secrets.DOT_NPMRC }}
 
       - name: Cleanup Snapshot Artifacts
-        uses: collaborationFactory/github-actions/.github/actions/snapshots@feature/PFM-TASK-7221-Restrict-GitHub-Actions-Workflow-Permissions
+        uses: collaborationFactory/github-actions/.github/actions/snapshots@release/26.1
         env:
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}

@@ -60,7 +60,7 @@ jobs:
 
       - name: Unit Tests
         id: test
-        uses: collaborationFactory/github-actions/.github/actions/run-many@feature/PFM-TASK-7221-Restrict-GitHub-Actions-Workflow-Permissions
+        uses: collaborationFactory/github-actions/.github/actions/run-many@release/26.1
         continue-on-error: true
         with:
           target: ${{ matrix.target }}

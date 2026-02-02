@@ -48,7 +48,7 @@ jobs:
       - name: Affected Regression Tests
         id: regressionTests
         continue-on-error: true
-        uses: collaborationFactory/github-actions/.github/actions/run-many@feature/PFM-TASK-7221-Restrict-GitHub-Actions-Workflow-Permissions
+        uses: collaborationFactory/github-actions/.github/actions/run-many@release/26.1
         with:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}
