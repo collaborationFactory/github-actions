@@ -48,7 +48,7 @@ jobs:
       - name: Affected Regression Tests
         id: regressionTests
         continue-on-error: true
-        uses: collaborationFactory/github-actions/.github/actions/run-many@release/25.4
+        uses: collaborationFactory/github-actions/.github/actions/run-many@fix/PFM-ISSUE-32629-Fix-max-old-space-size-in-25-4
         with:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}

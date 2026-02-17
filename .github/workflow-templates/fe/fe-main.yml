@@ -13,7 +13,7 @@ env:
 
 jobs:
   install-deps:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-install-deps.yml@release/25.4
+    uses: collaborationFactory/github-actions/.github/workflows/fe-install-deps.yml@fix/PFM-ISSUE-32629-Fix-max-old-space-size-in-25-4
     with:
       GHA_REF: ''
     secrets:
@@ -22,7 +22,7 @@ jobs:
   # This job is only needed in case you are using Percy
   e2e-tests:
     needs: install-deps
-    uses: collaborationFactory/github-actions/.github/workflows/fe-e2e.yml@release/25.4
+    uses: collaborationFactory/github-actions/.github/workflows/fe-e2e.yml@fix/PFM-ISSUE-32629-Fix-max-old-space-size-in-25-4
     with:
       GHA_REF: ''
       GHA_BASE: ${{ github.event.before }}
@@ -31,14 +31,14 @@ jobs:
 
   build:
     needs: install-deps
-    uses: collaborationFactory/github-actions/.github/workflows/fe-build.yml@release/25.4
+    uses: collaborationFactory/github-actions/.github/workflows/fe-build.yml@fix/PFM-ISSUE-32629-Fix-max-old-space-size-in-25-4
     with:
       GHA_REF: ''
       GHA_BASE: ${{ github.event.before }}
 
   snapshot:
     needs: build
-    uses: collaborationFactory/github-actions/.github/workflows/fe-snapshot.yml@release/25.4
+    uses: collaborationFactory/github-actions/.github/workflows/fe-snapshot.yml@fix/PFM-ISSUE-32629-Fix-max-old-space-size-in-25-4
     with:
       GHA_REF: ''
       GHA_BASE: ${{ github.event.before }}
