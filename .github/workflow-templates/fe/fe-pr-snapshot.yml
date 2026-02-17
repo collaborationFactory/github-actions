@@ -9,7 +9,7 @@ permissions: write-all
 
 jobs:
   publish-pr-snapshot:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-pr-snapshot.yml@fix/PFM-ISSUE-32629-Fix-max-old-space-size-in-25-4
+    uses: collaborationFactory/github-actions/.github/workflows/fe-pr-snapshot.yml@release/25.4
     with:
       GHA_BASE: ${{ github.event.pull_request.base.ref }}
     secrets:

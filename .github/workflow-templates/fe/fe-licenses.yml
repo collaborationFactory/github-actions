@@ -13,7 +13,7 @@ env:
 
 jobs:
   check-licenses:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-licenses.yml@fix/PFM-ISSUE-32629-Fix-max-old-space-size-in-25-4
+    uses: collaborationFactory/github-actions/.github/workflows/fe-licenses.yml@release/25.4
     with:
       FOSS_DIST: dist
       CUSTOM_LICENSES_JSON: custom-licenses/custom-licenses.json

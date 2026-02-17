@@ -12,7 +12,7 @@ env:
 
 jobs:
   release-version:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-release.yml@fix/PFM-ISSUE-32629-Fix-max-old-space-size-in-25-4
+    uses: collaborationFactory/github-actions/.github/workflows/fe-release.yml@release/25.4
     secrets:
       JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
       JFROG_URL: ${{ secrets.JFROG_URL }}
