@@ -4,7 +4,11 @@ on:
     # Runs "At 00:00 on day-of-month 28 in every 3rd month." (see https://crontab.guru)
     - cron: '0 0 28 */3 *'
 
-permissions: write-all
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+  checks: write
 
 jobs:
   cleanup-snapshots:

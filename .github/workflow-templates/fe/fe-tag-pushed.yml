@@ -4,7 +4,11 @@ on:
     tags:
       - '*/*'
 
-permissions: write-all
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+  checks: write
 
 env:
   NX_BRANCH: ${{ github.event.number }}
