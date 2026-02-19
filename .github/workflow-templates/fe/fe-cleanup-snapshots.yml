@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   cleanup-snapshots:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-cleanup-snapshots.yml@release/25.2
+    uses: collaborationFactory/github-actions/.github/workflows/fe-cleanup-snapshots.yml@feature/PFM-TASK-7338-Backport-Sonar-Scan-in-github-actions
     secrets:
       JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
       JFROG_URL: ${{ secrets.JFROG_URL }}

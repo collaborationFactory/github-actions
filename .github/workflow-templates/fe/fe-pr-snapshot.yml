@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   publish-pr-snapshot:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-pr-snapshot.yml@release/25.2
+    uses: collaborationFactory/github-actions/.github/workflows/fe-pr-snapshot.yml@feature/PFM-TASK-7338-Backport-Sonar-Scan-in-github-actions
     with:
       GHA_BASE: ${{ github.event.pull_request.base.ref }}
     secrets:
