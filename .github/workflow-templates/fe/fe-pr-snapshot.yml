@@ -5,7 +5,11 @@ on:
     branches:
       - '**'
 
-permissions: write-all
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+  checks: write
 
 jobs:
   publish-pr-snapshot:
