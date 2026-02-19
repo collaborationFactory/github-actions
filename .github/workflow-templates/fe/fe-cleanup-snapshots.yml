@@ -4,11 +4,15 @@ on:
     # Runs "At 00:00 on day-of-month 28 in every 3rd month." (see https://crontab.guru)
     - cron: '0 0 28 */3 *'
 
-permissions: write-all
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+  checks: write
 
 jobs:
   cleanup-snapshots:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-cleanup-snapshots.yml@release/25.2
+    uses: collaborationFactory/github-actions/.github/workflows/fe-cleanup-snapshots.yml@feature/PFM-TASK-7338-Backport-Sonar-Scan-in-github-actions
     secrets:
       JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
       JFROG_URL: ${{ secrets.JFROG_URL }}

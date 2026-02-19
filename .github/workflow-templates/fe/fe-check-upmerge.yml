@@ -4,11 +4,15 @@ on:
     # Runs "At 18:00 every day" (see https://crontab.guru)
     - cron: '0 18 * * *'
 
-permissions: write-all
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+  checks: write
 
 jobs:
   check-upmerge:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-check-upmerge.yml@release/25.2
+    uses: collaborationFactory/github-actions/.github/workflows/fe-check-upmerge.yml@feature/PFM-TASK-7338-Backport-Sonar-Scan-in-github-actions
     secrets:
       SLACK_TOKEN_UPMERGE: ${{ secrets.SLACK_TOKEN_UPMERGE }}
       GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
