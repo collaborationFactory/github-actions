@@ -7,12 +7,31 @@ function getE2ECommand(command: string, base: string): string {
   return command;
 }
 
+function getCoverageCommand(command: string): string {
+  const coverageEnabled = process.env.coverageEnabled === 'true';
+  core.info(`Coverage enabled: ${coverageEnabled}`);
+  if(coverageEnabled) {
+    command = command.concat(
+      ` --codeCoverage=true --coverageReporters=lcov --coverageReporters=html`
+    );
+  }
+  return command;
+}
+
 function runCommand(command: string): void {
+  if (command.includes('--targets=e2e')) {
+    const commandArr = command.split(' ');
+    command = commandArr.filter((c) => !c.includes('--base=')).join(' ');
+  }
   core.info(`Running > ${command}`);
 
   try {
-    const output = execSync(command, { stdio: 'pipe', maxBuffer: 1024 * 1024 * 1024, encoding: 'utf-8' }); // 10MB
-    core.info(output.toString())
+    const output = execSync(command, {
+      stdio: 'pipe',
+      maxBuffer: 1024 * 1024 * 1024,
+      encoding: 'utf-8',
+    }); // 10MB
+    core.info(output.toString());
   } catch (error) {
     if (error.signal === 'SIGTERM') {
       core.error('Timed out');
@@ -36,12 +55,16 @@ function main() {
 
   // in case base is not a SHA1 commit hash add origin
   if (!/\b[0-9a-f]{5,40}\b/.test(base)) base = 'origin/' + base;
-  if(base.includes('0000000000000000')){
-    base = execSync(`git rev-parse --abbrev-ref origin/HEAD `).toString().trim();
+  if (base.includes('0000000000000000')) {
+    base = execSync(`git rev-parse --abbrev-ref origin/HEAD `)
+      .toString()
+      .trim();
   }
   const ref = process.argv[6];
 
-  core.info(`Inputs:\n target ${target},\n jobIndex: ${jobIndex},\n jobCount ${jobCount},\n base ${base},\n ref ${ref}`)
+  core.info(
+    `Inputs:\n target ${target},\n jobIndex: ${jobIndex},\n jobCount ${jobCount},\n base ${base},\n ref ${ref}`
+  );
 
   const projects = getAffectedProjects(target, jobIndex, jobCount, base, ref);
 
@@ -50,6 +73,14 @@ function main() {
 
   if (target.includes('e2e')) {
     cmd = getE2ECommand(cmd, base);
+  }
+
+  // Add coverage flag if enabled and target is test
+  if (target === 'test') {
+    core.info('Coverage gate is enabled');
+    // Add coverage reporters for HTML, JSON, and JUnit output
+    // Note: Using individual project coverage directories
+    cmd = getCoverageCommand(cmd);
   }
 
   if (projects.length > 0) {
