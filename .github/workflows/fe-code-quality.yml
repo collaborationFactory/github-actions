@@ -21,6 +21,11 @@ on:
         description: "Additional sonar-project.properties content"
         type: string
         default: ""
+      GITHUB_RUNNER:
+        required: false
+        description: "Github runner which is used to run sonar scan jobs"
+        type: string
+        default: 'medium'
 
 jobs:
   code-quality:
@@ -105,7 +110,7 @@ jobs:
     name: SonarCloud
     needs: [code-quality, check-sonar]
     if: needs.check-sonar.outputs.has_token == 'true'
-    runs-on: ubuntu-latest
+    runs-on: {{ inputs.GITHUB_RUNNER }}
     steps:
       - name: Set SonarCloud Project Key
         id: set-project-key
