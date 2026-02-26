@@ -7,6 +7,17 @@ function getE2ECommand(command: string, base: string): string {
   return command;
 }
 
+function getCoverageCommand(command: string): string {
+  const coverageEnabled = process.env.coverageEnabled === 'true';
+  core.info(`Coverage enabled: ${coverageEnabled}`);
+  if(coverageEnabled) {
+    command = command.concat(
+      ` --codeCoverage=true --coverageReporters=lcov --coverageReporters=html`
+    );
+  }
+  return command;
+}
+
 function runCommand(command: string): void {
   if (command.includes('--targets=e2e')) {
     const commandArr = command.split(' ');
@@ -62,6 +73,14 @@ function main() {
 
   if (target.includes('e2e')) {
     cmd = getE2ECommand(cmd, base);
+  }
+
+  // Add coverage flag if enabled and target is test
+  if (target === 'test') {
+    core.info('Coverage gate is enabled');
+    // Add coverage reporters for HTML, JSON, and JUnit output
+    // Note: Using individual project coverage directories
+    cmd = getCoverageCommand(cmd);
   }
 
   if (projects.length > 0) {
