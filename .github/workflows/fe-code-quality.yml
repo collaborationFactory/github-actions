@@ -110,7 +110,7 @@ jobs:
     name: SonarCloud
     needs: [code-quality, check-sonar]
     if: needs.check-sonar.outputs.has_token == 'true'
-    runs-on: {{ inputs.GITHUB_RUNNER }}
+    runs-on: ${{ inputs.GITHUB_RUNNER }}
     steps:
       - name: Set SonarCloud Project Key
         id: set-project-key
