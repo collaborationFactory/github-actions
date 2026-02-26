@@ -18,11 +18,16 @@ on:
         description: "Additional sonar-project.properties content"
         type: string
         default: ""
+      GITHUB_RUNNER:
+        required: false
+        description: "Github runner which is used to run sonar scan jobs"
+        type: string
+        default: 'medium'
 
 jobs:
   sonarqube-scan:
     name: SonarQube Code Quality Scan
-    runs-on: ubuntu-latest
+    runs-on: {{ inputs.GITHUB_RUNNER }}
     # Only run the workflow for master/main and release branches
     if: github.ref_name == 'master' || github.ref_name == 'main' || startsWith(github.ref_name, 'release/')
     permissions:
