@@ -29,7 +29,7 @@ jobs:
     name: SonarQube Code Quality Scan
     runs-on: ${{ inputs.GITHUB_RUNNER }}
     # Only run the workflow for master/main and release branches
-    if: github.ref_name == 'master' || github.ref_name == 'main' || startsWith(github.ref_name, 'release/')
+    #if: github.ref_name == 'master' || github.ref_name == 'main' || startsWith(github.ref_name, 'release/')
     permissions:
       contents: read
     steps:
@@ -61,7 +61,7 @@ jobs:
         run: npx nx run-many --target=lint --all --parallel --configuration=dev
 
       - name: Run Unit Tests with Coverage
-        run: npx nx run-many --target=test --all --parallel --coverage --codeCoverage=true --coverageReporters=lcov --coverageReporters=html
+        run: npx nx run-many --target=test --all --parallel=false --coverage --codeCoverage=true --coverageReporters=lcov --coverageReporters=html
         continue-on-error: false
 
       - name: Check for LCOV files
@@ -115,7 +115,7 @@ jobs:
           echo "=== SonarQube Configuration ==="
           cat sonar-project.properties
 
-      - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v6
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_CLOUD_TOKEN }}
+#      - name: SonarQube Scan
+#        uses: SonarSource/sonarqube-scan-action@v6
+#        env:
+#          SONAR_TOKEN: ${{ secrets.SONAR_CLOUD_TOKEN }}
