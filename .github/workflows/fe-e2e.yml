@@ -17,7 +17,7 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     container:
-      image: cypress/browsers:24.14.0
+      image: cypress/browsers:22.15.0
       options: --user 1001
     timeout-minutes: 120
     strategy:
