@@ -61,7 +61,7 @@ jobs:
         run: npx nx run-many --target=lint --all --parallel --configuration=dev
 
       - name: Run Unit Tests with Coverage
-        run: npx nx run-many --target=test --all --parallel=false --coverage --codeCoverage=true --coverageReporters=lcov --coverageReporters=html --configuration=ci
+        run: npx nx run-many --target=test --all --parallel --coverage --codeCoverage=true --coverageReporters=lcov --coverageReporters=html --configuration=ci
         continue-on-error: false
 
       - name: Check for LCOV files
