@@ -34,14 +34,14 @@ jobs:
       contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0  # Full history for SonarQube analysis
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 18.19.1
+          node-version-file: .nvmrc
 
       - name: Cache Node Modules
         id: npm-cache
@@ -61,7 +61,7 @@ jobs:
         run: npx nx run-many --target=lint --all --parallel --configuration=dev
 
       - name: Run Unit Tests with Coverage
-        run: npx nx run-many --target=test --all --parallel --coverage --codeCoverage=true --coverageReporters=lcov --coverageReporters=html
+        run: npx nx run-many --target=test --all --parallel=false --coverage --codeCoverage=true --coverageReporters=lcov --coverageReporters=html --maxWorkers=2
         continue-on-error: false
 
       - name: Check for LCOV files
