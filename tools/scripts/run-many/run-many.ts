@@ -56,9 +56,8 @@ function main() {
   // in case base is not a SHA1 commit hash add origin
   if (!/\b[0-9a-f]{5,40}\b/.test(base)) base = 'origin/' + base;
   if (base.includes('0000000000000000')) {
-    base = execSync(`git rev-parse --abbrev-ref origin/HEAD `)
-      .toString()
-      .trim();
+    const defaultBranch = process.env.DEFAULT_BRANCH || 'master';
+    base = `origin/${defaultBranch}`;
   }
   const ref = process.argv[6];
 
