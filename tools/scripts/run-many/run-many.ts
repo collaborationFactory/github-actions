@@ -69,10 +69,12 @@ function main() {
   const projects = getAffectedProjects(target, jobIndex, jobCount, base, ref);
 
   const runManyProjectsCmd = `npx nx run-many --targets=${target} --projects="${projects}"`;
-  let cmd = `${runManyProjectsCmd} --parallel=false --prod`;
+  let cmd = `${runManyProjectsCmd} --parallel=false`;
 
   if (target.includes('e2e')) {
     cmd = getE2ECommand(cmd, base);
+  } else {
+    cmd = cmd.concat(' --prod');
   }
 
   // Add coverage flag if enabled and target is test
