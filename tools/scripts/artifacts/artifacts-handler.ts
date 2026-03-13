@@ -55,6 +55,12 @@ export class ArtifactsHandler {
     if (!/\b[0-9a-f]{5,40}\b/.test(this.base))
       this.base = 'origin/' + this.base;
 
+    if (this.base.includes('0000000000000000')) {
+      const defaultBranch = process.env.DEFAULT_BRANCH || 'master';
+      console.log(`Using default branch ${defaultBranch} as base`);
+      this.base = `origin/${defaultBranch}`;
+    }
+
     // in case of a release Tag (e.g. version/22.3.1) all projects should be built and published
     if (this.tag.startsWith(ArtifactsHandler.VERSION_PREFIX)) {
       this.onlyAffected = false;
