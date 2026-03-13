@@ -42,7 +42,7 @@ jobs:
       - name: Affected Regression Tests
         id: playwrightRegressionTests
         continue-on-error: true
-        uses: collaborationFactory/github-actions/.github/actions/run-many@master
+        uses: collaborationFactory/github-actions/.github/actions/run-many@test/playwright
         with:
           target: 'e2e-playwright'
           jobIndex: 1
