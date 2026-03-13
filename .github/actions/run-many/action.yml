@@ -23,3 +23,5 @@ runs:
       shell: bash
     - run: npx ts-node "$GITHUB_ACTION_PATH/../../../tools/scripts/run-many/run-many.ts" ${{ inputs.target }} ${{ inputs.jobIndex }} ${{ inputs.jobCount }} ${{ inputs.base }} ${{ inputs.ref }}
       shell: bash
+      env:
+        DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
