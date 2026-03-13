@@ -16,9 +16,6 @@ on:
 jobs:
   e2e-playwright:
     runs-on: ubuntu-latest
-    container:
-      image: mcr.microsoft.com/playwright:v1.36.1
-      options: --user 1001
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,6 +32,9 @@ jobs:
         with:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
 
       - name: Fetch base branch
         run: git fetch origin ${{ inputs.GHA_BASE }}:${{ inputs.GHA_BASE }} || true
