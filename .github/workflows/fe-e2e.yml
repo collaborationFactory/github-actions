@@ -45,7 +45,7 @@ jobs:
         uses: collaborationFactory/github-actions/.github/actions/run-many@master
         with:
           target: 'e2e-playwright'
-          jobIndex: 0
+          jobIndex: 1
           jobCount: 1
           base: ${{ inputs.GHA_BASE }}
           ref: ${{ inputs.GHA_REF }}
