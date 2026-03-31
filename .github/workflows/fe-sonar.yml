@@ -49,7 +49,14 @@ jobs:
         with:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
-
+          
+      - name: Use .npmrc
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        id: use-npmrc
+        uses: bduff9/use-npmrc@v1.2
+        with:
+          dot-npmrc: ${{ secrets.DOT_NPMRC }}
+          
       - name: Install dependencies
         if: steps.npm-cache.outputs.cache-hit != 'true'
         run: npm ci
