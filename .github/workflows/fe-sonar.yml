@@ -7,6 +7,9 @@ on:
       SONAR_CLOUD_TOKEN:
         required: true
         description: "SonarCloud authentication token"
+      DOT_NPMRC:
+        required: true
+        description: "Npm token"
     inputs:
       SONAR_CLOUD_ORG:
         required: false
