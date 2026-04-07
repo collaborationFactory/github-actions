@@ -58,13 +58,5 @@ jobs:
         run: node node_modules/@cplace-next/cf-frontend-licenses/main.js check ${{ inputs.FOSS_DIST }} ${{ inputs.CUSTOM_LICENSES_JSON }}
 
       - name: Run Diff
-        continue-on-error: true
+        id: diffFoss
         run: diff -a --suppress-common-lines -y ./cplace-foss-list.json ${{ inputs.FOSS_DIST }}/cplace-foss-list.json
-
-      - name: Read fossTmp
-        id: readFossTmp
-        run: echo "foss_status=$(cat ${{ inputs.FOSS_DIST }}/fossTmp)" >> $GITHUB_OUTPUT
-
-      - name: Check fossTmp
-        if: steps.readFossTmp.outputs.foss_status == '1'
-        run: exit 1
