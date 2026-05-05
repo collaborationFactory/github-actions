@@ -33,7 +33,7 @@ jobs:
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
 
       - name: check if upmerge is necessary and post to slack
-        uses: collaborationFactory/github-actions/.github/actions/upmerge@release/26.2
+        uses: collaborationFactory/github-actions/.github/actions/upmerge@improvement/PFM-ISSUE-33592-Create-release-26-2-for-cplace-remote-filesystem-fe
         env:
           SLACK_TOKEN_UPMERGE: ${{ secrets.SLACK_TOKEN_UPMERGE }}
           GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}

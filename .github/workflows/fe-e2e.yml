@@ -51,7 +51,7 @@ jobs:
       - name: Affected Regression Tests
         id: regressionTests
         continue-on-error: true
-        uses: collaborationFactory/github-actions/.github/actions/run-many@release/26.2
+        uses: collaborationFactory/github-actions/.github/actions/run-many@improvement/PFM-ISSUE-33592-Create-release-26-2-for-cplace-remote-filesystem-fe
         with:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}

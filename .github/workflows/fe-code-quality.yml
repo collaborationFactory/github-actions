@@ -67,7 +67,7 @@ jobs:
 
       - name: Unit Tests
         id: test
-        uses: collaborationFactory/github-actions/.github/actions/run-many@release/26.2
+        uses: collaborationFactory/github-actions/.github/actions/run-many@improvement/PFM-ISSUE-33592-Create-release-26-2-for-cplace-remote-filesystem-fe
         continue-on-error: true
         with:
           target: ${{ matrix.target }}

@@ -65,7 +65,7 @@ jobs:
         run: npm ci
 
       - name: Build and Push to Jfrog NPM Registry
-        uses: collaborationFactory/github-actions/.github/actions/artifacts@release/26.2
+        uses: collaborationFactory/github-actions/.github/actions/artifacts@improvement/PFM-ISSUE-33592-Create-release-26-2-for-cplace-remote-filesystem-fe
         env:
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}

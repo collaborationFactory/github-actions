@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   publish-pr-snapshot:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-pr-snapshot.yml@release/26.2
+    uses: collaborationFactory/github-actions/.github/workflows/fe-pr-snapshot.yml@improvement/PFM-ISSUE-33592-Create-release-26-2-for-cplace-remote-filesystem-fe
     with:
       GHA_BASE: ${{ github.event.pull_request.base.ref }}
     secrets:
