@@ -57,10 +57,17 @@ jobs:
           PR_NUMBER: ${{ github.event.number }}
 
       - name: comment published Artifacts on PR
-        uses: thollander/actions-comment-pull-request@v3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
-          file-path: githubCommentsForPR.txt
-          comment-tag: published-artifacts
-          mode: upsert
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- published-artifacts -->';
+            const body = marker + '\n' + fs.readFileSync('githubCommentsForPR.txt', 'utf8');
+            const { data: comments } = await github.rest.issues.listComments({
+              ...context.repo, issue_number: context.issue.number });
+            const existing = comments.find(c => c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
+            }
