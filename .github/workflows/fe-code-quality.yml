@@ -65,7 +65,7 @@ jobs:
 
       - name: Unit Tests
         id: test
-        uses: collaborationFactory/github-actions/.github/actions/run-many@release/25.2
+        uses: collaborationFactory/github-actions/.github/actions/run-many@test/PFM-TASK-7777-github-actions-Upgrade-GitHub-Actions-to-Support
         continue-on-error: true
         with:
           target: ${{ matrix.target }}

@@ -41,7 +41,7 @@ jobs:
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
 
       - name: Build and Storybook
-        uses: collaborationFactory/github-actions/.github/actions/run-many@release/25.2
+        uses: collaborationFactory/github-actions/.github/actions/run-many@test/PFM-TASK-7777-github-actions-Upgrade-GitHub-Actions-to-Support
         with:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}
