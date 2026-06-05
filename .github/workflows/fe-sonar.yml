@@ -35,7 +35,8 @@ jobs:
     name: SonarQube Code Quality Scan
     runs-on: ${{ inputs.GITHUB_RUNNER }}
     # Only run the workflow for master/main and release branches
-    if: github.ref_name == 'master' || github.ref_name == 'main' || startsWith(github.ref_name, 'release/')
+    # TEST ONLY: test/* added so the dispatch from the node24 test caller branch passes the guard
+    if: github.ref_name == 'master' || github.ref_name == 'main' || startsWith(github.ref_name, 'release/') || startsWith(github.ref_name, 'test/')
     permissions:
       contents: read
     steps:
