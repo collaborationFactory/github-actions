@@ -27,6 +27,9 @@ on:
         type: string
         default: 'medium'
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   sonarqube-scan:
     name: SonarQube Code Quality Scan

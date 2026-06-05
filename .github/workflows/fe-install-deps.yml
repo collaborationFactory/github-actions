@@ -10,6 +10,9 @@ on:
       DOT_NPMRC:
         required: true
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   install-deps:
     runs-on: ubuntu-latest
