@@ -11,5 +11,6 @@ JavaScript action runtime since June 2026).
 - Self-hosted runners must run GitHub Actions Runner **>= 2.327.1**.
 - `.npmrc` provisioning uses the in-repo composite `.github/actions/use-npmrc` (input `dot-npmrc`),
   referenced per release branch like all internal composites.
-- `.github/dependabot.yml` keeps the SHA pins current on `master`; release branches are backported
-  manually.
+- `.github/dependabot.yml` keeps the SHA pins current on `master` and the active release branches
+  (`release/25.2` through `release/26.2`) via per-branch `target-branch` entries; each branch gets
+  one grouped Action-update PR per week.
