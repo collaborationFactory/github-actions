@@ -1,0 +1,14 @@
+name: 'Use .npmrc'
+description: 'Writes the given .npmrc content to ~/.npmrc'
+inputs:
+  dot-npmrc:
+    description: 'Content of the .npmrc file'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - name: Write ~/.npmrc
+      shell: bash
+      env:
+        DOT_NPMRC: ${{ inputs.dot-npmrc }}
+      run: echo "$DOT_NPMRC" > ~/.npmrc

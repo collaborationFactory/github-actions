@@ -23,17 +23,17 @@ jobs:
     env:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 22.15.0
       - name: Cache Node Modules
         id: npm-cache
-        uses: actions/cache@v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
@@ -54,7 +54,7 @@ jobs:
           fi
 
       - name: Use .npmrc
-        uses: bduff9/use-npmrc@v1.1
+        uses: collaborationFactory/github-actions/.github/actions/use-npmrc@release/25.4
         with:
           dot-npmrc: ${{ secrets.DOT_NPMRC }}
 
@@ -73,10 +73,17 @@ jobs:
           PR_NUMBER: ${{ github.event.number }}
 
       - name: comment published Artifacts on PR
-        uses: thollander/actions-comment-pull-request@v3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
-          file-path: githubCommentsForPR.txt
-          comment-tag: published-artifacts
-          mode: upsert
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- published-artifacts -->';
+            const body = marker + '\n' + fs.readFileSync('githubCommentsForPR.txt', 'utf8');
+            const { data: comments } = await github.rest.issues.listComments({
+              ...context.repo, issue_number: context.issue.number });
+            const existing = comments.find(c => c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
+            }

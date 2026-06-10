@@ -20,24 +20,24 @@ jobs:
   release-version:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: ''
           fetch-depth: 0
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 22.15.0
 
       - name: Cache Node Modules
         id: npm-cache
-        uses: actions/cache@v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
 
       - name: Use .npmrc
-        uses: bduff9/use-npmrc@v1.1
+        uses: collaborationFactory/github-actions/.github/actions/use-npmrc@release/25.4
         with:
           dot-npmrc: ${{ secrets.DOT_NPMRC }}
 
@@ -45,14 +45,10 @@ jobs:
         if: steps.npm-cache.outputs.cache-hit != 'true'
         run: npm ci && echo "modules were installed via npm" || yarn
 
-      - name: Get tag
-        id: tag
-        uses: dawidd6/action-get-tag@v1
-
       - name: Build and Push to Jfrog NPM Registry
         uses: collaborationFactory/github-actions/.github/actions/artifacts@release/25.4
         env:
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}
           JFROG_USER: ${{ secrets.JFROG_USER }}
-          TAG: ${{ steps.tag.outputs.tag }}
+          TAG: ${{ github.ref_name }}
