@@ -27,17 +27,17 @@ jobs:
   tag:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.GHA_REF }}
           fetch-depth: 0
           token: ${{ secrets.GIT_USER_TOKEN }}
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v6
         with:
           node-version: 22.15.0
       - name: Cache Node Modules
         id: npm-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
@@ -48,7 +48,7 @@ jobs:
           git config user.email ${{ secrets.GIT_USER_EMAIL }}
 
       - name: Bump Version and Push new Tag
-        uses: collaborationFactory/github-actions/.github/actions/artifacts@release/25.4
+        uses: collaborationFactory/github-actions/.github/actions/artifacts@release/26.2
         env:
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}

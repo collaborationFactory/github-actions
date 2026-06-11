@@ -24,17 +24,17 @@ jobs:
     env:
       jobCount: 4
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.GHA_REF }}
           fetch-depth: 0
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v6
         with:
           node-version: 22.15.0
       - name: Cache Node Modules
         id: npm-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
@@ -48,7 +48,7 @@ jobs:
       - name: Affected Regression Tests
         id: regressionTests
         continue-on-error: true
-        uses: collaborationFactory/github-actions/.github/actions/run-many@release/25.4
+        uses: collaborationFactory/github-actions/.github/actions/run-many@release/26.2
         with:
           target: ${{ matrix.target }}
           jobIndex: ${{ matrix.jobIndex }}
@@ -62,7 +62,7 @@ jobs:
           CYPRESS_INTERNAL_BROWSER_CONNECT_TIMEOUT: 300000
 
       - name: Upload E2E Videos
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist-${{ matrix.target }}-${{ matrix.jobIndex }}-e2e-videos
           path: |
@@ -70,7 +70,7 @@ jobs:
           retention-days: 3
 
       - name: Upload A11Y Reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist-${{ matrix.target }}-${{ matrix.jobIndex }}-a11y-reports
           path: |

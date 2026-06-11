@@ -39,17 +39,17 @@ jobs:
       jobCount: 4
       coverageEnabled: ${{ secrets.SONAR_CLOUD_TOKEN != '' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22.15.0
       - name: Cache Node Modules
         id: npm-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
@@ -65,7 +65,7 @@ jobs:
 
       - name: Unit Tests
         id: test
-        uses: collaborationFactory/github-actions/.github/actions/run-many@release/25.4
+        uses: collaborationFactory/github-actions/.github/actions/run-many@release/26.2
         continue-on-error: true
         with:
           target: ${{ matrix.target }}
@@ -76,7 +76,7 @@ jobs:
 
       - name: Upload Coverage Reports
         if: ${{ env.coverageEnabled == 'true' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-${{ matrix.jobIndex }}
           path: coverage/
@@ -122,7 +122,7 @@ jobs:
           fi
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -139,7 +139,7 @@ jobs:
           cat sonar-project.properties
 
       - name: download coverage report
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: ./coverage
           pattern: coverage-*
@@ -177,6 +177,6 @@ jobs:
           fi
 
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v6
+        uses: SonarSource/sonarqube-scan-action@v8
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_CLOUD_TOKEN }}
