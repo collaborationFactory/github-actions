@@ -37,7 +37,7 @@ jobs:
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
 
       - name: Use .npmrc
-        uses: collaborationFactory/github-actions/.github/actions/use-npmrc@release/25.2
+        uses: collaborationFactory/github-actions/.github/actions/use-npmrc@release/26.2
         with:
           dot-npmrc: ${{ secrets.DOT_NPMRC }}
 
@@ -46,7 +46,7 @@ jobs:
         run: npm ci && echo "modules were installed via npm" || yarn
 
       - name: Build and Push to Jfrog NPM Registry
-        uses: collaborationFactory/github-actions/.github/actions/artifacts@release/25.2
+        uses: collaborationFactory/github-actions/.github/actions/artifacts@release/26.2
         env:
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}

@@ -34,12 +34,12 @@ jobs:
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
 
       - name: Use .npmrc
-        uses: collaborationFactory/github-actions/.github/actions/use-npmrc@release/25.2
+        uses: collaborationFactory/github-actions/.github/actions/use-npmrc@release/26.2
         with:
           dot-npmrc: ${{ secrets.DOT_NPMRC }}
 
       - name: Cleanup Snapshot Artifacts
-        uses: collaborationFactory/github-actions/.github/actions/snapshots@release/25.2
+        uses: collaborationFactory/github-actions/.github/actions/snapshots@release/26.2
         env:
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}
