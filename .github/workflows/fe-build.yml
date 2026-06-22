@@ -26,7 +26,7 @@ jobs:
           ram_size_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
           ram_size_gb=$(echo "scale=2; $ram_size_kb/1024/1024" | bc)
           echo "Total RAM size: $ram_size_gb GB"
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ inputs.GHA_REF }}
           fetch-depth: 0
