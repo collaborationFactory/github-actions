@@ -54,7 +54,7 @@ jobs:
           fi
 
       - name: Use .npmrc
-        uses: collaborationFactory/github-actions/.github/actions/use-npmrc@master
+        uses: collaborationFactory/github-actions/.github/actions/use-npmrc@release/26.3
         with:
           dot-npmrc: ${{ secrets.DOT_NPMRC }}
 
@@ -63,7 +63,7 @@ jobs:
         run: npm ci
 
       - name: Build and Push to Jfrog NPM Registry
-        uses: collaborationFactory/github-actions/.github/actions/artifacts@master
+        uses: collaborationFactory/github-actions/.github/actions/artifacts@release/26.3
         env:
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}
