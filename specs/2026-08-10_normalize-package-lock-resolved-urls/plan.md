@@ -1333,6 +1333,81 @@ done
 
 ---
 
+## Phase 4b: Interim mitigation in `use-npmrc` (added 2026-08-11, folded into PR #163)
+
+### Overview
+
+Normalization fixes this repo's lockfile on seven branches, but not consumer lockfiles — and the consumer survey found
+`cplace-paw-fe` `release/25.2`/`25.3` **already broken** for the same reason. This phase stops the bleeding everywhere
+without touching a single lockfile.
+
+### Changes Required
+
+**File**: `.github/actions/use-npmrc/action.yml` — append one line, and run the advisory check:
+
+```yaml
+run: |
+  echo "$DOT_NPMRC" > ~/.npmrc
+  echo 'replace-registry-host=never' >> ~/.npmrc
+```
+
+**File**: `tools/scripts/lockfile/warn-foreign-registry.sh` — advisory; warns when the **consumer's** lockfile has
+entries outside the proxy, via a `::warning` annotation plus a job summary. Never fails a build.
+
+`use-npmrc` now joins the byte-identical tooling set, so the Phase 7 digest covers it.
+
+### Success Criteria
+
+#### Automated Verification
+
+- [x] `replace-registry-host=never` present in `use-npmrc`
+- [x] Mitigation verified against **real** lockfiles with the real secret:
+      github-actions un-normalized → `added 542 packages`; `cplace-paw-fe release/25.2` → `added 2576 packages`
+- [x] The advisory check is silent on a normalized lockfile, warns with a count on a mixed one, ignores local-path
+      `resolved` values, and exits 0 on missing file / missing `jq` / invalid JSON / no `packages` section
+- [x] No URL in the warning, so it survives `***` masking
+- [x] bats **34/34**, shellcheck clean, `pr-checks.yml` green
+- [x] Tooling digest identical on all seven branches including `use-npmrc`: `4131452a775f78ab`
+
+#### Manual Verification
+
+- [ ] Consumer canary proves the mitigation on a real runner *(Phase 6b below)*
+- [ ] Removal is tracked on PFM-ISSUE-34454 *(done — a dedicated section was appended)*
+
+**Rejected alternative, recorded because it was the first instinct:** reverting `use-npmrc` to a workspace-level
+`.npmrc`. It fixes only the composite surface — a consumer's own `npm ci` runs *in* the workspace where that file
+lives, so `cplace-paw-fe` would stay broken — and it makes the composite's install issue **730 anonymous JFrog
+requests per run**, creating exactly the dependency PFM-ISSUE-34454 exists to remove.
+
+---
+
+## Phase 6b: Mitigation canary (consumer surface)
+
+### Overview
+
+Phase 6 proved the *composite* surface on `master` (a clean lockfile). This proves the *consumer* surface, on the
+branch that is actually broken.
+
+### Changes Required
+
+Canary branch `canary/PFM-ISSUE-34453-mitigation/25.2` in `github-actions` (fix branch + internal refs re-pinned to
+itself), and a draft PR in `cplace-paw-fe` against **`release/25.2`** — the branch carrying 14 npmjs entries — with
+`fe-pr.yml` re-pinned at that canary.
+
+> **The internal re-pin is what makes this test valid.** The mitigation *lives in* `use-npmrc`, and
+> `fe-install-deps.yml` pins `use-npmrc@release/25.2` internally. Re-pinning only the consumer's `uses:` would load the
+> old `use-npmrc` and test nothing — the same trap as Phase 6, one level deeper.
+
+### Success Criteria
+
+#### Automated Verification
+
+- [ ] `install-deps` **succeeds** on `cplace-paw-fe` `release/25.2`, where it fails without the mitigation
+- [ ] The `::warning` annotation and job summary appear, naming the 14 offending package paths
+- [ ] Canary PR closed, both throwaway branches deleted
+
+---
+
 ## Phase 8: File the follow-ups
 
 ### Overview

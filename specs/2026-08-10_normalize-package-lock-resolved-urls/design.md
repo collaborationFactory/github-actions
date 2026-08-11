@@ -442,6 +442,61 @@ It would also invert the dependency with PFM-ISSUE-34454, which already owns con
 
 ---
 
+---
+
+### Dimension 9 — Interim mitigation (added 2026-08-11, after implementation)
+
+**Chosen Approach:** `.github/actions/use-npmrc` appends `replace-registry-host=never` to the `~/.npmrc` it writes, and
+additionally runs an advisory `warn-foreign-registry.sh` against the **consumer's** lockfile.
+
+**Rationale:** Dimension 8 declared consumer-repo lockfiles out of scope on the reasoning that a failing check in a
+reusable workflow would break currently-green pipelines. Implementation found that reasoning rested on a false premise:
+**`cplace-paw-fe` `release/25.2` and `release/25.3` are not green — they are broken today**, each carrying 14
+`registry.npmjs.org` entries in their own lockfile. Verified with a cold cache and the real secret:
+`E404 GET https://cplace.jfrog.io/readdirp/-/readdirp-3.6.0.tgz`. Nothing masks it: that repo has zero caches on those
+branches, and the cache key is `hashFiles('**/package-lock.json')`, so a cross-branch hit is impossible by
+construction.
+
+That splits the problem into **two failure surfaces**, which this design had treated as one:
+
+| surface | where `npm ci` runs | whose lockfile | fixed by |
+| --- | --- | --- | --- |
+| composite | the action's own checkout, outside the workspace | *this* repo's | normalization (Dimensions 1–3) |
+| consumer | the workspace | the *consumer's* | **only** the mitigation, or normalizing that consumer |
+
+`replace-registry-host=never` makes npm fetch each `resolved` URL verbatim rather than rewriting its host, which fixes
+both surfaces at once and needs no lockfile change anywhere. Measured against real lockfiles with the real secret:
+github-actions un-normalized → `added 542 packages`; `cplace-paw-fe release/25.2` → `added 2576 packages`.
+
+**Alternatives Considered:**
+
+- **Revert `use-npmrc` to a workspace-level `.npmrc`** (the pre-Node-24 behaviour). Rejected on measurement: it fixes
+  only the composite surface, because a consumer's own `npm ci` runs *in* the workspace where that file lives — so
+  `cplace-paw-fe` stays broken. It also makes the composite's install issue **730 anonymous JFrog requests per run**,
+  creating exactly the dependency PFM-ISSUE-34454 exists to remove.
+- **`--replace-registry-host=never` on the four composites' `npm ci` only.** Smallest blast radius and no
+  consumer-visible change, but likewise leaves every consumer lockfile broken.
+- **Conditional application** — set the flag only when a scan finds foreign URLs. Rejected: it makes behaviour
+  branch-dependent and harder to reason about, for no gain. The flag is a **no-op** on a clean lockfile, so applying it
+  unconditionally is deterministic; the *warning* carries the signal instead.
+
+**Implications:**
+
+- **This is a mitigation, not the fix.** Under it, entries still on npmjs are fetched directly from npmjs, bypassing
+  Xray and curation. Removal is owned by PFM-ISSUE-34454.
+- **The warnings are the removal criteria.** `warn-foreign-registry.sh` emits a `::warning` annotation plus a job
+  summary naming offending package paths; when no pipeline reports one, the line comes out. The mitigation thus
+  inventories its own obsolescence.
+- **The two compose safely in either order** — on a normalized lockfile the flag is a no-op — so removal is lazy and
+  per-branch rather than a coordinated switchover.
+- **The check must never fail a build.** It runs in every consumer's pipeline; missing lockfile, missing `jq` and
+  invalid JSON all exit 0 silently, and local-path `resolved` values (present in 4 of 41 FE repos) are ignored rather
+  than reported as false positives.
+- **A clean JFrog access log no longer proves everything resolves through the proxy** while this is in place, because
+  npmjs-direct requests never reach JFrog at all. Recorded on PFM-ISSUE-34454, whose shutdown criteria depend on it.
+
+---
+
 ## Overall Architecture
 
 ### Key Components
