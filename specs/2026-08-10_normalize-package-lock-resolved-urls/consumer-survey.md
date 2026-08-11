@@ -81,15 +81,43 @@ the default registry.
 a branch carrying npmjs URLs, that install is exposed to exactly the PFM-ISSUE-34453 failure mode — npm rewrites the
 host onto JFrog and drops the path prefix, giving a masked `E404`.
 
-**`cplace-paw-fe` `release/25.2` and `release/25.3` therefore look latently broken.** Not observed failing, and two
-things may be masking it:
+### Verified: `cplace-paw-fe` `release/25.2` and `25.3` are broken today, not merely latent
 
-- the install step is guarded by `if: steps.npm-cache.outputs.cache-hit != 'true'`, so a warm `node_modules` cache
-  (keyed on `hashFiles('**/package-lock.json')`) skips it entirely;
-- those branches may simply not have run recently.
+Checked 2026-08-11. Four independent lines of evidence, and the cache cannot save it:
 
-**This is worth verifying before it surprises someone**, and it is a concrete, actionable item for 34454 rather than a
-theoretical one. `cplace-paw-fe`'s `master` is clean, which is why its PR pipeline was green during 34453's canary.
+**1. The lockfile itself fails.** `release/25.2`'s `package.json` + `package-lock.json` fetched raw, `npm ci` run with
+the standard cplace `~/.npmrc` and a cold cache:
+
+```
+npm error code E404
+npm error 404 Not Found - GET https://cplace.jfrog.io/readdirp/-/readdirp-3.6.0.tgz
+```
+
+Identical mechanism to PFM-ISSUE-34453 — the `/artifactory/api/npm/cplace-npm` prefix dropped.
+
+**2. No cache exists on those branches.** `cplace-paw-fe` has 13 caches; **zero** on `refs/heads/release/25.2` or
+`release/25.3`. The most recent are on `26.1`, `26.2`, `26.3`, `25.4`, `master` and a few PR merge refs.
+
+**3. No other branch's cache could match even if one existed.** The key is
+`${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}` — content-addressed to the lockfile. A different
+branch has a different lockfile, therefore a different key. Cross-branch collision is impossible by construction.
+
+**4. There are no `restore-keys`.** Verified in `fe-install-deps.yml`, `fe-pr-snapshot.yml` and `fe-licenses.yml` on
+`release/25.2`: each `actions/cache` block has `path` and `key` only. So only an *exact* key match sets
+`cache-hit: true`; there is no partial-restore path that could skip `Install modules`.
+
+On GitHub's documented cache scoping — a PR run *can* restore caches from the **base branch**, as well as its own
+branch and the default branch (siblings are excluded, and entries unused for 7 days are evicted). So "a feature branch
+gets no cache" is **not** what makes this fail; points 2–4 are. Worth stating precisely, because the base-branch rule
+is the one people tend to forget.
+
+**Conclusion:** any pull request into `cplace-paw-fe` `release/25.2` or `release/25.3` that reaches
+`fe-install-deps`, `fe-licenses`, `fe-pr-snapshot` or `fe-pr-close` will fail at `Install modules` with a `***`-masked
+`E404`. It is unobserved only because no recent PR has targeted those branches. `master` is clean, which is why the
+34453 canary pipeline was green.
+
+The fix is the same 34453 normalizer, pointed at those two branches — 14 entries each, all transitive
+(`chokidar`, `readdirp`, `picomatch`, `glob-parent`).
 
 ## Second finding: non-URL `resolved` values exist in the wild
 
@@ -113,11 +141,13 @@ at all) or to keep failing loudly.
 
 ## Recommendations for PFM-ISSUE-34454
 
-1. **Verify the latent failure first.** Run a `use-npmrc` pipeline on `cplace-paw-fe` `release/25.2` with a cold
-   `node_modules` cache and confirm whether the workflow-level `npm ci` fails. That decides whether this is urgent or
-   merely untidy.
-2. **Scope consumer-side normalization to the residue cases** — `cplace-paw-fe` (25.2, 25.3) and
-   `cplace-bayer-prompt-fe` (sprint-56, sprint-57): 34 entries in total across four branches, mechanical work.
+1. **`cplace-paw-fe` `release/25.2` and `25.3` are already broken — fix them first.** Verified above, not speculative:
+   the lockfile fails a cold `npm ci`, no cache exists on those branches, the content-addressed key makes a
+   cross-branch hit impossible, and there are no `restore-keys`. 14 entries each; the 34453 normalizer applies
+   unchanged. This is arguably not 34454 work at all but a small immediate fix.
+2. **Then the remaining residue** — `cplace-bayer-prompt-fe` (`sprint-56`, `sprint-57`), 3 entries each. Check whether
+   those branches are still built before spending anything. Same method: no cache on a branch plus a content-addressed
+   key means no masking.
 3. **Decide `cplace-loomeo-fe` separately.** Its 22.4–23.3 branches are ~20 500 of the 20 537 total entries and look
    dormant. Establish whether they are still built before spending anything on them.
 4. **Loosen `assert_resolvable` for local-path entries before any consumer rollout**, or the tooling aborts on four
