@@ -1187,7 +1187,35 @@ git commit -m 'PFM-ISSUE-34453 - github-actions: normalize package-lock.json res
 ./tools/scripts/lockfile/check-lockfile.sh --baseline HEAD~1
 ```
 
-Note `.prettierignore` may conflict on branches where it differs; resolve by keeping both entries.
+### Pre-flight measurements for this phase (2026-08-11, while #163 is in review)
+
+**No drift since research.** All seven branches still show exactly the state the plan assumes, and the last commit
+touching any lockfile is from 2025 — so no Dependabot churn to account for:
+
+| branch | entries | npmjs | jfrog | lockfile sha256[:10] |
+| --- | --- | --- | --- | --- |
+| `release/25.2` | 543 | 171 | 371 | `21aead4730` |
+| `release/25.3`, `release/25.4` | 543 | 171 | 371 | `012c07592f` |
+| `release/26.1`, `26.2`, `26.3`, `master` | 559 | 171 | 387 | `d06efe2cba` |
+
+**The normalizer was dry-run against all six remaining branches.** Every one succeeds, and the `+4788` delta holds
+across all three lockfile states (it is `171 × 28`, independent of entry count):
+
+| branch | before → after | delta | changed lines | non-`resolved` | idempotent |
+| --- | --- | --- | --- | --- | --- |
+| `25.3`, `25.4` | 262 061 → 266 849 | +4788 | 342 | 0 | yes |
+| `26.1`, `26.2`, `26.3`, `master` | 270 244 → 275 032 | +4788 | 342 | 0 | yes |
+
+**Two conflict risks retired:**
+
+- `.prettierignore` is **byte-identical on all seven branches** (`node_modules` / `.idea`), so the conflict this plan
+  warned about cannot occur — the same one-line addition applies cleanly everywhere.
+- **No branch already contains `tools/scripts/lockfile/` or `pr-checks.yml`** (0 files on each), so every copy is a
+  clean add.
+
+**The canary trap recurs per state, and is not a 25.2 quirk:** each branch pins its composites to its own release
+(`release/25.4` → `@release/25.4`, `release/26.2` → `@release/26.2`). So the `25.4` and `26.x` canaries each need
+their own throwaway branch with the internal `use-npmrc`/`artifacts` refs re-pinned, exactly as Phase 6 did.
 
 **Canary coverage.** There are three distinct lockfile states — `25.2` | `25.3 = 25.4` | `26.1 = 26.2 = 26.3 = master`.
 Phase 6 covered the first. Run one further canary per remaining state: one on `25.4`, one on `26.2`. The other three
