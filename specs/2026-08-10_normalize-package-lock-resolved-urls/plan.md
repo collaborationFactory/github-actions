@@ -894,7 +894,67 @@ Plus: the `brew install jq` prerequisite, and why this is bash rather than TypeS
 
 - [ ] The README is genuinely usable by someone whose `npm ci` is broken right now
 - [ ] The workflow name and job names read well in the PR checks list
-- [ ] Nothing in the workflow depends on the runner image happening to ship a tool
+- [x] Nothing in the workflow depends on the runner image happening to ship a tool — `bats` and `shellcheck` are
+      installed explicitly; `jq` is the one image assumption, and `require_jq` fails loudly naming the README if absent
+
+### Blocker discovered at first run — repository Actions policy
+
+The first PR run (`31471849858`) ended in **`startup_failure` at 0s, with no jobs and no annotations**. Diagnosis:
+
+```
+$ gh api repos/collaborationFactory/github-actions/actions/permissions
+{"enabled":true,"allowed_actions":"local_only","sha_pinning_required":false}
+
+$ gh api repos/collaborationFactory/cplace-e2e/actions/permissions      # a repo whose workflows do run
+{"enabled":true,"allowed_actions":"all","sha_pinning_required":false}
+```
+
+`local_only` is the UI radio *"Allow `collaborationFactory` actions and reusable workflows"*. It permits actions owned
+by the repo's **owner org**, so `actions/checkout` — owned by the `actions` organization — is rejected before any job
+starts. The `409 Conflict` from the `selected-actions` endpoint confirms the repo is not in `selected` mode, which is
+the only mode offering the *"Allow actions created by GitHub"* checkbox.
+
+**Neither `research.md` nor `design.md` caught this.** Both correctly established "this repo has no CI of its own";
+neither asked whether it *could*. `design.md` Dimension 5 treated adding a `pull_request` workflow as purely a
+file-authoring problem. It is also a repo-settings problem — and it applies to all seven branches at once, since
+`allowed_actions` is repo-scoped, not branch-scoped.
+
+Ruled out during diagnosis, each with evidence:
+
+| suspect | verdict |
+| --- | --- |
+| `runs-on: ${{ vars.SMALL_RUNNER \|\| 'ubuntu-latest' }}` | **not the cause** — the org's documented pattern, running today in `cplace-e2e`, `cplace-staging-builds`, `cplace-gh-workflows` |
+| Invalid workflow YAML | **not the cause** — `actionlint` clean, ruby/psych parses it |
+| Bad pinned checkout SHA | **not the cause** — SHA exists upstream, used by 9 other workflows here |
+| Unbuildable merge ref | **not the cause** — PR reports `MERGEABLE` / `CLEAN` |
+
+**Blast radius of raising the policy: exactly one workflow.** Measured across all seven branches — all 91 files under
+`.github/workflows/` (13 × 7) are `workflow_call`-only and never self-execute. GitHub has registered 14 workflows here:
+the 13 `fe-*.yml` plus `pr-checks.yml`. Nothing under `.github/workflow-templates/` is registered, despite those files
+carrying `push` / `schedule` / `pull_request` triggers — confirming they are inert template content. Consumer repos are
+unaffected either way: a `workflow_call` run executes in the **caller's** context under the caller's policy, which is
+why every FE repo consumes these workflows today while this repo sits at `local_only`.
+
+**Resolved.** The repo owner raised the policy in the UI. Confirmed by API:
+
+```
+$ gh api repos/collaborationFactory/github-actions/actions/permissions
+{"enabled":true,"allowed_actions":"selected", ...}
+
+$ gh api repos/collaborationFactory/github-actions/actions/permissions/selected-actions
+{"github_owned_allowed":true,"patterns_allowed":[],"verified_allowed":false}
+```
+
+This permits `actions/*` and nothing else — no Marketplace, no arbitrary third parties — so it is strictly narrower
+than `cplace-e2e`'s `all`. The workflow needed no change, and `local_only` was therefore repo-set rather than
+org-enforced. The failed run could not be retried (`This workflow run cannot be retried`), so the guard was
+re-triggered by closing and reopening the PR, which fires `pull_request: reopened` without adding a commit.
+
+**Consequence for Phase 7:** none. `allowed_actions` is repo-scoped, so this one change covers all seven branches.
+
+**Fallback, no longer needed but recorded:** had the policy been org-enforced, the guard would have replaced
+`actions/checkout` with plain `git` in `run:` steps — dependency-free, and incidentally dropping the third-party SHA
+pin this design flagged as a per-branch maintenance chore.
 
 ---
 
@@ -939,8 +999,26 @@ git commit -m 'PFM-ISSUE-34453 - github-actions: normalize package-lock.json res
       (which must be unchanged). Scoped `@ampproject/remapping` and unscoped `update-browserslist-db` (the ticket's own
       example URL) both rewritten with the tarball path preserved; `@actions/core`, already on JFrog, appears **0 times**
       in the diff.
-- [ ] Push the branch and confirm **both** `pr-checks.yml` jobs run and pass on the PR itself (see Key Discovery 5)
-- [ ] The PR description states plainly that the guard reports but cannot block until the Rule Sets follow-up lands
+- [x] Push the branch and confirm **both** `pr-checks.yml` jobs run and pass on the PR itself (see Key Discovery 5)
+      — PR [#163](https://github.com/collaborationFactory/github-actions/pull/163) against `release/25.2`. After the
+      Actions policy was raised, run `31475431467` is **green on both jobs**, and the logs prove the assertions really
+      executed rather than passing vacuously:
+
+      ```
+      baseline: 967168ed1c896821e28a3ad343ddfcc6b07a4bcb:package-lock.json   # = release/25.2 tip = base.sha
+      candidate: package-lock.json
+      PASS: dependency graph identical to baseline
+      PASS: exactly 1 registry prefix, matching the expected proxy
+      OK: package-lock.json is normalized and graph-identical to its baseline
+      ```
+
+      The `scripts` job ran **24/24** bats tests plus shellcheck. Key Discovery 5 is confirmed empirically: the
+      workflow ran on the very PR that introduced it, and passed.
+
+      Runner resolved to `ubicloud-standard-2`, so `vars.SMALL_RUNNER` **is** defined for this repo, and both `jq`
+      (preinstalled) and `sudo apt-get` work there. Job times: `lockfile` **8s**, `scripts` 23s — the guard is the
+      fastest job in the repo precisely because it runs no `setup-node` and no `npm ci`.
+- [x] The PR description states plainly that the guard reports but cannot block until the Rule Sets follow-up lands
 
 **Change requested mid-phase:** both jobs in `pr-checks.yml` now use
 `runs-on: ${{ vars.SMALL_RUNNER || 'ubuntu-latest' }}`. Folded into commit 1 by amend (both commits were still
