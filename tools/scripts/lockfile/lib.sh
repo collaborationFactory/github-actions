@@ -25,15 +25,20 @@ readonly JFROG_NPM_PROXY='https://cplace.jfrog.io/artifactory/api/npm/cplace-npm
 # Anchored at the end and safe because every `resolved` in this lockfile
 # contains exactly one `/-/` (verified: 542/542).
 #
+# The `\.tgz` suffix is required rather than accepting any filename, so the
+# regex matches what the documentation and error messages promise. All 542
+# entries are `.tgz` today; anything else is an unexpected shape that should
+# fail loudly rather than be silently rehosted.
+#
 # Defined once, here, and passed to jq via --arg, so that the normalizer and
 # fingerprint.jq can never drift apart.
-readonly TARBALL_PATH_RE='(?<t>(?:@[^/]+/)?[^/]+/-/[^/]+)$'
+readonly TARBALL_PATH_RE='(?<t>(?:@[^/]+/)?[^/]+/-/[^/]+\.tgz)$'
 
 # Shape every non-root entry's `resolved` must have. Checked BEFORE any
 # `capture`, because jq's capture raises an error rather than returning null
 # when it does not match - which would replace a readable "package X has no
 # usable tarball URL" with a jq stack trace.
-readonly RESOLVED_URL_RE='^https?://[^/]+/.*(?:@[^/]+/)?[^/]+/-/[^/]+$'
+readonly RESOLVED_URL_RE='^https?://[^/]+/.*(?:@[^/]+/)?[^/]+/-/[^/]+\.tgz$'
 
 readonly README_PATH='tools/scripts/lockfile/README.md'
 # shellcheck disable=SC2034  # consumed by check-lockfile.sh, which shellcheck cannot see from here

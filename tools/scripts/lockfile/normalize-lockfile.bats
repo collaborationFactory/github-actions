@@ -62,7 +62,9 @@ setup() {
 
   "${NORMALIZE}" "${TMP}" >/dev/null
 
-  [ "$(tail -c 1 "${TMP}" | xxd -p)" = '0a' ]
+  # od, not xxd: the workflow installs only bats and shellcheck, so anything
+  # outside coreutils is an undeclared dependency on the runner image.
+  [ "$(tail -c 1 "${TMP}" | od -An -tx1 | tr -d '[:space:]')" = '0a' ]
 }
 
 @test "fails, naming the package path, when an entry has no resolved URL" {
@@ -83,6 +85,18 @@ setup() {
   [ "${status}" -eq 1 ]
   [[ "${output}" == *'node_modules/beta'* ]]
   # A jq capture stack trace would leak through here instead of a named path.
+  [[ "${output}" != *'jq: error'* ]]
+}
+
+@test "fails, naming the package path, on a tarball URL that is not .tgz" {
+  write_mixed_lockfile "${TMP}"
+  mutate "${TMP}" '.packages["node_modules/beta"].resolved =
+    "https://cplace.jfrog.io/artifactory/api/npm/cplace-npm/beta/-/beta-2.0.0.zip"'
+
+  run "${NORMALIZE}" "${TMP}"
+
+  [ "${status}" -eq 1 ]
+  [[ "${output}" == *'node_modules/beta'* ]]
   [[ "${output}" != *'jq: error'* ]]
 }
 
