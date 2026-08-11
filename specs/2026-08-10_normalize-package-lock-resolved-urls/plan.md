@@ -921,22 +921,38 @@ git commit -m 'PFM-ISSUE-34453 - github-actions: normalize package-lock.json res
 
 #### Automated Verification
 
-- [ ] `grep -c 'registry.npmjs.org' package-lock.json` returns `0`
-- [ ] `./tools/scripts/lockfile/check-lockfile.sh --baseline HEAD~1` exits 0 and prints both PASS lines
-- [ ] The commit touches exactly one file: `git show --stat HEAD --name-only --format= | wc -l` is `1`, and it is `package-lock.json`
-- [ ] Exactly 342 changed lines, none of them non-`resolved`:
+- [x] `grep -c 'registry.npmjs.org' package-lock.json` returns `0`
+- [x] `./tools/scripts/lockfile/check-lockfile.sh --baseline HEAD~1` exits 0 and prints both PASS lines
+- [x] The commit touches exactly one file: `git show --stat HEAD --name-only --format= | wc -l` is `1`, and it is `package-lock.json`
+- [x] Exactly 342 changed lines, none of them non-`resolved`:
       `git show HEAD -- package-lock.json | grep -c '^[+-][^+-]'` is `342`, and
       `git show HEAD -- package-lock.json | grep '^[+-][^+-]' | grep -vc '"resolved"'` is `0`
-- [ ] Byte delta is exactly +4788: `git show HEAD~1:package-lock.json | wc -c` vs `wc -c < package-lock.json`
-- [ ] The normalizer is idempotent: re-running it reports `entries rewritten: 0`, and `git diff --exit-code package-lock.json` is clean
-- [ ] bats and shellcheck still pass: `shellcheck tools/scripts/lockfile/*.sh && bats tools/scripts/lockfile/`
-- [ ] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 5 complete. Summary: package-lock.json normalized on release/25.2 as its own commit — 171 entries rewritten, +4788 bytes, 342 changed lines, 0 non-resolved lines, 0 registry.npmjs.org remaining; check-lockfile.sh --baseline HEAD~1 exits 0. Ready to push and open the PR. Please review and reply 'yes' to continue to Phase 6." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
+- [x] Byte delta is exactly +4788: `git show HEAD~1:package-lock.json | wc -c` vs `wc -c < package-lock.json`
+      — `262063 -> 266851`
+- [x] The normalizer is idempotent: re-running it reports `entries rewritten: 0`, and `git diff --exit-code package-lock.json` is clean
+- [x] bats and shellcheck still pass: `shellcheck tools/scripts/lockfile/*.sh && bats tools/scripts/lockfile/` — 24/24
+- [x] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 5 complete. Summary: package-lock.json normalized on release/25.2 as its own commit — 171 entries rewritten, +4788 bytes, 342 changed lines, 0 non-resolved lines, 0 registry.npmjs.org remaining; check-lockfile.sh --baseline HEAD~1 exits 0. Ready to push and open the PR. Please review and reply 'yes' to continue to Phase 6." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
 
 #### Manual Verification
 
-- [ ] Spot-check three entries in the diff — a scoped package, an unscoped one, and one that was already on JFrog (which must be unchanged)
+- [x] Spot-check three entries in the diff — a scoped package, an unscoped one, and one that was already on JFrog
+      (which must be unchanged). Scoped `@ampproject/remapping` and unscoped `update-browserslist-db` (the ticket's own
+      example URL) both rewritten with the tarball path preserved; `@actions/core`, already on JFrog, appears **0 times**
+      in the diff.
 - [ ] Push the branch and confirm **both** `pr-checks.yml` jobs run and pass on the PR itself (see Key Discovery 5)
 - [ ] The PR description states plainly that the guard reports but cannot block until the Rule Sets follow-up lands
+
+**Change requested mid-phase:** both jobs in `pr-checks.yml` now use
+`runs-on: ${{ vars.SMALL_RUNNER || 'ubuntu-latest' }}`. Folded into commit 1 by amend (both commits were still
+unpushed) rather than added as a third commit, so the two-commit structure `--baseline HEAD~1` depends on is preserved.
+actionlint clean. Commit 1 is now `fd63b83`.
+
+`SMALL_RUNNER` is new to this repository — it appears nowhere on this branch, `master`, `26.2` or `26.3`. The nearest
+precedent is `runs-on: ${{ inputs.GITHUB_RUNNER }}` in two reusable workflows.
+
+**Runner confirmed:** `SMALL_RUNNER` is hosted by Ubicloud, whose images track the GitHub-hosted runner spec — so the
+`lockfile` job's preinstalled `jq` and the `scripts` job's `sudo apt-get` both hold. The first PR run is the empirical
+proof of that, and is exactly what the Phase 5 manual-verification item below checks.
 
 ---
 
