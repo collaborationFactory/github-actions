@@ -34,9 +34,40 @@ nothing installed.
 | --- | --- |
 | `normalize-lockfile.sh [<lockfile>]` | Rewrites every `resolved` prefix onto the proxy. Idempotent. Changes nothing else. |
 | `check-lockfile.sh [--baseline <ref-or-file>] [<candidate>]` | Proves a lockfile differs from its baseline **only** in registry prefixes. Exit 0 or 1. |
+| `warn-foreign-registry.sh [<lockfile>]` | Advisory. Warns when a lockfile has entries outside the proxy. Never fails. Run by `use-npmrc`. |
 
 Both default to `./package-lock.json`. Call them by path — there is no npm script and no composite action wrapper, so
 that they keep working when `npm ci` does not.
+
+---
+
+## The interim mitigation in `use-npmrc`
+
+`.github/actions/use-npmrc` appends one line to the `~/.npmrc` it writes:
+
+```
+replace-registry-host=never
+```
+
+This tells npm to fetch each `resolved` URL **verbatim** rather than rewriting its host onto the configured registry —
+which is exactly the bug. It makes an un-normalized lockfile install successfully, so it protects **consumer**
+repositories too, not just this one. JFrog URLs stay authenticated by the secret, so it introduces no dependency on
+anonymous JFrog access.
+
+**It is a mitigation, not the fix.** Under it, any entry still pointing at `registry.npmjs.org` is fetched *directly
+from npmjs*, bypassing the proxy — no Xray, no curation. That is precisely what this ticket exists to eliminate.
+
+Because of that, `use-npmrc` also runs `warn-foreign-registry.sh` against the consumer's own `package-lock.json` and
+emits a `::warning` annotation plus a job summary listing the offending package paths. **Those warnings are the
+inventory of lockfiles still to normalize.** When no pipeline reports one any more, the `replace-registry-host=never`
+line can be deleted.
+
+The two mechanisms compose safely and in either order: on a normalized lockfile the flag is a no-op, because there are
+no foreign URLs left to rewrite. So the mitigation can be removed lazily, per branch, rather than in a coordinated
+switchover.
+
+The check is **advisory and must stay that way** — it runs in every consumer's pipeline, so a missing lockfile,
+missing `jq`, or malformed JSON all exit 0 silently. It never becomes a new way for someone else's build to fail.
 
 ---
 
