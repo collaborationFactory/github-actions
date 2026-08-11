@@ -1043,32 +1043,95 @@ workflows that run `npm ci` with no `~/.npmrc` resolve npmjs URLs fine today and
 
 ### Changes Required
 
-**Repository**: `cplace-remote-filesystem-fe` (temporary PR — **not** merged)
+**Repository**: ~~`cplace-remote-filesystem-fe`~~ → **`cplace-paw-fe`** (temporary PR — **not** merged)
+
+**Changed during execution:** `cplace-remote-filesystem-fe`'s release branches do not go back to `25.2`, so it cannot
+exercise the `25.2` lockfile state at all. `cplace-paw-fe` has a `release/25.2` that pins
+`github-actions@release/25.2`, so it was used instead.
 
 1. Branch from the branch whose workflows pin `github-actions@release/25.2`.
-2. Temporarily re-point the `uses:` refs from `@release/25.2` to
-   `@fix/PFM-ISSUE-34453-normalize-package-lock-json/25.2`, in a workflow that goes through `use-npmrc`:
-   `fe-pr-snapshot`, `fe-release`, `fe-pr-close` or `fe-cleanup-snapshots`.
+2. Temporarily re-point the `uses:` refs to the branch under test, in a workflow that goes through `use-npmrc`.
 3. Open the PR, let the pipeline run, confirm the composite's internal `npm ci` resolves every package.
 4. Close the PR and discard the branch. Do not merge; create no tag and no release.
 
 > Note, so it is not a surprise: `fe-pr-snapshot` publishes a `latest-pr-snapshot` package to JFrog (cleaned up by
 > `fe-pr-close`). That is a real publish, though not a tag or a release.
 
+### Two execution findings that would have invalidated a naive canary
+
+**1. Re-pinning the consumer's `uses:` alone tests the wrong lockfile.** The `artifacts` composite runs
+`cd "$GITHUB_ACTION_PATH/../../.." && npm ci`, so it installs *its own* checkout — meaning the ref on the **composite**,
+not on the reusable workflow, decides which `package-lock.json` is under test. `fe-pr-snapshot.yml` pins `use-npmrc`
+and `artifacts` internally at `@release/25.2`. A canary that re-pinned only the consumer's `uses:` would have installed
+`release/25.2`'s **un-normalized** lockfile and passed for the wrong reason.
+
+Resolved with a throwaway `canary/PFM-ISSUE-34453-lockfile/25.2` branch in `github-actions` = the fix branch plus
+internal ref re-pins, so nothing temporary could reach the real PR. Deleted after validation. The runner log proves the
+right tree was used:
+
+```
+GITHUB_ACTION_PATH=/home/runner/work/_actions/collaborationFactory/github-actions/canary/PFM-ISSUE-34453-lockfile/25.2/.github/actions/artifacts
+```
+
+**2. The canary job is label-gated.** `fe-pr-snapshot.yml` carries
+`if: contains(github.event.pull_request.labels.*.name, 'snapshot')`, and the consumer's trigger is
+`types: [labeled, synchronize, reopened]` — **not `opened`**. Opening the PR fires nothing; adding the `snapshot`
+label both fires the event and satisfies the `if:`.
+
+Also worth knowing for the remaining states: only `fe-pr-snapshot` and `fe-pr-close` are valid canary paths.
+`fe-licenses` and `fe-install-deps` call `use-npmrc` but then run a workflow-level `npm ci` against the *consumer's*
+own lockfile — they never invoke a composite, so they cannot demonstrate anything. `fe-cleanup-snapshots` is a cron in
+`cplace-paw-fe` with no `workflow_dispatch`, so it is not PR-triggerable.
+
 ### Success Criteria
 
 #### Automated Verification
 
-- [ ] The canary pipeline run completes green
-- [ ] The composite's `npm ci` step log shows no `E404` and no `***`-masked resolution failure
-- [ ] The re-pinned `uses:` refs point at the fix branch, verified in the PR diff before the run
+- [x] The canary pipeline run completes green — `cplace-paw-fe` PR #184, run `31487742492`,
+      `publish-pr-snapshot` **success**. paw-fe's normal PR CI (still pinned at `@release/25.2`) was also green on all
+      15 jobs beforehand, as a control.
+- [x] The composite's `npm ci` step log shows no `E404` and no `***`-masked resolution failure — **zero `E404` in the
+      entire run**. The full chain, in log order:
+
+      ```
+      435  Run cd "$GITHUB_ACTION_PATH/../../.." && pwd && npm ci
+      448  added 542 packages, and audited 543 packages in 14s
+      460  Run npx ts-node "$GITHUB_ACTION_PATH/../../../tools/scripts/artifacts/main.ts"
+      ```
+
+      542 packages / 543 audited is the **github-actions** lockfile's exact entry count, matching the local run
+      precisely — so this installed the tree under test, not the consumer's. `main.ts` then ran successfully on top,
+      proving `node_modules` was functional and not merely populated.
+- [x] The re-pinned `uses:` refs point at the branch under test, verified in the PR diff before the run
+
+**Additional local proof (design.md Manual testing steps 1–2), a controlled experiment — same machine, same
+`~/.npmrc`, lockfile the only variable:**
+
+| lockfile | `npm ci` |
+| --- | --- |
+| pre-fix (171 npmjs URLs) | `npm error code E404` — `GET https://cplace.jfrog.io/unicode-property-aliases-ecmascript/-/…tgz`, i.e. the `/artifactory/api/npm/cplace-npm` prefix dropped |
+| normalized (0 npmjs URLs) | `added 542 packages, and audited 543 packages in 5s`, exit 0 |
+
+**No artifact was published, and the canary does not claim one.** `main.ts` correctly reported *"No snapshots of
+projects have been published (probably no project is affected)"* — the canary PR changes only a workflow file, so nx
+found no affected project. Confirmed with `jf rt search`: no `cf-training-extended` artifact exists for PR 184. This is
+unrelated to the fix; `npm publish` never depended on lockfile resolution, and the step that *did* fail before the fix
+(`npm ci`) is proven working.
 - [ ] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 6 complete. Summary: canary PR in cplace-remote-filesystem-fe with uses: temporarily re-pinned to the fix branch, exercising a use-npmrc path — the composite's internal npm ci resolved with no E404. Canary PR closed, no tag or release created. release/25.2 is ready to merge. Please review and reply 'yes' to continue to Phase 7 (the six remaining branches)." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
 
 #### Manual Verification
 
-- [ ] The chosen workflow demonstrably ran `use-npmrc` before the composite (check step ordering in the run log)
-- [ ] The canary PR is closed and its branch deleted; no `uses:` re-pin is left behind anywhere
+- [x] The chosen workflow demonstrably ran `use-npmrc` before the composite (check step ordering in the run log)
+      — step 5 `Use .npmrc` → success, step 7 `Build and Push to Jfrog NPM Registry` → success. (Step 6
+      `Install modules` was **skipped** on a cache hit; that is the *consumer's* own install and is irrelevant. The
+      composite's `npm ci` inside step 7 runs unconditionally, which is exactly why it is the failing step today.)
+- [x] The canary PR is closed and its branch deleted; no `uses:` re-pin is left behind anywhere — PR #184 closed with
+      `--delete-branch`; `canary/PFM-ISSUE-34453-lockfile/25.2` deleted local and remote. `git ls-remote origin 'canary/*'`
+      returns 0. Both repos verified clean, and the fix branch's internal refs are back at `@release/25.2`.
 - [ ] `release/25.2` PR merged after the canary is green — prove-then-merge, in that order
+
+**Canary coverage decision:** this validated the `25.2` lockfile state. The other two states (`25.3 = 25.4` and
+`26.1 = 26.2 = 26.3 = master`) get their own canary run during Phase 7, as `design.md` Dimension 7 requires.
 
 ---
 
