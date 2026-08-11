@@ -1402,8 +1402,21 @@ itself), and a draft PR in `cplace-paw-fe` against **`release/25.2`** — the br
 
 #### Automated Verification
 
-- [ ] `install-deps` **succeeds** on `cplace-paw-fe` `release/25.2`, where it fails without the mitigation
-- [ ] The `::warning` annotation and job summary appear, naming the 14 offending package paths
+- [x] `install-deps` **succeeds** on `cplace-paw-fe` `release/25.2`, where it fails without the mitigation
+      — [paw-fe#185](https://github.com/collaborationFactory/cplace-paw-fe/pull/185), run `31509557594`, job
+      `93839623043`. Every link in the chain, from the runner log:
+
+      ```
+      echo 'replace-registry-host=never' >> ~/.npmrc
+      ##[warning]14 entries in package-lock.json do not resolve via the cplace npm proxy. …
+      added 2439 packages, and audited 2440 packages in 8m
+      Install modules -> success
+      ```
+
+      The **8m** install time confirms a genuinely cold cache — nothing was restored, which is precisely the condition
+      under which this branch fails today. `Install modules` is the step that returns `E404` without the mitigation.
+- [x] The `::warning` annotation and job summary appear, naming the 14 offending package paths — the annotation
+      independently counted **14**, matching the local survey, and surfaces in the run UI without failing the job
 - [ ] Canary PR closed, both throwaway branches deleted
 
 ---
