@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+#
+# Rewrites every `resolved` URL in a package-lock.json onto the cplace JFrog npm
+# proxy, changing nothing else. Idempotent.
+#
+# Usage:
+#   ./tools/scripts/lockfile/normalize-lockfile.sh [<lockfile>]
+#
+# Defaults to ./package-lock.json.
+#
+# Requires only bash and jq - no node, no `npm ci`. That is the point: this
+# script repairs the lockfile whose npmjs URLs make `npm ci` fail against a
+# JFrog ~/.npmrc, so it cannot depend on `npm ci` having worked.
+#
+# See tools/scripts/lockfile/README.md
+
+set -euo pipefail
+
+# shellcheck source=tools/scripts/lockfile/lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+main() {
+  local lockfile="${1:-package-lock.json}"
+
+  require_jq
+  [[ -f "${lockfile}" ]] || die "no such lockfile: ${lockfile}"
+
+  assert_resolvable "${lockfile}"
+
+  local before_bytes rewritten
+  before_bytes="$(byte_size "${lockfile}")"
+  rewritten="$(count_foreign_entries "${lockfile}")"
+
+  local tmp
+  tmp="$(mktemp)"
+  # shellcheck disable=SC2064  # expand ${tmp} now, not when the trap fires
+  trap "rm -f '${tmp}'" EXIT
+
+  jq --arg proxy "${JFROG_NPM_PROXY}" --arg tarball_re "${TARBALL_PATH_RE}" '
+    .packages |= with_entries(
+      if (.value | type) == "object" and (.value.resolved | type) == "string" then
+        .value.resolved |= ($proxy + (capture($tarball_re) | .t))
+      else
+        .
+      end
+    )
+  ' "${lockfile}" >"${tmp}"
+
+  # Self-assertion. Secondary by design: it cannot see drift that arrived BEFORE
+  # this run (a bad merge), which is why check-lockfile.sh compares against a git
+  # baseline instead. It does make this script safe to run standalone.
+  if ! diff -q <(fingerprint_of "${lockfile}") <(fingerprint_of "${tmp}") >/dev/null; then
+    die "internal error: normalization altered the dependency graph; ${lockfile} left untouched"
+  fi
+
+  # `cat >` rather than `mv`, to preserve the file's existing permissions.
+  cat "${tmp}" >"${lockfile}"
+
+  local after_bytes
+  after_bytes="$(byte_size "${lockfile}")"
+
+  info "normalized ${lockfile}"
+  info "  entries rewritten: ${rewritten}"
+  info "  byte delta:        $((after_bytes - before_bytes)) (${before_bytes} -> ${after_bytes})"
+  if ((rewritten == 0)); then
+    info "  already normalized - nothing to do"
+  fi
+}
+
+main "$@"
