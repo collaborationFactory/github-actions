@@ -1144,6 +1144,24 @@ One parameterised runbook, executed six times in order: `25.3 → 25.4 → 26.1 
 
 Tooling files must be **byte-identical** across branches, so a future upmerge sees a conflict-free add/add.
 
+### Gate: PR #163 must be APPROVED before this phase starts
+
+Not *merged* — approved. The six branches are technically independent of #163's merge: the tooling is copied from commit
+`fd63b83`, which is already pushed, and each branch normalizes its **own** pre-fix lockfile, so no branch can inherit
+another's dependency versions. Each PR's guard also runs on itself, proven on #163.
+
+The binding constraint is different: because the tooling files must stay byte-identical across all seven branches, **any
+change arising from #163's review would have to be force-pushed to all seven PRs.** Approval is therefore the event that
+makes the tooling content safe to replicate — merge is irrelevant to it.
+
+Review context measured 2026-08-11: `release/25.2` has **no branch protection at all**; only `master` requires an
+approval (1), with zero required status checks; no rulesets, no CODEOWNERS. So review is a team practice here rather
+than something the repo enforces — which is precisely what the Phase 8 Rule Sets follow-up addresses.
+
+When reviewing the six, note that #163 is the only PR with novel content; the others are the same tooling plus a
+machine-checked lockfile transformation. State that in each PR description, with the `sha256sum` proof, so the six do
+not consume six substantive reviews.
+
 ### Changes Required — per branch `<B>`
 
 ```bash
