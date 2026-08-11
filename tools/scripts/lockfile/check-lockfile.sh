@@ -27,7 +27,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 usage() {
-  err "usage: ${0##*/} [--baseline <git-ref-or-file>] [<candidate-lockfile>]"
+  err "usage: ${0##*/} [--baseline <git-ref-or-file>] [--prefix-only] [<candidate-lockfile>]"
   exit 2
 }
 
@@ -74,7 +74,12 @@ assert_graph_invariant() {
         | select(($A[.] | tojson) != ($B[.] | tojson))
         | "top-level key: " + . ]
       + [ (((($A.packages // {}) | keys) + (($B.packages // {}) | keys)) | unique)[]
-          | select((($A.packages[.]) | tojson) != (($B.packages[.]) | tojson)) ]
+          | select((($A.packages[.]) | tojson) != (($B.packages[.]) | tojson))
+          # The root package uses the empty string as its key. Emitted verbatim
+          # that is a blank line, which the caller test reads as "no drift",
+          # silently hiding any change to the declared dependencies of this
+          # project. Name it so it is both detectable and readable.
+          | if . == "" then "<root package>" else . end ]
     | .[]
   ')"
 
@@ -125,7 +130,7 @@ assert_prefix_exactness() {
 }
 
 main() {
-  local baseline='HEAD' candidate='package-lock.json'
+  local baseline='HEAD' candidate='package-lock.json' prefix_only=0
 
   while (($# > 0)); do
     case "$1" in
@@ -133,6 +138,10 @@ main() {
         [[ $# -ge 2 ]] || usage
         baseline="$2"
         shift 2
+        ;;
+      --prefix-only)
+        prefix_only=1
+        shift
         ;;
       -h | --help) usage ;;
       -*) usage ;;
@@ -144,8 +153,27 @@ main() {
   done
 
   require_jq
-  command -v git >/dev/null 2>&1 || die "git is required but not installed"
   [[ -f "${candidate}" ]] || die "no such lockfile: ${candidate}"
+  assert_resolvable "${candidate}"
+
+  # --prefix-only is the ONGOING guard: it answers "does every entry resolve via
+  # the proxy?" and nothing else, so a pull request may freely add, remove or
+  # update dependencies. Graph invariance deliberately forbids exactly that, which
+  # makes it the wrong gate for everyday pull requests - it belongs to verifying a
+  # normalization commit, where the graph genuinely must not move.
+  if ((prefix_only)); then
+    info "candidate: ${candidate} (prefix-exactness only; dependency changes allowed)"
+    if ! assert_prefix_exactness "${candidate}"; then
+      err ""
+      err "To fix: run ${NORMALIZE_CMD}"
+      err "See ${README_PATH}"
+      exit 1
+    fi
+    info "OK: ${candidate} resolves entirely via the cplace npm proxy"
+    return 0
+  fi
+
+  command -v git >/dev/null 2>&1 || die "git is required but not installed"
 
   local baseline_file
   baseline_file="$(mktemp)"
@@ -156,17 +184,25 @@ main() {
   info "candidate: ${candidate}"
 
   assert_resolvable "${baseline_file}"
-  assert_resolvable "${candidate}"
 
   # Run BOTH assertions before failing, so one run reports every problem.
-  local failed=0
-  assert_graph_invariant "${baseline_file}" "${candidate}" || failed=1
+  local failed=0 graph_failed=0
+  assert_graph_invariant "${baseline_file}" "${candidate}" || { failed=1; graph_failed=1; }
   assert_prefix_exactness "${candidate}" || failed=1
 
   if ((failed != 0)); then
     err ""
-    err "To fix: run ${NORMALIZE_CMD}"
-    err "then re-run: ${0} --baseline ${baseline}"
+    if ((graph_failed)); then
+      # Do not tell people to run the normalizer here: it rewrites prefixes and
+      # would not touch a graph difference, so the advice would be misleading.
+      err "A graph difference is NOT fixed by normalizing. Either the baseline is"
+      err "wrong for what you are checking, or something other than a registry"
+      err "prefix really did change - work out which before proceeding."
+      err "For a pull request that legitimately changes dependencies, use --prefix-only."
+    else
+      err "To fix: run ${NORMALIZE_CMD}"
+      err "then re-run: ${0} --baseline ${baseline}"
+    fi
     err "See ${README_PATH}"
     exit 1
   fi

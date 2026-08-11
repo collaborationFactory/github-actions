@@ -34,6 +34,7 @@ nothing installed.
 | --- | --- |
 | `normalize-lockfile.sh [<lockfile>]` | Rewrites every `resolved` prefix onto the proxy. Idempotent. Changes nothing else. |
 | `check-lockfile.sh [--baseline <ref-or-file>] [<candidate>]` | Proves a lockfile differs from its baseline **only** in registry prefixes. Exit 0 or 1. |
+| `check-lockfile.sh --prefix-only [<candidate>]` | Asserts only that every entry resolves via the proxy. **This is the PR guard.** |
 | `warn-foreign-registry.sh [<lockfile>]` | Advisory. Warns when a lockfile has entries outside the proxy. Never fails. Run by `use-npmrc`. |
 
 Both default to `./package-lock.json`. Call them by path — there is no npm script and no composite action wrapper, so
@@ -98,6 +99,25 @@ depend on anyone reading a 262 KB diff.
 
 `--baseline` accepts a git ref (`HEAD~1`, `origin/release/25.2`), a merge stage (`:2:`, `:3:`), or a plain file path.
 Whatever it resolves to is printed on every run, so a wrong baseline is visible rather than silent.
+
+## Two modes, and when each applies
+
+This distinction matters, and getting it wrong blocks every dependency update.
+
+| mode | asserts | use for |
+| --- | --- | --- |
+| `--prefix-only` | every entry resolves via the proxy | **the PR guard** — runs on every pull request |
+| `--baseline <ref>` | the above **plus** the dependency graph is unchanged | **verifying a normalization commit** |
+
+Graph invariance deliberately forbids *any* change to the dependency graph. That is exactly what you want when proving
+a normalization commit touched nothing but registry prefixes — and exactly what you do **not** want on an everyday pull
+request, where adding, updating or removing a dependency is the whole point. `pr-checks.yml` therefore uses
+`--prefix-only`, and the baseline form is a manual/verification tool.
+
+A graph failure is also **not** fixed by running the normalizer, so the message for it deliberately does not suggest
+that. If you see one on a pull request that legitimately changes dependencies, you are using the wrong mode.
+
+---
 
 ## Flow 3 — interpreting a guard failure
 

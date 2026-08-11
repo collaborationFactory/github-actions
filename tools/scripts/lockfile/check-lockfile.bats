@@ -107,13 +107,23 @@ setup() {
   [[ "${output}" == *'node_modules/beta'* ]]
 }
 
-@test "every failure names the remediation command and the README" {
-  mutate "${CAND}" '.packages["node_modules/beta"].version = "9.9.9"'
+@test "a PREFIX failure names the normalizer, which does fix it" {
+  mutate "${CAND}" '.packages["node_modules/beta"].resolved =
+    "https://registry.npmjs.org/beta/-/beta-2.0.0.tgz"'
 
   run "${CHECK}" --baseline "${BASE}" "${CAND}"
 
   [ "${status}" -eq 1 ]
   [[ "${output}" == *'normalize-lockfile.sh'* ]]
+  [[ "${output}" == *'tools/scripts/lockfile/README.md'* ]]
+}
+
+@test "every failure names the README" {
+  mutate "${CAND}" '.packages["node_modules/beta"].version = "9.9.9"'
+
+  run "${CHECK}" --baseline "${BASE}" "${CAND}"
+
+  [ "${status}" -eq 1 ]
   [[ "${output}" == *'tools/scripts/lockfile/README.md'* ]]
 }
 
@@ -155,6 +165,90 @@ setup() {
 
   [ "${status}" -eq 1 ]
   [[ "${output}" == *'no such lockfile'* ]]
+}
+
+# --- the ongoing PR guard: --prefix-only ------------------------------------
+#
+# Raised in review of PR #163: comparing against the base branch fails every
+# pull request that legitimately adds or updates a dependency. Graph invariance
+# is for verifying a normalization commit, not for guarding everyday PRs.
+
+@test "prefix-only accepts a PR that legitimately ADDS a dependency" {
+  mutate "${CAND}" '.packages["node_modules/gamma"] = {
+    "version": "3.0.0",
+    "resolved": "https://cplace.jfrog.io/artifactory/api/npm/cplace-npm/gamma/-/gamma-3.0.0.tgz",
+    "integrity": "sha512-CCCC=="
+  }'
+
+  run "${CHECK}" --prefix-only "${CAND}"
+
+  [ "${status}" -eq 0 ]
+}
+
+@test "prefix-only accepts a PR that UPDATES a dependency's version" {
+  mutate "${CAND}" '.packages["node_modules/beta"].version = "2.1.0"
+    | .packages["node_modules/beta"].resolved =
+        "https://cplace.jfrog.io/artifactory/api/npm/cplace-npm/beta/-/beta-2.1.0.tgz"'
+
+  run "${CHECK}" --prefix-only "${CAND}"
+
+  [ "${status}" -eq 0 ]
+}
+
+@test "prefix-only accepts a PR that REMOVES a dependency" {
+  mutate "${CAND}" 'del(.packages["node_modules/beta"])'
+
+  run "${CHECK}" --prefix-only "${CAND}"
+
+  [ "${status}" -eq 0 ]
+}
+
+@test "prefix-only still rejects a newly added entry that is NOT on the proxy" {
+  mutate "${CAND}" '.packages["node_modules/gamma"] = {
+    "version": "3.0.0",
+    "resolved": "https://registry.npmjs.org/gamma/-/gamma-3.0.0.tgz",
+    "integrity": "sha512-CCCC=="
+  }'
+
+  run "${CHECK}" --prefix-only "${CAND}"
+
+  [ "${status}" -eq 1 ]
+  [[ "${output}" == *'node_modules/gamma'* ]]
+}
+
+@test "prefix-only needs no baseline, so it works outside a git repository" {
+  cd "${BATS_TEST_TMPDIR}"
+
+  run "${CHECK}" --prefix-only "${CAND}"
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" != *'baseline'* ]]
+}
+
+# --- the root package entry --------------------------------------------------
+#
+# The root package's key is the empty string. Emitted verbatim it produced a
+# blank line that `[[ -n ... ]]` read as "no drift", so changes to the project's
+# OWN declared dependencies passed silently.
+
+@test "a change to the root package's declared dependencies fails GRAPH INVARIANCE" {
+  mutate "${CAND}" '.packages[""].dependencies["@scope/alpha"] = "^9.0.0"'
+
+  run "${CHECK}" --baseline "${BASE}" "${CAND}"
+
+  [ "${status}" -eq 1 ]
+  [[ "${output}" == *'FAIL: the dependency graph differs'* ]]
+  [[ "${output}" == *'<root package>'* ]]
+}
+
+@test "a graph failure does not advise running the normalizer, which cannot fix it" {
+  mutate "${CAND}" '.packages["node_modules/beta"].version = "9.9.9"'
+
+  run "${CHECK}" --baseline "${BASE}" "${CAND}"
+
+  [ "${status}" -eq 1 ]
+  [[ "${output}" == *'NOT fixed by normalizing'* ]]
+  [[ "${output}" == *'--prefix-only'* ]]
 }
 
 @test "no failure message leaks the JFrog host, which CI masks as ***" {
