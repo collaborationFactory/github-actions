@@ -1417,7 +1417,18 @@ itself), and a draft PR in `cplace-paw-fe` against **`release/25.2`** — the br
       under which this branch fails today. `Install modules` is the step that returns `E404` without the mitigation.
 - [x] The `::warning` annotation and job summary appear, naming the 14 offending package paths — the annotation
       independently counted **14**, matching the local survey, and surfaces in the run UI without failing the job
-- [ ] Canary PR closed, both throwaway branches deleted
+- [x] Canary PR closed, both throwaway branches deleted — `git ls-remote --heads origin 'canary/*'` returns 0, both
+      repos clean, and the fix branch's internal refs are back at `@release/25.2` (7 occurrences, none on a canary)
+- [x] **The full pipeline went green, not just `install-deps`** — all 15 jobs (4 e2e shards, 4 code-quality shards,
+      2 builds, 2 storybooks, SonarCloud, install-deps) succeeded on a branch that cannot install without the
+      mitigation. Stronger than this criterion asked for.
+
+> **Process note, recorded because it nearly lost work.** The canary branch was created with `git checkout -b` and
+> never switched away from, so the two documentation commits (`design.md` Dimension 9, `plan.md` Phase 4b/6b) landed on
+> the *canary* branch and were pushed to its remote. Deleting the throwaway branch with `git branch -D` plus
+> `git push --delete` then orphaned both. Recovered by cherry-picking the SHAs out of the reflog. **When working on a
+> throwaway branch, commit documentation on the target branch first, or verify `git branch --show-current` before every
+> commit.**
 
 ---
 
