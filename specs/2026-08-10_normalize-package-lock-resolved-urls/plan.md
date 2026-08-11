@@ -1221,6 +1221,81 @@ their own throwaway branch with the internal `use-npmrc`/`artifacts` refs re-pin
 Phase 6 covered the first. Run one further canary per remaining state: one on `25.4`, one on `26.2`. The other three
 26.x branches carry a byte-identical lockfile and need no separate canary.
 
+### Canary runbook (per remaining state: `25.4`, then `26.2`)
+
+Derived from Phase 6, where both of the traps below were hit for real. `<B>` is `release/25.4` or `release/26.2`.
+
+```bash
+# 1. Throwaway branch in github-actions: the fix branch for <B>, plus internal ref re-pins.
+#    MANDATORY. The artifacts composite runs `cd "$GITHUB_ACTION_PATH/../../.." && npm ci`,
+#    so the ref on the COMPOSITE decides which lockfile is installed. Re-pinning only the
+#    consumer's `uses:` would install <B>'s UN-normalized lockfile and pass for the wrong reason.
+#    Verified 2026-08-11: every branch pins its composites to its own release, so this recurs per state.
+git checkout -b "canary/PFM-ISSUE-34453-lockfile/<V>" "fix/PFM-ISSUE-34453-normalize-package-lock-json/<V>"
+# edit .github/workflows/fe-pr-snapshot.yml: use-npmrc@<B> and artifacts@<B>
+#   -> @canary/PFM-ISSUE-34453-lockfile/<V>          (use an editor: BSD sed has no \| alternation)
+git commit -am 'PFM-ISSUE-34453 - TEMPORARY canary pin - DO NOT MERGE' && git push -u origin HEAD
+
+# 2. Consumer branch in cplace-paw-fe, from the branch pinning github-actions@<B>
+git checkout -b "test/PFM-ISSUE-34453-lockfile-canary/<V>" "origin/<B>"
+# edit .github/workflows/fe-pr-snapshot.yml: the single `uses:` -> @canary/PFM-ISSUE-34453-lockfile/<V>
+git commit -am 'PFM-ISSUE-34453 - paw-fe TEMPORARY canary pin - DO NOT MERGE' && git push -u origin HEAD
+gh pr create --draft --base "<B>" --title 'PFM-ISSUE-34453 - CANARY (do not merge)' --body '…'
+
+# 3. Fire it. The job is gated on `if: contains(…labels.*.name, 'snapshot')` and the consumer
+#    trigger is `types: [labeled, synchronize, reopened]` - NOT `opened`. Opening the PR fires nothing.
+gh pr edit <N> --add-label snapshot
+
+# 4. Verify - the composite path must contain the canary branch, or you tested the wrong tree
+gh run view <RUN> --log | grep -E 'GITHUB_ACTION_PATH=|added [0-9]+ packages|E404'
+```
+
+Pass criteria: the log shows `GITHUB_ACTION_PATH=…/github-actions/canary/PFM-ISSUE-34453-lockfile/<V>/…`, then
+`added 542 packages` (25.x) or `added 558 packages` (26.x), and **zero `E404`** in the whole run.
+
+Cleanup: `gh pr close <N> --delete-branch`, then delete the github-actions canary branch local and remote. Confirm with
+`git ls-remote --heads origin 'canary/*'` returning nothing.
+
+Note `cplace-paw-fe` has `release/25.2` and `release/25.3` but **check `release/25.4` and `release/26.2` exist there**
+before starting; if not, pick another consumer pinning that branch. Also note paw-fe's own `release/25.2` and `25.3`
+lockfiles each carry 14 npmjs entries ([consumer-survey.md](./consumer-survey.md)) — unrelated to this fix, but it
+means a *workflow-level* `npm ci` on those branches may fail for the same underlying reason. Do not mistake that for a
+canary failure: the canary's subject is the **composite's** install, not the consumer's.
+
+### Reusable PR description for the six replication PRs
+
+The point is to make these cheap to review, since only #163 carries novel content.
+
+```markdown
+## What this is
+
+Branch <N> of 7 for PFM-ISSUE-34453. Normalizes this branch's `package-lock.json` `resolved`
+URLs onto the JFrog npm proxy, and adds the same lockfile tooling and PR guard.
+
+**The tooling is byte-identical to #163** — verified, not asserted:
+
+    sha256(tools/scripts/lockfile/* + pr-checks.yml) = <DIGEST>   # same on all seven branches
+
+So the only thing needing review here is the lockfile commit, and that is machine-checked.
+The substantive review is on #163.
+
+## Two commits
+
+1. Tooling — copied verbatim from #163's tooling commit.
+2. The normalized lockfile alone. Its parent *is* the baseline, so the invariant is provable
+   by construction: `./tools/scripts/lockfile/check-lockfile.sh --baseline HEAD~1`.
+
+## Evidence
+
+- 171 entries rewritten, +4788 bytes (`<BEFORE>` → `<AFTER>`), 342 changed lines, **0** outside a `"resolved"` line
+- `grep -c registry.npmjs.org package-lock.json` → **0**
+- `check-lockfile.sh --baseline HEAD~1` exits 0: graph identical, exactly one registry prefix
+- bats 25/25 and shellcheck clean, both in CI via `pr-checks.yml`
+
+Known limitation, same as #163: the guard **reports but cannot block** until PFM-ISSUE-34465
+(Rule Sets enforcement) lands.
+```
+
 **Cross-branch consistency check**, after all seven PRs are merged:
 
 ```bash
