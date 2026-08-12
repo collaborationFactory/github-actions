@@ -24,6 +24,7 @@ main() {
 
   require_jq
   [[ -f "${lockfile}" ]] || die "no such lockfile: ${lockfile}"
+  assert_supported_lockfile "${lockfile}"
 
   assert_resolvable "${lockfile}"
 

@@ -126,3 +126,34 @@ setup() {
   [ "${status}" -eq 1 ]
   [[ "${output}" != *'cplace.jfrog.io'* ]]
 }
+
+@test "the reported count matches what the rewrite actually changes" {
+  # count_foreign_entries used `startswith($proxy)` while the rewrite asked
+  # whether $proxy + <captured tarball path> differed. An entry already under
+  # the proxy host but with a stray path segment satisfied the first and not the
+  # second, so the normalizer reported "0 rewritten / already normalized" while
+  # silently rewriting the file - and README Flow 1 makes that count the
+  # documented verification signal.
+  write_mixed_lockfile "${TMP}"
+  mutate "${TMP}" '.packages["node_modules/beta"].resolved =
+    "https://cplace.jfrog.io/artifactory/api/npm/cplace-npm/extra/beta/-/beta-2.0.0.tgz"'
+  local before
+  before="$(wc -c <"${TMP}")"
+
+  run "${NORMALIZE}" "${TMP}"
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *'entries rewritten: 2'* ]]
+  [[ "${output}" != *'already normalized'* ]]
+  [ "$(wc -c <"${TMP}")" -ne "${before}" ]
+}
+
+@test "an unsupported lockfileVersion fails readably instead of a jq trace" {
+  printf '{"name":"x","lockfileVersion":1}\n' >"${TMP}"
+
+  run "${NORMALIZE}" "${TMP}"
+
+  [ "${status}" -eq 1 ]
+  [[ "${output}" == *'lockfileVersion 1'* ]]
+  [[ "${output}" != *'jq: error'* ]]
+}

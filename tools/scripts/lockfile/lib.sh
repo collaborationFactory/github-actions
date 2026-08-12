@@ -40,6 +40,32 @@ readonly TARBALL_PATH_RE='(?<t>(?:@[^/]+/)?[^/]+/-/[^/]+\.tgz)$'
 # usable tarball URL" with a jq stack trace.
 readonly RESOLVED_URL_RE='^https?://[^/]+/.*(?:@[^/]+/)?[^/]+/-/[^/]+\.tgz$'
 
+# The single definition of "which entries this tooling has an opinion about",
+# and of "what a normalized entry looks like". Three hand-written copies of this
+# predicate had drifted apart: `count_foreign_entries` asked `startswith($proxy)`
+# while the rewrite asked "does $proxy + <captured tarball path> differ from the
+# current value?", so an entry already under the proxy host but with a stray path
+# segment was counted as normalized and then silently rewritten anyway.
+#
+# Requires --arg proxy and --arg tarball_re. Selects only entries whose `resolved`
+# is an http(s) URL: `link:`/`file:`/workspace values are not registry references
+# and must be passed over rather than rejected.
+# shellcheck disable=SC2016  # $proxy/$tarball_re are jq variables, bound via --arg
+readonly JQ_REGISTRY_ENTRIES='
+  (.packages // {})
+  | to_entries[]
+  | select(.key != "")
+  | select((.value.resolved | type) == "string")
+  | select(.value.resolved | test("^https?://"))
+'
+
+# Given such an entry, true when the rewrite would change it.
+# shellcheck disable=SC2016  # $proxy/$tarball_re are jq variables, bound via --arg
+readonly JQ_NEEDS_REWRITE='
+  select((.value.resolved | test($tarball_re))
+         and (.value.resolved != ($proxy + (.value.resolved | capture($tarball_re) | .t))))
+'
+
 readonly README_PATH='tools/scripts/lockfile/README.md'
 # shellcheck disable=SC2034  # consumed by check-lockfile.sh, which shellcheck cannot see from here
 readonly NORMALIZE_CMD='./tools/scripts/lockfile/normalize-lockfile.sh'
@@ -71,20 +97,39 @@ byte_size() {
   wc -c <"$1" | tr -d '[:space:]'
 }
 
+# These scripts operate on `.packages`, which exists only from lockfileVersion 2.
+# Guarding `.packages` alone would make a v1 file pass vacuously - reporting
+# "resolves entirely via the proxy" having examined nothing at all, which is a
+# worse outcome than the raw jq trace it replaced. Fail loudly instead.
+assert_supported_lockfile() {
+  local lockfile="$1" version
+  version="$(jq -r '.lockfileVersion // "missing"' "${lockfile}" 2>/dev/null)" \
+    || die "cannot read ${lockfile} as JSON"
+
+  case "${version}" in
+    2 | 3) return 0 ;;
+    missing) die "${lockfile} has no lockfileVersion - is it a package-lock.json? See ${README_PATH}" ;;
+    *) die "${lockfile} is lockfileVersion ${version}; these scripts need 2 or 3 (they operate on '.packages'). See ${README_PATH}" ;;
+  esac
+}
+
 # Fails, naming every offending package path, if any non-root entry lacks a
 # usable tarball URL. Never echoes a URL: CI masks the JFrog host as ***, so a
 # message built from one is unreadable exactly when it matters most.
 assert_resolvable() {
   local lockfile="$1"
   local offenders
+  # `(.packages // {})`, not `.packages`: a lockfileVersion 1 or hand-truncated
+  # file has no such section, and dereferencing it raises a raw jq trace with
+  # exit 5 - the unreadable failure these scripts exist to eliminate.
   offenders="$(jq -r --arg url_re "${RESOLVED_URL_RE}" '
-    .packages
+    (.packages // {})
     | to_entries[]
     | select(.key != "")
     | select(((.value.resolved | type) != "string")
              or ((.value.resolved | test($url_re)) | not))
     | .key
-  ' "${lockfile}")"
+  ' "${lockfile}")" || die "cannot read ${lockfile} as a lockfile (is it valid JSON?)"
 
   if [[ -n "${offenders}" ]]; then
     err "ERROR: these entries in ${lockfile} have no usable tarball URL:"
@@ -105,12 +150,13 @@ fingerprint_of() {
   jq -S --arg tarball_re "${TARBALL_PATH_RE}" -f "${FINGERPRINT_JQ}" "$1"
 }
 
-# Number of entries not already on the proxy - i.e. how much work there is to do.
+# Number of entries the rewrite would actually change - i.e. how much work there
+# is to do. Uses the rewrite's own predicate, so the reported count cannot
+# disagree with what the normalizer does to the file. README Flow 1 makes this
+# number the documented verification signal for a normalization commit, so it
+# must not be able to say "untouched" about a file that was modified.
 count_foreign_entries() {
-  jq --arg proxy "${JFROG_NPM_PROXY}" '
-    [ .packages[]
-      | select((type == "object") and ((.resolved | type) == "string"))
-      | select((.resolved | startswith($proxy)) | not)
-    ] | length
-  ' "$1"
+  jq --arg proxy "${JFROG_NPM_PROXY}" --arg tarball_re "${TARBALL_PATH_RE}" \
+    "[ ${JQ_REGISTRY_ENTRIES} | ${JQ_NEEDS_REWRITE} ] | length" "$1" \
+    || die "cannot read $1 as a lockfile (is it valid JSON?)"
 }

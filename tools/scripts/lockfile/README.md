@@ -121,12 +121,17 @@ that. If you see one on a pull request that legitimately changes dependencies, y
 
 ## Flow 3 — interpreting a guard failure
 
-`.github/workflows/pr-checks.yml` runs `check-lockfile.sh` on every pull request. It makes **two independent
-assertions, both of which must pass**:
+`.github/workflows/pr-checks.yml` runs `check-lockfile.sh --prefix-only` on every pull request, so **the PR guard
+makes assertion 2 only**. Assertion 1 runs when you pass `--baseline <ref>` by hand, to verify a normalization
+commit — see "Two modes" above.
 
-**1. Graph invariance.** The whole document, with every `resolved` reduced to its bare tarball path, must equal the
-baseline's. This catches a changed version, a poisoned `integrity`, a changed tarball filename, a changed dependency
-edge, an added or dropped entry.
+> **A pull request passing CI is therefore not evidence that its lockfile changed only prefixes.** Where that matters
+> — a normalization commit, or an upmerge conflict resolution — run the baseline form locally. CI deliberately does
+> not assert it, because doing so would fail every legitimate dependency change.
+
+**1. Graph invariance** — `--baseline` only; **not** run on pull requests. The whole document, with every `resolved`
+reduced to its bare tarball path, must equal the baseline's. This catches a changed version, a poisoned `integrity`, a
+changed tarball filename, a changed dependency edge, an added or dropped entry.
 
 ```
 FAIL: the dependency graph differs from the baseline. Drifted entries:

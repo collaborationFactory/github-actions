@@ -29,4 +29,13 @@ runs:
       # Advisory only - never fails the build. The warnings are the inventory of
       # lockfiles that still need normalizing; when none report, the mitigation
       # above can be dropped.
-      run: ${{ github.action_path }}/../../../tools/scripts/lockfile/warn-foreign-registry.sh
+      #
+      # Invoked as `bash "<path>" || true`, not as a bare path. The script's own
+      # "every precondition is a silent success" contract cannot cover NOT BEING
+      # REACHABLE - a missing exec bit after checkout, a path containing spaces,
+      # or a runner where action_path is a backslashed Windows path. That is an
+      # exit 127 from the shell rather than from the script, and it would fail
+      # the consumer's job before `npm ci` in all seven workflows using this
+      # action. `continue-on-error:` is not honoured on composite steps, so
+      # `|| true` is the mechanism that actually works here.
+      run: bash "${{ github.action_path }}/../../../tools/scripts/lockfile/warn-foreign-registry.sh" || true
