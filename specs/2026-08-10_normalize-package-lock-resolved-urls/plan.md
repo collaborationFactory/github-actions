@@ -49,10 +49,10 @@ anywhere.
 
 On each of the seven branches:
 
-- `tools/scripts/lockfile/{lib.sh,fingerprint.jq,normalize-lockfile.sh,check-lockfile.sh,test-helper.bash,*.bats,README.md}`
+- `tools/scripts/lockfile/{lib.sh,fingerprint.jq,normalize-lockfile.sh,check-lockfile.sh,warn-foreign-registry.sh,test-helper.bash,*.bats,README.md}`
   exist and are **byte-identical across all seven branches**.
-- `.github/workflows/pr-checks.yml` exists, byte-identical across all seven branches, and runs two node-free jobs on
-  every PR.
+- `.github/workflows/pr-checks.yml` and `.github/actions/use-npmrc/action.yml` are byte-identical across all seven
+  branches; `pr-checks.yml` runs two node-free jobs on every PR. (`use-npmrc` joined the set in Phase 4b.)
 - `package-lock.json` contains **zero** `registry.npmjs.org` occurrences and exactly one distinct `resolved` prefix.
 - `./tools/scripts/lockfile/check-lockfile.sh --baseline HEAD~1` exits 0.
 
@@ -113,7 +113,12 @@ Carried verbatim from [design.md](./design.md) — out of scope, and not to be a
 - Branches ≤ 24.2.
 - Eliminating the runtime `npm ci` (pre-bundling via esbuild/ncc, or publishing `tools/scripts/*`).
 - Fixing the stale `--release 5.17` in `tools/scripts/upmerge/upmerge.ts:22`.
-- Modifying `use-npmrc` or any of the four affected composite actions.
+- ~~Modifying `use-npmrc`~~ — **superseded by Phase 4b (2026-08-11).** `use-npmrc` *is* now modified: it appends
+  `replace-registry-host=never` and runs the advisory `warn-foreign-registry.sh`. The original exclusion assumed
+  consumer pipelines were green and would only be endangered by a change here; the consumer survey found
+  `cplace-paw-fe` `release/25.2`/`25.3` **already broken**, which only a change here fixes. See Phase 4b and
+  [design.md](./design.md) Dimension 9. The **four affected composite actions** (`artifacts`, `snapshots`, `upmerge`,
+  `run-many`) remain unmodified.
 - Any npm devDependency for bats or shellcheck — that would mutate `package-lock.json` on all seven branches and break
   the very invariant this ticket establishes.
 
@@ -183,14 +188,17 @@ jq -r '
 
 #### Automated Verification
 
-- [ ] The probe covers exactly 171 URLs: `wc -l < probe-results.txt` is `171`
-- [ ] Every status code is `200` or `302`: `awk '$1 !~ /^(200|302)$/' probe-results.txt` prints nothing
-- [ ] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 1 complete. Summary: re-probed all 171 npmjs tarballs through the cplace-npm proxy; status-code histogram is <paste histogram>. Please review and reply 'yes' to continue to Phase 2." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
+- [x] The probe covers exactly 171 URLs: `wc -l < probe-results.txt` is `171`
+- [x] Every status code is `200` or `302`: `awk '$1 !~ /^(200|302)$/' probe-results.txt` prints nothing
+- [x] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 1 complete. Summary: re-probed all 171 npmjs tarballs through the cplace-npm proxy; status-code histogram is <paste histogram>. Please review and reply 'yes' to continue to Phase 2." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
 
 #### Manual Verification
 
-- [ ] The status-code histogram is consistent with the ticket's original probe (predominantly 200, a small number of 302)
-- [ ] If any URL returns 403/404, **stop** and report — the approach itself is invalidated, not just this phase
+- [x] The status-code histogram is consistent with the ticket's original probe (predominantly 200, a small number of 302)
+      — **166 × 200, 5 × 302**, probed anonymously 2026-08-11, exactly reproducing the ticket's original probe
+- [x] If any URL returns 403/404, **stop** and report — the approach itself is invalidated, not just this phase
+      — none did. The five 302s (`@babel/core`, `caniuse-lite`, `object.assign`, `prettier`, `typescript`) are JFrog
+      remote-repo redirects; following one yields 200 with a real 232 744-byte payload.
 
 ---
 
@@ -437,21 +445,24 @@ setup() {
 
 #### Automated Verification
 
-- [ ] Files exist: `ls tools/scripts/lockfile/{lib.sh,fingerprint.jq,test-helper.bash,normalize-lockfile.bats}`
-- [ ] shellcheck is clean: `shellcheck tools/scripts/lockfile/lib.sh tools/scripts/lockfile/test-helper.bash`
-- [ ] `lib.sh` sources without error: `bash -c 'source tools/scripts/lockfile/lib.sh && echo "${TARBALL_PATH_RE}"'`
-- [ ] The fingerprint is stable on the real lockfile — it must equal itself after normalization. Run:
+- [x] Files exist: `ls tools/scripts/lockfile/{lib.sh,fingerprint.jq,test-helper.bash,normalize-lockfile.bats}`
+- [x] shellcheck is clean: `shellcheck tools/scripts/lockfile/lib.sh tools/scripts/lockfile/test-helper.bash`
+      — clean after one `# shellcheck disable=SC2034` on `NORMALIZE_CMD` (consumed by `check-lockfile.sh`, invisible to
+      shellcheck when analysing `lib.sh` standalone) and a file-level SC2034 disable for the fixture constants
+- [x] `lib.sh` sources without error: `bash -c 'source tools/scripts/lockfile/lib.sh && echo "${TARBALL_PATH_RE}"'`
+- [x] The fingerprint is stable on the real lockfile — it must equal itself after normalization. Run:
       `bash -c 'source tools/scripts/lockfile/lib.sh; fingerprint_of package-lock.json | sha256sum'` and confirm it
-      matches the fingerprint of a jq-normalized copy of the same file
-- [ ] `assert_resolvable` returns 0 on the real lockfile and exits 1 naming `node_modules/foo` on a copy with
+      matches the fingerprint of a jq-normalized copy of the same file — both `223e40e6ff642ff3…`
+- [x] `assert_resolvable` returns 0 on the real lockfile and exits 1 naming `node_modules/foo` on a copy with
       `.packages["node_modules/foo"] = {"link": true}` injected
-- [ ] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 2 complete. Summary: created lib.sh (hard-coded proxy constant, single tarball-path regex, assert_resolvable/fingerprint_of/count_foreign_entries helpers), fingerprint.jq, test-helper.bash and one sample bats test — this is the bash + bats pattern every remaining file will follow. Please review the pattern and reply 'yes' to continue to Phase 3." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
+- [x] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 2 complete. Summary: created lib.sh (hard-coded proxy constant, single tarball-path regex, assert_resolvable/fingerprint_of/count_foreign_entries helpers), fingerprint.jq, test-helper.bash and one sample bats test — this is the bash + bats pattern every remaining file will follow. Please review the pattern and reply 'yes' to continue to Phase 3." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
 
 #### Manual Verification
 
-- [ ] The pattern reads like something this repo would accept as its first shell code
-- [ ] Comments explain *why* (hard-coded constant, deliberate blindness of the fingerprint), not *what*
-- [ ] No failure message anywhere contains the JFrog host
+- [ ] The pattern reads like something this repo would accept as its first shell code *(reviewer judgement)*
+- [ ] Comments explain *why* (hard-coded constant, deliberate blindness of the fingerprint), not *what* *(reviewer judgement)*
+- [x] No failure message anywhere contains the JFrog host — `assert_resolvable`'s failure output greps
+      `cplace.jfrog.io` zero times
 
 ---
 
@@ -760,23 +771,28 @@ file paths are accepted; a bad baseline ref exits 1 with a readable message; no 
 
 #### Automated Verification
 
-- [ ] Both scripts are executable: `test -x tools/scripts/lockfile/normalize-lockfile.sh -a -x tools/scripts/lockfile/check-lockfile.sh`
-- [ ] shellcheck is clean: `shellcheck tools/scripts/lockfile/*.sh tools/scripts/lockfile/test-helper.bash`
-- [ ] bats passes: `bats tools/scripts/lockfile/`
-- [ ] All seven drift cases (t1–t6 plus the clean case) are present and asserted: `grep -c '^@test' tools/scripts/lockfile/check-lockfile.bats` is at least `11`
-- [ ] On a **copy** of the real lockfile, the normalizer reports `entries rewritten: 171` and `byte delta: 4788`
-- [ ] The result is byte-identical to a raw prefix rewrite:
+- [x] Both scripts are executable: `test -x tools/scripts/lockfile/normalize-lockfile.sh -a -x tools/scripts/lockfile/check-lockfile.sh`
+- [x] shellcheck is clean: `shellcheck tools/scripts/lockfile/*.sh tools/scripts/lockfile/test-helper.bash`
+- [x] bats passes: `bats tools/scripts/lockfile/` — 24/24 at the time of this phase; **52/52** after the two review
+      rounds added `warn-foreign-registry.bats` and the regression tests
+- [x] All seven drift cases (t1–t6 plus the clean case) are present and asserted: `grep -c '^@test' tools/scripts/lockfile/check-lockfile.bats` is at least `11`
+- [x] On a **copy** of the real lockfile, the normalizer reports `entries rewritten: 171` and `byte delta: 4788`
+      — exact: `262063 -> 266851`
+- [x] The result is byte-identical to a raw prefix rewrite:
       `sed 's#"resolved": "https://registry.npmjs.org/#"resolved": "https://cplace.jfrog.io/artifactory/api/npm/cplace-npm/#' package-lock.json | cmp - <normalized-copy>`
-- [ ] `diff <original> <normalized-copy> | grep '^[<>]' | wc -l` is `342`, and `... | grep -vc '"resolved"'` is `0`
-- [ ] A second normalizer run on the normalized copy reports `entries rewritten: 0` and `byte delta: 0`
-- [ ] No error output contains the proxy host: inject each drift case and confirm `grep -c 'cplace.jfrog.io'` on stderr is `0`
-- [ ] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 3 complete. Summary: normalize-lockfile.sh and check-lockfile.sh written, shellcheck-clean; bats suite green with all six injected-drift cases (t1–t6); on a copy of the real lockfile the normalizer rewrites 171 entries for +4788 bytes / 342 changed lines / 0 non-resolved lines, byte-identical to a raw sed rewrite, and is idempotent. Please review and reply 'yes' to continue to Phase 4." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
+- [x] `diff <original> <normalized-copy> | grep '^[<>]' | wc -l` is `342`, and `... | grep -vc '"resolved"'` is `0`
+- [x] A second normalizer run on the normalized copy reports `entries rewritten: 0` and `byte delta: 0`
+- [x] No error output contains the proxy host: inject each drift case and confirm `grep -c 'cplace.jfrog.io'` on stderr is `0`
+      — all four real-scale drift cases: `host-leaks=0`, each naming `node_modules/jest`
+- [x] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 3 complete. Summary: normalize-lockfile.sh and check-lockfile.sh written, shellcheck-clean; bats suite green with all six injected-drift cases (t1–t6); on a copy of the real lockfile the normalizer rewrites 171 entries for +4788 bytes / 342 changed lines / 0 non-resolved lines, byte-identical to a raw sed rewrite, and is idempotent. Please review and reply 'yes' to continue to Phase 4." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
 
 #### Manual Verification
 
-- [ ] A failure message read cold tells you which package is wrong and exactly what to run next
-- [ ] The two assertions genuinely fail independently — t2 and t4 fail *only* prefix exactness, t1/t3/t5/t6 *only* graph invariance
-- [ ] Nothing in either script would break if `${JFROG_URL}` changed — the proxy constant is unrelated to the publish target
+- [ ] A failure message read cold tells you which package is wrong and exactly what to run next *(reviewer judgement)*
+- [x] The two assertions genuinely fail independently — t2 and t4 fail *only* prefix exactness, t1/t3/t5/t6 *only* graph
+      invariance. `check-lockfile.bats` asserts the *identity* of the failing assertion, not merely that a failure occurred.
+- [x] Nothing in either script would break if `${JFROG_URL}` changed — the proxy constant is unrelated to the publish
+      target. Neither script reads any environment variable.
 
 ---
 
@@ -880,20 +896,25 @@ Plus: the `brew install jq` prerequisite, and why this is bash rather than TypeS
 
 #### Automated Verification
 
-- [ ] The workflow is valid YAML: `python3 -c "import yaml,sys; yaml.safe_load(open('.github/workflows/pr-checks.yml'))"`
-- [ ] The checkout SHA matches the pinned convention in `specs/2026-06-05_node24-workflow-migration/sha-pins.md`:
+- [x] The workflow is valid YAML — **PyYAML is not installed here**; validated with `ruby -ryaml` and additionally
+      with **`actionlint`, which is clean**
+- [x] The checkout SHA matches the pinned convention in `specs/2026-06-05_node24-workflow-migration/sha-pins.md`:
       `grep -c 'df4cb1c069e1874edd31b4311f1884172cec0e10' .github/workflows/pr-checks.yml` is `2`
-- [ ] No third-party action is used: `grep -E '^\s+uses:' .github/workflows/pr-checks.yml | grep -vc 'actions/checkout'` is `0`
-- [ ] The workflow is node-free: `grep -c 'setup-node\|npm ci' .github/workflows/pr-checks.yml` is `0`
-- [ ] `.prettierignore` contains `package-lock.json`
-- [ ] `tools/scripts/lockfile/README.md` documents all three flows: `grep -c 'checkout --ours' tools/scripts/lockfile/README.md` is at least `1`
-- [ ] The whole tooling set is committed as commit 1 with no lockfile change: `git show --stat HEAD | grep -c 'package-lock.json'` is `0`
-- [ ] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 4 complete. Summary: added .github/workflows/pr-checks.yml (first on: pull_request workflow here; lockfile + scripts jobs, node-free, apt-get for bats/shellcheck, only actions/checkout pinned by SHA), package-lock.json added to .prettierignore, and tools/scripts/lockfile/README.md covering rollout, conflict resolution and guard-failure interpretation. This is commit 1 of the PR. Please review and reply 'yes' to continue to Phase 5." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
+- [x] No third-party action is used: `grep -E '^\s+uses:' .github/workflows/pr-checks.yml | grep -vc 'actions/checkout'` is `0`
+- [x] The workflow is node-free — **the plan's grep is too naive**: it matches the explanatory comment "this job runs
+      no node and no `npm ci`". Correct check, on non-comment lines only:
+      `grep -vE '^\s*#' .github/workflows/pr-checks.yml | grep -E 'setup-node|npm ci'` → no matches
+- [x] `.prettierignore` contains `package-lock.json`
+- [x] `tools/scripts/lockfile/README.md` documents all three flows: `grep -c 'checkout --ours' tools/scripts/lockfile/README.md` is at least `1`
+- [x] The whole tooling set is committed as commit 1 with no lockfile change — **the plan's command is wrong**:
+      `git show --stat` includes the commit *message*, which legitimately mentions `package-lock.json` in prose.
+      Correct check: `git show --name-only --format= HEAD | grep -c '^package-lock.json$'` → `0`
+- [x] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 4 complete. Summary: added .github/workflows/pr-checks.yml (first on: pull_request workflow here; lockfile + scripts jobs, node-free, apt-get for bats/shellcheck, only actions/checkout pinned by SHA), package-lock.json added to .prettierignore, and tools/scripts/lockfile/README.md covering rollout, conflict resolution and guard-failure interpretation. This is commit 1 of the PR. Please review and reply 'yes' to continue to Phase 5." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
 
 #### Manual Verification
 
-- [ ] The README is genuinely usable by someone whose `npm ci` is broken right now
-- [ ] The workflow name and job names read well in the PR checks list
+- [ ] The README is genuinely usable by someone whose `npm ci` is broken right now *(reviewer judgement)*
+- [ ] The workflow name and job names read well in the PR checks list *(reviewer judgement)*
 - [x] Nothing in the workflow depends on the runner image happening to ship a tool — `bats` and `shellcheck` are
       installed explicitly; `jq` is the one image assumption, and `require_jq` fails loudly naming the README if absent
 
@@ -990,7 +1011,8 @@ git commit -m 'PFM-ISSUE-34453 - github-actions: normalize package-lock.json res
 - [x] Byte delta is exactly +4788: `git show HEAD~1:package-lock.json | wc -c` vs `wc -c < package-lock.json`
       — `262063 -> 266851`
 - [x] The normalizer is idempotent: re-running it reports `entries rewritten: 0`, and `git diff --exit-code package-lock.json` is clean
-- [x] bats and shellcheck still pass: `shellcheck tools/scripts/lockfile/*.sh && bats tools/scripts/lockfile/` — 24/24
+- [x] bats and shellcheck still pass: `shellcheck tools/scripts/lockfile/*.sh && bats tools/scripts/lockfile/`
+      — 24/24 at the time of this phase; **52/52** now
 - [x] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 5 complete. Summary: package-lock.json normalized on release/25.2 as its own commit — 171 entries rewritten, +4788 bytes, 342 changed lines, 0 non-resolved lines, 0 registry.npmjs.org remaining; check-lockfile.sh --baseline HEAD~1 exits 0. Ready to push and open the PR. Please review and reply 'yes' to continue to Phase 6." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
 
 #### Manual Verification
@@ -1012,7 +1034,7 @@ git commit -m 'PFM-ISSUE-34453 - github-actions: normalize package-lock.json res
       OK: package-lock.json is normalized and graph-identical to its baseline
       ```
 
-      The `scripts` job ran **24/24** bats tests plus shellcheck. Key Discovery 5 is confirmed empirically: the
+      The `scripts` job ran **24/24** bats tests plus shellcheck (the suite is **52** after two review rounds). Key Discovery 5 is confirmed empirically: the
       workflow ran on the very PR that introduced it, and passed.
 
       Runner resolved to `ubicloud-standard-2`, so `vars.SMALL_RUNNER` **is** defined for this repo, and both `jq`
@@ -1117,7 +1139,7 @@ projects have been published (probably no project is affected)"* — the canary 
 found no affected project. Confirmed with `jf rt search`: no `cf-training-extended` artifact exists for PR 184. This is
 unrelated to the fix; `npm publish` never depended on lockfile resolution, and the step that *did* fail before the fix
 (`npm ci`) is proven working.
-- [ ] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 6 complete. Summary: canary PR in cplace-remote-filesystem-fe with uses: temporarily re-pinned to the fix branch, exercising a use-npmrc path — the composite's internal npm ci resolved with no E404. Canary PR closed, no tag or release created. release/25.2 is ready to merge. Please review and reply 'yes' to continue to Phase 7 (the six remaining branches)." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
+- [ ] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 6 complete. Summary: canary PR in cplace-paw-fe (cplace-remote-filesystem-fe has no release/25.2) with uses: temporarily re-pinned to the fix branch, exercising a use-npmrc path — the composite's internal npm ci resolved with no E404. Canary PR closed, no tag or release created. release/25.2 is ready to merge. Please review and reply 'yes' to continue to Phase 7 (the six remaining branches)." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
 
 #### Manual Verification
 
@@ -1143,6 +1165,30 @@ One parameterised runbook, executed six times in order: `25.3 → 25.4 → 26.1 
 `26.3` are **not** downstream of `26.2` (research §8), so none of this can ride the upmerge.
 
 Tooling files must be **byte-identical** across branches, so a future upmerge sees a conflict-free add/add.
+
+### PR #163 is the seed; `master` is explicitly in scope
+
+**`master` receives this fix like every other branch** — it is in the ordered list above, and because it is not
+downstream of `26.2` it can only get there through its own PR. It is not a leftover to be handled later.
+
+**#163 is the seed, not merely the first instance.** Everything the six inherit — the tooling set, the guard, the
+mitigation, and the two rounds of review fixes folded into it — is settled here. That is why this PR carries the whole
+substantive review and the others do not, and why the six are held unpushed until #163 is approved: a change here has
+to be replicated seven times.
+
+**Each PR still carries the differences its own branch requires.** Byte-identity is a property of the *tooling set*
+(`tools/scripts/lockfile/*`, `pr-checks.yml`, `use-npmrc/action.yml`, `.prettierignore`) — **not** of the whole diff.
+Per branch, legitimately different:
+
+- the `package-lock.json` content and its byte totals (three distinct lockfile states — `25.2` | `25.3 = 25.4` |
+  `26.1 = 26.2 = 26.3 = master`), though every branch shows the same `171` / `+4788` / `342` / `0` signature;
+- the PR's base branch, and on `master` the base is `master` rather than a `release/*`;
+- anything a branch already differs in that the tooling touches — verified 2026-08-11 to be nothing:
+  `.prettierignore` is byte-identical on all seven, and no branch already contains `tools/scripts/lockfile/` or
+  `pr-checks.yml`.
+
+The byte-identity gate in step 3 below is what keeps that distinction honest: it compares only the tooling paths, so a
+legitimate per-branch difference elsewhere cannot mask tooling drift.
 
 ### Gate: PR #163 must be APPROVED before this phase starts
 
@@ -1290,7 +1336,7 @@ The substantive review is on #163.
 - 171 entries rewritten, +4788 bytes (`<BEFORE>` → `<AFTER>`), 342 changed lines, **0** outside a `"resolved"` line
 - `grep -c registry.npmjs.org package-lock.json` → **0**
 - `check-lockfile.sh --baseline HEAD~1` exits 0: graph identical, exactly one registry prefix
-- bats 25/25 and shellcheck clean, both in CI via `pr-checks.yml`
+- bats 52/52 and shellcheck clean, both in CI via `pr-checks.yml`
 
 Known limitation, same as #163: the guard **reports but cannot block** until PFM-ISSUE-34465
 (Rule Sets enforcement) lands.
@@ -1366,7 +1412,7 @@ entries outside the proxy, via a `::warning` annotation plus a job summary. Neve
 - [x] The advisory check is silent on a normalized lockfile, warns with a count on a mixed one, ignores local-path
       `resolved` values, and exits 0 on missing file / missing `jq` / invalid JSON / no `packages` section
 - [x] No URL in the warning, so it survives `***` masking
-- [x] bats **34/34**, shellcheck clean, `pr-checks.yml` green
+- [x] bats **34/34** at the time of this phase (**52/52** now), shellcheck clean, `pr-checks.yml` green
 - [x] Tooling digest identical on all seven branches including `use-npmrc`: `4131452a775f78ab`
 
 #### Manual Verification
@@ -1385,8 +1431,10 @@ requests per run**, creating exactly the dependency PFM-ISSUE-34454 exists to re
 
 ### Overview
 
-Phase 6 proved the *composite* surface on `master` (a clean lockfile). This proves the *consumer* surface, on the
-branch that is actually broken.
+Phase 6 proved the *composite* surface — its subject was the **github-actions** lockfile installed by the composite,
+not paw-fe's own, which that run never installed (`Install modules` was skipped on a cache hit). This proves the
+*consumer* surface: paw-fe's own lockfile on `release/25.2`, the branch that is actually broken. Both canary PRs were
+opened against `release/25.2`.
 
 ### Changes Required
 

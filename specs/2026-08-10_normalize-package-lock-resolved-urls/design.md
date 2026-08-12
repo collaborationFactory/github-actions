@@ -442,8 +442,6 @@ It would also invert the dependency with PFM-ISSUE-34454, which already owns con
 
 ---
 
----
-
 ### Dimension 9 — Interim mitigation (added 2026-08-11, after implementation)
 
 **Chosen Approach:** `.github/actions/use-npmrc` appends `replace-registry-host=never` to the `~/.npmrc` it writes, and
@@ -508,12 +506,14 @@ github-actions un-normalized → `added 542 packages`; `cplace-paw-fe release/25
    (every `resolved` → its tarball path).
 4. **`tools/scripts/lockfile/check-lockfile.sh`** — runs both assertions (graph invariance vs. baseline; prefix
    exactness) and reports drift by package path. Exit 0 / 1.
-5. **`tools/scripts/lockfile/*.bats`** — behavioural tests over small JSON fixtures, including the four injected-drift
-   cases (t1–t4) that motivated the two-assertion design.
-6. **`tools/scripts/lockfile/README.md`** — the documented entry point: rollout flow, conflict-resolution runbook,
+5. **`tools/scripts/lockfile/warn-foreign-registry.sh`** — advisory scan of the **consumer's** lockfile, run by
+   `use-npmrc`. Emits a `::warning` plus job summary; never fails a build. Added by Dimension 9.
+6. **`tools/scripts/lockfile/*.bats`** — behavioural tests over small JSON fixtures, including the six injected-drift
+   cases (t1–t6) that motivated the two-assertion design.
+7. **`tools/scripts/lockfile/README.md`** — the documented entry point: rollout flow, conflict-resolution runbook,
    guard-failure interpretation.
-7. **`.github/workflows/pr-checks.yml`** — `lockfile` and `scripts` jobs.
-8. **`package-lock.json`** — the artifact under change: 171 `resolved` prefixes per branch.
+8. **`.github/workflows/pr-checks.yml`** — `lockfile` and `scripts` jobs.
+9. **`package-lock.json`** — the artifact under change: 171 `resolved` prefixes per branch.
 
 ### Data Flow
 
@@ -525,8 +525,11 @@ lockfile alone → `check-lockfile.sh --baseline HEAD~1` → graph identical, on
 → re-run the idempotent normalizer → `check-lockfile.sh --baseline :2:` (or `:3:`) → proceed only on exit 0. Never
 `--theirs`, never a hand edit.
 
-**Guard (every PR):** `pr-checks.yml` → `lockfile` job runs `check-lockfile.sh` against the base commit → on failure,
-prints offending package paths plus the remediation command; `scripts` job runs shellcheck + bats.
+**Guard (every PR):** `pr-checks.yml` → `lockfile` job runs `check-lockfile.sh --prefix-only` → on failure, prints
+offending package paths plus the remediation command; `scripts` job runs shellcheck + bats. **It asserts prefix
+exactness only.** Graph invariance forbids any dependency change, so gating pull requests on it would fail every
+legitimate `npm install`; it is run by hand with `--baseline` to verify a normalization commit. A green PR is therefore
+not evidence that a lockfile diff changed only prefixes.
 
 ### Integration Points
 
@@ -534,7 +537,11 @@ prints offending package paths plus the remediation command; `scripts` job runs 
   and no branch-pinned reference.
 - The four affected composites (`artifacts`, `snapshots`, `upmerge`, `run-many`) are **not modified**; they simply stop
   failing once the lockfile they `npm ci` is internally consistent.
-- `.github/actions/use-npmrc/action.yml` is **not modified** — that is PFM-ISSUE-34454's territory.
+- ~~`.github/actions/use-npmrc/action.yml` is **not modified** — that is PFM-ISSUE-34454's territory.~~
+  **Superseded by [Dimension 9](#dimension-9--interim-mitigation-added-2026-08-11-after-implementation).** It *is*
+  modified: it appends `replace-registry-host=never` and runs the advisory `warn-foreign-registry.sh`. The reasoning
+  that put it out of scope assumed consumer pipelines were green; two are not. **Removal** remains
+  PFM-ISSUE-34454's territory, and that issue now carries the removal criteria.
 
 ## Technology Choices
 
