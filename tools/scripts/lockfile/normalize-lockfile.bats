@@ -157,3 +157,23 @@ setup() {
   [[ "${output}" == *'lockfileVersion 1'* ]]
   [[ "${output}" != *'jq: error'* ]]
 }
+
+@test "the self-assertion FAILS CLOSED and leaves the lockfile untouched when it cannot run" {
+  # `if ! diff -q <(fingerprint_of A) <(fingerprint_of B)` disabled `set -e` for
+  # the condition, so a failing fingerprint_of produced two empty streams, diff
+  # called them identical, and the file was overwritten unverified with exit 0.
+  write_mixed_lockfile "${TMP}"
+  local before
+  before="$(cat "${TMP}")"
+  local hidden="${BATS_TEST_TMPDIR}/fingerprint.jq.hidden"
+  mv "${BATS_TEST_DIRNAME}/fingerprint.jq" "${hidden}"
+
+  run "${NORMALIZE}" "${TMP}"
+  local rc="${status}" out="${output}"
+
+  mv "${hidden}" "${BATS_TEST_DIRNAME}/fingerprint.jq"
+
+  [ "${rc}" -ne 0 ]
+  [[ "${out}" == *'left untouched'* ]]
+  [ "$(cat "${TMP}")" = "${before}" ]
+}

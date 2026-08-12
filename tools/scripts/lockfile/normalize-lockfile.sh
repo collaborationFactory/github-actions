@@ -45,12 +45,30 @@ main() {
         .
       end
     )
-  ' "${lockfile}" >"${tmp}"
+  ' "${lockfile}" >"${tmp}" || die "internal error: the rewrite failed; ${lockfile} left untouched"
 
   # Self-assertion. Secondary by design: it cannot see drift that arrived BEFORE
   # this run (a bad merge), which is why check-lockfile.sh compares against a git
   # baseline instead. It does make this script safe to run standalone.
-  if ! diff -q <(fingerprint_of "${lockfile}") <(fingerprint_of "${tmp}") >/dev/null; then
+  #
+  # Both fingerprints are materialised and CHECKED first, rather than compared
+  # through process substitution inside `if !`. That construct disables `set -e`
+  # for the condition, so if fingerprint_of failed, both substitutions produced
+  # empty output, `diff` called them identical, the assertion "passed" - and the
+  # lockfile was overwritten unverified, exit 0. It has to fail CLOSED: this is
+  # the step that decides whether to write the file at all.
+  local fp_before fp_after
+  fp_before="$(mktemp)" || die "internal error: mktemp failed"
+  fp_after="$(mktemp)" || die "internal error: mktemp failed"
+  # shellcheck disable=SC2064  # expand paths now, not when the trap fires
+  trap "rm -f '${tmp}' '${fp_before}' '${fp_after}'" EXIT
+
+  fingerprint_of "${lockfile}" >"${fp_before}" \
+    || die "internal error: cannot fingerprint ${lockfile} (is ${FINGERPRINT_JQ} present?); left untouched"
+  fingerprint_of "${tmp}" >"${fp_after}" \
+    || die "internal error: cannot fingerprint the rewritten lockfile (is ${FINGERPRINT_JQ} present?); ${lockfile} left untouched"
+
+  if ! diff -q "${fp_before}" "${fp_after}" >/dev/null; then
     die "internal error: normalization altered the dependency graph; ${lockfile} left untouched"
   fi
 
