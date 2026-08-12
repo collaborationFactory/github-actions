@@ -71,17 +71,14 @@ resolve_baseline() {
 
 # Assertion 1. Prints every drifted package path; returns 1 if any.
 assert_graph_invariant() {
-  local baseline="$1" candidate="$2"
-  local fp_base fp_cand drift
+  local baseline="$1" candidate="$2" fp_base="$3" fp_cand="$4"
+  local drift
 
   # Every step below is checked. main() calls this function inside a `||` list,
   # which disables `set -e` for its whole body, so an unchecked failure here does
   # not abort - it leaves `drift` empty and falls through to "PASS: dependency
   # graph identical to baseline". This is the strongest assertion in the toolkit
   # and the only one that ever looks at integrity hashes; it must fail CLOSED.
-  fp_base="$(mktemp)" || die "internal error: mktemp failed"
-  fp_cand="$(mktemp)" || die "internal error: mktemp failed"
-
   fingerprint_of "${baseline}" >"${fp_base}" \
     || die "internal error: cannot fingerprint the baseline (is ${FINGERPRINT_JQ} present?)"
   fingerprint_of "${candidate}" >"${fp_cand}" \
@@ -102,11 +99,6 @@ assert_graph_invariant() {
           | if . == "" then "<root package>" else . end ]
     | .[]
   ')" || die "internal error: graph comparison failed"
-
-  # Cleaned up explicitly rather than via `trap ... RETURN`: a RETURN trap set
-  # inside a function is global unless `functrace` is set, so it would also fire
-  # on unrelated function returns later in the run.
-  rm -f "${fp_base}" "${fp_cand}"
 
   if [[ -n "${drift}" ]]; then
     err "FAIL: the dependency graph differs from the baseline. Drifted entries:"
@@ -223,10 +215,15 @@ main() {
 
   command -v git >/dev/null 2>&1 || die "git is required but not installed"
 
-  local baseline_file
+  local baseline_file fp_base fp_cand
   baseline_file="$(mktemp)"
-  # shellcheck disable=SC2064  # expand path now, not when the trap fires
-  trap "rm -f '${baseline_file}'" EXIT
+  fp_base="$(mktemp)" || die "internal error: mktemp failed"
+  fp_cand="$(mktemp)" || die "internal error: mktemp failed"
+  # The fingerprint scratch files belong to assert_graph_invariant but are made
+  # and trapped here: every `|| die` in that function exits, so a cleanup at its
+  # end is bypassed on exactly the fail-closed paths it exists to take.
+  # shellcheck disable=SC2064  # expand paths now, not when the trap fires
+  trap "rm -f '${baseline_file}' '${fp_base}' '${fp_cand}'" EXIT
 
   resolve_baseline "${baseline}" "${baseline_file}" "${candidate}"
   info "candidate: ${candidate}"
@@ -241,7 +238,8 @@ main() {
 
   # Run BOTH assertions before failing, so one run reports every problem.
   local failed=0 graph_failed=0
-  assert_graph_invariant "${baseline_file}" "${candidate}" || { failed=1; graph_failed=1; }
+  assert_graph_invariant "${baseline_file}" "${candidate}" "${fp_base}" "${fp_cand}" \
+    || { failed=1; graph_failed=1; }
   assert_prefix_exactness "${candidate}" || failed=1
 
   if ((failed != 0)); then

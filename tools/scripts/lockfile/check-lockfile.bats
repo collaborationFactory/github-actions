@@ -343,6 +343,32 @@ setup() {
   [[ "${output}" != *'resolves entirely via'* ]]
 }
 
+@test "an uppercase URL scheme does not slip past the PR guard" {
+  # npm reads the scheme case-insensitively, so a case-sensitive predicate made
+  # such an entry invisible to --prefix-only - the sole automated guard on every
+  # pull request - and reported OK on a lockfile pointing at an arbitrary host.
+  mutate "${CAND}" '.packages["node_modules/beta"].resolved =
+    "HTTPS://attacker.example.com/evil/-/evil-1.0.0.tgz"'
+
+  run "${CHECK}" --prefix-only "${CAND}"
+
+  [ "${status}" -eq 1 ]
+  [[ "${output}" == *'node_modules/beta'* ]]
+  [[ "${output}" != *'resolves entirely via'* ]]
+}
+
+@test "the normalizer rewrites an uppercase-scheme entry onto the proxy" {
+  # The guard's remediation advice is "run the normalizer", so the normalizer
+  # has to recognize the same entries the guard rejects.
+  mutate "${CAND}" '.packages["node_modules/beta"].resolved =
+    "HTTPS://attacker.example.com/beta/-/beta-2.0.0.tgz"'
+
+  run "${NORMALIZE}" "${CAND}"
+
+  [ "${status}" -eq 0 ]
+  [ "$(jq -r '.packages["node_modules/beta"].resolved' "${CAND}")" = "${PROXY}beta/-/beta-2.0.0.tgz" ]
+}
+
 @test "the prefix failure message does not contradict itself" {
   # `distinct` counts prefixes present, not wrong ones, so a lockfile uniformly
   # on npmjs used to fail with "1 distinct registry prefixes found (expected

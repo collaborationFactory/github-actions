@@ -27,7 +27,7 @@ false negative could green-light removing it while lockfiles are still broken. N
 
 ### [1.2] 🚨 Fingerprint temp files leak on the fail-closed paths in `assert_graph_invariant`
 
-- [ ] Resolved
+- [x] Resolved — moved both `mktemp` calls into `main()` beside `baseline_file` and widened the existing EXIT trap to cover all three, so the `|| die` paths inside `assert_graph_invariant` no longer leak; the function now takes the two paths as arguments
 
 **File(s):**
 - [check-lockfile.sh:82](/tools/scripts/lockfile/check-lockfile.sh#L82)
@@ -40,7 +40,7 @@ equivalent `fp_before`/`fp_after`, so this is also an inconsistency with the pat
 
 ### [1.3] 🙏 An uppercase URL scheme bypasses the PR guard entirely
 
-- [ ] Resolved
+- [x] Resolved — made the scheme case-insensitive in both spellings (`test("^https?://"; "i")` in `JQ_REGISTRY_ENTRIES`, `^(?i:https?)://` in `RESOLVED_URL_RE`), keeping `\.tgz` case-sensitive; two bats cases now assert the guard rejects a `HTTPS://` entry and the normalizer rewrites it onto the proxy
 
 **File(s):**
 - [lib.sh:59](/tools/scripts/lockfile/lib.sh#L59)
@@ -56,7 +56,7 @@ would fetch that URL verbatim. The repository is public and the workflow runs on
 
 ### [1.4] 🙏 The guard's invocation changed from `--baseline base.sha` to `--prefix-only`, unrecorded in the plan
 
-- [ ] Resolved
+- [x] Resolved — `plan.md`'s Phase 4 block now shows the shipped `--prefix-only` workflow with a note naming `604f95e` and its four consequences; Key Discovery 6, `plan.md`'s fetch-depth reference and `design.md:258` are struck through and annotated as superseded; Phase 5's CI evidence is kept verbatim but labelled as predating the switch
 
 **File(s):**
 - [pr-checks.yml:40](/.github/workflows/pr-checks.yml#L40)

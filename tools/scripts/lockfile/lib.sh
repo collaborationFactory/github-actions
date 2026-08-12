@@ -38,7 +38,12 @@ readonly TARBALL_PATH_RE='(?<t>(?:@[^/]+/)?[^/]+/-/[^/]+\.tgz)$'
 # `capture`, because jq's capture raises an error rather than returning null
 # when it does not match - which would replace a readable "package X has no
 # usable tarball URL" with a jq stack trace.
-readonly RESOLVED_URL_RE='^https?://[^/]+/.*(?:@[^/]+/)?[^/]+/-/[^/]+\.tgz$'
+#
+# The scheme is matched case-insensitively because npm treats it that way: a
+# `HTTPS://` entry is a registry reference and must be normalized like any
+# other. The `\.tgz` suffix stays case-sensitive - an unexpected shape should
+# fail loudly rather than be silently rehosted.
+readonly RESOLVED_URL_RE='^(?i:https?)://[^/]+/.*(?:@[^/]+/)?[^/]+/-/[^/]+\.tgz$'
 
 # The single definition of "which entries this tooling has an opinion about",
 # and of "what a normalized entry looks like". Three hand-written copies of this
@@ -49,14 +54,17 @@ readonly RESOLVED_URL_RE='^https?://[^/]+/.*(?:@[^/]+/)?[^/]+/-/[^/]+\.tgz$'
 #
 # Requires --arg proxy and --arg tarball_re. Selects only entries whose `resolved`
 # is an http(s) URL: `link:`/`file:`/workspace values are not registry references
-# and must be passed over rather than rejected.
+# and must be passed over rather than rejected. The scheme test carries "i"
+# because npm reads it case-insensitively - without the flag a `HTTPS://` entry
+# was not a registry entry at all, so --prefix-only reported OK on a lockfile
+# pointing at an arbitrary host.
 # shellcheck disable=SC2016  # $proxy/$tarball_re are jq variables, bound via --arg
 readonly JQ_REGISTRY_ENTRIES='
   (.packages // {})
   | to_entries[]
   | select(.key != "")
   | select((.value.resolved | type) == "string")
-  | select(.value.resolved | test("^https?://"))
+  | select(.value.resolved | test("^https?://"; "i"))
 '
 
 # Given such an entry, true when the rewrite would change it.

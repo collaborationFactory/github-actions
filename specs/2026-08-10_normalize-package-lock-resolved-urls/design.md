@@ -255,8 +255,10 @@ subset, because the subset misses t3 and the full form is a shorter filter.
 
 **Implications:**
 
-- The guard job needs `fetch-depth` sufficient to reach the base commit; `fe-check-upmerge.yml:14` already establishes
-  the `fetch-depth: 0` idiom.
+- ~~The guard job needs `fetch-depth` sufficient to reach the base commit; `fe-check-upmerge.yml:14` already establishes
+  the `fetch-depth: 0` idiom.~~ **Superseded 2026-08-11 (`604f95e`):** the PR guard runs `--prefix-only` and compares
+  against no baseline, so the default shallow checkout suffices. The requirement stands for the by-hand `--baseline`
+  runs (Flows 1 and 2), which happen on a developer's full clone. See the Deployment section below.
 - Entries missing `resolved` outside the `""` root are a hard failure, so a future legitimate `link:`/`file:`/`git+ssh:`
   dependency requires a deliberate, visible loosening rather than a silent pass. Measured safe today:
   `no resolved = 0`, `other protocol = 0` on all seven branches.

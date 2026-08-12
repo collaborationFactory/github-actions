@@ -90,9 +90,13 @@ These were measured during planning and change what gets written:
    — the candidate is already normalized, and the fingerprint strips the registry so it compares equal to the
    un-normalized base. A tooling-only PR with an un-normalized lockfile would fail its own guard; the two-commit /
    one-PR structure is therefore mandatory, not cosmetic.
-6. **The guard baseline must be `github.event.pull_request.base.sha`, not `origin/${{ github.base_ref }}`.** `base.sha`
-   is a parent of the checked-out merge commit and is guaranteed present with `fetch-depth: 0`, with no dependence on
-   which remote refs `actions/checkout` happened to fetch.
+6. ~~**The guard baseline must be `github.event.pull_request.base.sha`, not `origin/${{ github.base_ref }}`.**
+   `base.sha` is a parent of the checked-out merge commit and is guaranteed present with `fetch-depth: 0`, with no
+   dependence on which remote refs `actions/checkout` happened to fetch.~~
+   **Superseded 2026-08-11 (`604f95e`): the guard takes no baseline at all.** It runs `--prefix-only`, so there is no
+   base commit to reach, no `fetch-depth: 0`, and this choice no longer arises — see the note under Phase 4's workflow
+   block. The finding itself still holds for any *future* baseline comparison run inside a `pull_request` workflow, and
+   is kept for that reason.
 7. **`shellcheck` is preinstalled on GitHub's `ubuntu-24.04` image but `bats` is not.** Both are installed via
    `apt-get` anyway, so the job does not silently depend on image contents.
 
@@ -833,21 +837,21 @@ permissions:
 jobs:
   lockfile:
     name: Lockfile registry invariant
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.SMALL_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          fetch-depth: 0
 
-      # jq is pre-installed on GitHub-hosted ubuntu runners, and this job runs no
-      # node and no `npm ci` - the guard has to be trustworthy precisely when the
+      # --prefix-only, NOT a baseline comparison. With no baseline there is
+      # nothing to fetch, so the default shallow checkout is enough. jq is
+      # pre-installed on GitHub-hosted ubuntu runners, and this job runs no node
+      # and no `npm ci` - the guard has to be trustworthy precisely when the
       # lockfile is broken.
       - name: Check package-lock.json resolved URLs
-        run: ./tools/scripts/lockfile/check-lockfile.sh --baseline "${{ github.event.pull_request.base.sha }}"
+        run: ./tools/scripts/lockfile/check-lockfile.sh --prefix-only
 
   scripts:
     name: Shell scripts
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.SMALL_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
@@ -864,6 +868,19 @@ jobs:
       - name: bats
         run: bats tools/scripts/lockfile/
 ```
+
+**Changed during execution (2026-08-11, commit `604f95e`):** the block above is the *shipped* workflow. As originally
+planned, the guard ran `check-lockfile.sh --baseline "${{ github.event.pull_request.base.sha }}"` on a
+`fetch-depth: 0` checkout. Review of PR #163 showed that gate fails **every legitimate dependency change** — graph
+invariance forbids any change to the graph, which is exactly what an ordinary `npm install` PR does — and then advises
+running the normalizer, which cannot fix a graph difference. Graph invariance verifies a *normalization commit*; the
+ticket's ongoing criterion is prefix exactness alone. Consequences, all recorded where they arise:
+
+- `--prefix-only` needs no baseline, so `fetch-depth: 0` is gone and the default shallow checkout is used.
+- Key Discovery 6 (`base.sha` vs `origin/${{ github.base_ref }}`) is thereby superseded — see the strikethrough there.
+- `--baseline` is not lost, only relocated: it is run by hand to verify each normalization commit (Phase 5, Phase 7)
+  and during conflict resolution, which is what README Flows 1 and 2 document.
+- A green PR is therefore **not** evidence that a lockfile diff changed only prefixes. `design.md:528` states this.
 
 #### 2. Prettier insurance
 
@@ -1036,6 +1053,12 @@ git commit -m 'PFM-ISSUE-34453 - github-actions: normalize package-lock.json res
 
       The `scripts` job ran **24/24** bats tests plus shellcheck (the suite is **52** after two review rounds). Key Discovery 5 is confirmed empirically: the
       workflow ran on the very PR that introduced it, and passed.
+
+      **That output predates `604f95e`.** The guard ran `--baseline` at the time of this run, which is why the log
+      quotes a baseline and a graph-invariance line. Since the switch to `--prefix-only` the same job prints only
+      `PASS: exactly 1 registry prefix, matching the expected proxy` / `OK: package-lock.json resolves entirely via the
+      cplace npm proxy`. The evidence is kept verbatim as the historical record of the run; do not treat it as the
+      expected output of the current workflow.
 
       Runner resolved to `ubicloud-standard-2`, so `vars.SMALL_RUNNER` **is** defined for this repo, and both `jq`
       (preinstalled) and `sudo apt-get` work there. Job times: `lockfile` **8s**, `scripts` 23s — the guard is the
@@ -1586,7 +1609,8 @@ From [design.md](./design.md), verifiable when all seven PRs are merged:
 - Upstream cause: [`specs/2026-06-05_node24-workflow-migration/design.md`](../2026-06-05_node24-workflow-migration/design.md)
 - SHA-pinning convention: [`specs/2026-06-05_node24-workflow-migration/sha-pins.md`](../2026-06-05_node24-workflow-migration/sha-pins.md)
 - Non-executing PR template (the `on: pull_request` shape to mirror): `.github/workflow-templates/fe/fe-pr.yml:2-5`
-- `fetch-depth: 0` precedent: `.github/workflows/fe-check-upmerge.yml:21`
+- ~~`fetch-depth: 0` precedent: `.github/workflows/fe-check-upmerge.yml:21`~~ — no longer used; the guard takes no
+  baseline (see Key Discovery 6)
 - Fail-loudly validator pattern: `tools/scripts/artifacts/utils.ts:309-328`
 - Publish target vs. install proxy — must not be confused: `tools/scripts/artifacts/configuration.ts:2`
 - The regression's mechanism: `.github/actions/use-npmrc/action.yml:10-14`
