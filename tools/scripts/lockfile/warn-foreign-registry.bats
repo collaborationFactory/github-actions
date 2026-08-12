@@ -101,3 +101,49 @@ setup() {
   [ "${status}" -eq 0 ]
   [[ "${output}" == *'::warning'* ]]
 }
+
+@test "reports an entry on the right host but with a stray path segment" {
+  # `startswith($proxy)` passed this and reported nothing, while
+  # check-lockfile.sh correctly rejected it. The advisory inventory decides when
+  # the replace-registry-host mitigation can be removed, so a false negative
+  # here could green-light removing it while lockfiles are still broken.
+  write_mixed_lockfile "${TMP}"
+  "${BATS_TEST_DIRNAME}/normalize-lockfile.sh" "${TMP}" >/dev/null
+  mutate "${TMP}" '.packages["node_modules/beta"].resolved =
+    "https://cplace.jfrog.io/artifactory/api/npm/cplace-npm/extra/beta/-/beta-2.0.0.tgz"'
+
+  run "${WARN}" "${TMP}"
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *'::warning'* ]]
+  [[ "${output}" == *'1 entries'* ]]
+}
+
+@test "agrees with check-lockfile.sh about what is an offender" {
+  write_mixed_lockfile "${TMP}"
+  "${BATS_TEST_DIRNAME}/normalize-lockfile.sh" "${TMP}" >/dev/null
+  mutate "${TMP}" '.packages["node_modules/beta"].resolved =
+    "https://cplace.jfrog.io/artifactory/api/npm/cplace-npm/extra/beta/-/beta-2.0.0.tgz"'
+
+  run "${BATS_TEST_DIRNAME}/check-lockfile.sh" --prefix-only "${TMP}"
+  local check_rc="${status}"
+  run "${WARN}" "${TMP}"
+
+  # check-lockfile fails (1) exactly when the advisory warns (non-empty output).
+  [ "${check_rc}" -eq 1 ]
+  [[ "${output}" == *'::warning'* ]]
+}
+
+@test "exits 0 silently when lib.sh cannot be sourced" {
+  write_mixed_lockfile "${TMP}"
+  local hidden="${BATS_TEST_TMPDIR}/lib.sh.hidden"
+  mv "${BATS_TEST_DIRNAME}/lib.sh" "${hidden}"
+
+  run "${WARN}" "${TMP}"
+  local rc="${status}" out="${output}"
+
+  mv "${hidden}" "${BATS_TEST_DIRNAME}/lib.sh"
+
+  [ "${rc}" -eq 0 ]
+  [ -z "${out}" ]
+}

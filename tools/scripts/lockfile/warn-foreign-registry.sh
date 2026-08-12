@@ -25,7 +25,23 @@
 
 set -uo pipefail
 
-readonly PROXY_PREFIX='https://cplace.jfrog.io/artifactory/api/npm/cplace-npm/'
+# Sourced, not re-implemented. This script previously carried its own copy of the
+# proxy URL and its own `startswith($proxy)` predicate - which is the exact bug
+# lib.sh documents as already found and fixed once: an entry on the right host
+# but with a stray path segment satisfies `startswith` and was silently reported
+# as compliant. That mattered here more than anywhere else, because these
+# warnings are the inventory that decides when the mitigation can be removed.
+#
+# Sourcing is guarded on both sides: an unreachable or unloadable lib.sh exits 0
+# silently rather than failing a consumer's build, which the advisory contract
+# below requires and which the script's own care cannot cover once it has to
+# reference an undefined constant under `set -u`.
+LIB="$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+readonly LIB
+[[ -r "${LIB}" ]] || exit 0
+# shellcheck source=tools/scripts/lockfile/lib.sh
+source "${LIB}" || exit 0
+
 readonly MAX_LISTED=10
 
 main() {
@@ -37,18 +53,19 @@ main() {
   command -v jq >/dev/null 2>&1 || return 0
 
   local offenders total
-  # Only http(s) `resolved` values are registry references. Local-path values
-  # (e.g. "tools/eslint-rules" for a workspace-local plugin) are not hosted
-  # anywhere and must not be reported - 4 of 41 FE repos have them.
-  offenders="$(jq -r --arg proxy "${PROXY_PREFIX}" '
-    (.packages // {})
-    | to_entries[]
-    | select(.key != "")
-    | select((.value.resolved | type) == "string")
-    | select(.value.resolved | test("^https?://"))
-    | select((.value.resolved | startswith($proxy)) | not)
-    | .key
-  ' "${lockfile}" 2>/dev/null)" || return 0
+  # The SAME predicate check-lockfile.sh asserts on, via lib.sh: strip the
+  # tarball path and require the remaining prefix to equal the proxy exactly.
+  # `startswith` was wrong here - it passes an entry on the right host with a
+  # stray path segment, e.g. `.../cplace-npm/extra/beta/-/beta-2.0.0.tgz`, which
+  # check-lockfile.sh correctly rejects. The two must agree, or this inventory
+  # under-reports the very lockfiles it exists to find.
+  #
+  # JQ_REGISTRY_ENTRIES considers only http(s) `resolved` values: local-path
+  # values (e.g. "tools/eslint-rules" for a workspace-local plugin) are not
+  # hosted anywhere and must not be reported - 4 of 41 FE repos have them.
+  offenders="$(jq -r --arg proxy "${JFROG_NPM_PROXY}" --arg tarball_re "${TARBALL_PATH_RE}" \
+    "[ ${JQ_REGISTRY_ENTRIES} | select((.value.resolved | sub(\$tarball_re; \"\")) != \$proxy) | .key ] | .[]" \
+    "${lockfile}" 2>/dev/null)" || return 0
 
   [[ -n "${offenders}" ]] || return 0
 
