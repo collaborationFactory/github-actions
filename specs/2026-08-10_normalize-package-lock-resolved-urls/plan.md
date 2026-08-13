@@ -1584,7 +1584,26 @@ do.
 which is what makes the graph comparison able to see it at all. Extend the header comment: it currently documents only
 `--arg tarball_re`, while the transform additionally requires that the caller has already run `assert_resolvable`.
 
-**File**: `tools/scripts/lockfile/lib.sh`
+**File**: `tools/scripts/lockfile/lib.sh` — the tarball-path widening is **already applied** (see below); the rest of
+this entry remains to be done.
+
+**Applied 2026-08-13, ahead of the phase, because the rollout depends on it.** The 2026-08-13 canary
+(cplace-paw-fe #186) reported **18** foreign entries where only 14 were foreign. The four extras sit on the correct
+proxy host but carry a tarball path the regex rejected — a repeated scope
+(`…/@cplace-next/cf-frontend-sdk/-/@cplace-next/cf-frontend-sdk-25.2.30.tgz`) or an interposed version segment
+(`…/@fortawesome/fontawesome-pro/-/5.15.4/fontawesome-pro-5.15.4.tgz`), both served by JFrog and both installed by
+npm without complaint. Two consequences: the advisory inventory that governs removal of `replace-registry-host=never`
+could never reach zero on that consumer, and `normalize-lockfile.sh` refused to touch the lockfile at all
+(`assert_resolvable`: "no usable tarball URL"). Both constants were widened from `[^/]+\.tgz` to `.+\.tgz`, in
+lockstep — everything `RESOLVED_URL_RE` accepts must stay capturable by `TARBALL_PATH_RE`, or validation passes an
+entry to a `capture` that yields `empty` and deletes its `resolved` key. Measured after the change: paw-fe reports
+14, its normalizer run rewrites 14 (+392 bytes) and then passes the guard with the four odd-shaped entries untouched;
+this repo's guard still passes and its normalizer is still idempotent (0 entries, 0 bytes); and the fingerprint is
+**byte-identical on all seven branches** (`44464a7b05bbaf6a`, `e011920349fb2ecc` ×2, `93e0b3cd361bc1cc` ×4), so
+Phase 5's recorded evidence stands. Five bats cases pin it: the two real shapes pass the guard, the same shape on a
+foreign host is still rejected, the `RESOLVED_URL_RE` ⊆ `TARBALL_PATH_RE` invariant is asserted directly, and the
+one genuine ambiguity — `.+` may cross a `/-/`, so a prefix containing one anchors on the first — is pinned with its
+fail-loud direction recorded.
 
 **Changes**: correct the `RESOLVED_URL_RE` rationale at lines 37-40. A non-matching `capture` yields `empty`, and
 `|= empty` deletes the key — pre-validation exists to stop a *silent deletion*, not a jq stack trace. The conclusion
@@ -1660,9 +1679,10 @@ by design, so the guard would stop blocking npm workspaces. *(discharges [1.12])
 **File**: `specs/2026-08-10_normalize-package-lock-resolved-urls/plan.md`
 
 **Changes**: strike through the `TARBALL_PATH_RE` line in the Phase 1 code block and the inline regex in Key
-Discovery 4, annotating both with the shipped `\.tgz` form, that it was tightened in response to review, that 0 of 542
-entries are affected and the fingerprint is unchanged, and that `\.tgz` is deliberately case-sensitive while the
-scheme is not. *(discharges [1.14])*
+Discovery 4, annotating both with the shipped form — `'(?<t>(?:@[^/]+/)?[^/]+/-/.+\.tgz)$'`, i.e. tightened to
+require `\.tgz` in response to review and then widened after the tail must be allowed to contain slashes (above) —
+that 0 of 542 entries are affected and the fingerprint is unchanged on all seven branches, and that `\.tgz` is
+deliberately case-sensitive while the scheme is not. *(discharges [1.14])*
 
 ### Success Criteria
 

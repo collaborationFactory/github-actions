@@ -22,17 +22,30 @@ readonly JFROG_NPM_PROXY='https://cplace.jfrog.io/artifactory/api/npm/cplace-npm
 # Extracts the registry-independent tarball path from a `resolved` URL:
 #   https://<host>/<any/prefix>/@scope/name/-/name-1.2.3.tgz -> @scope/name/-/name-1.2.3.tgz
 #   https://<host>/<any/prefix>/name/-/name-1.2.3.tgz        -> name/-/name-1.2.3.tgz
-# Anchored at the end and safe because every `resolved` in this lockfile
-# contains exactly one `/-/` (verified: 542/542).
+#
+# The segment after `/-/` may contain slashes, because JFrog serves two real
+# shapes this repository's own lockfiles happen not to contain:
+#   .../@cplace-next/cf-frontend-sdk/-/@cplace-next/cf-frontend-sdk-25.2.30.tgz
+#   .../@fortawesome/fontawesome-pro/-/5.15.4/fontawesome-pro-5.15.4.tgz
+# Requiring `[^/]+` there rejected both: the advisory reported four entries that
+# were already on the proxy, and the normalizer refused to touch the lockfile
+# carrying them - measured on cplace-paw-fe release/25.2, where npm installs all
+# four without complaint.
+#
+# Consequence, pinned by a test: `.+` may cross a `/-/`, so a prefix that itself
+# contained one would anchor the match on the FIRST rather than the last. The
+# retained path then keeps prefix debris, so such an entry fails graph
+# invariance loudly instead of comparing equal by accident. No registry in use
+# has `/-/` in its prefix.
 #
 # The `\.tgz` suffix is required rather than accepting any filename, so the
-# regex matches what the documentation and error messages promise. All 542
-# entries are `.tgz` today; anything else is an unexpected shape that should
-# fail loudly rather than be silently rehosted.
+# regex matches what the documentation and error messages promise. Anything else
+# is an unexpected shape that should fail loudly rather than be silently
+# rehosted.
 #
 # Defined once, here, and passed to jq via --arg, so that the normalizer and
 # fingerprint.jq can never drift apart.
-readonly TARBALL_PATH_RE='(?<t>(?:@[^/]+/)?[^/]+/-/[^/]+\.tgz)$'
+readonly TARBALL_PATH_RE='(?<t>(?:@[^/]+/)?[^/]+/-/.+\.tgz)$'
 
 # Shape every non-root entry's `resolved` must have. Checked BEFORE any
 # `capture`, because jq's capture raises an error rather than returning null
@@ -43,7 +56,12 @@ readonly TARBALL_PATH_RE='(?<t>(?:@[^/]+/)?[^/]+/-/[^/]+\.tgz)$'
 # `HTTPS://` entry is a registry reference and must be normalized like any
 # other. The `\.tgz` suffix stays case-sensitive - an unexpected shape should
 # fail loudly rather than be silently rehosted.
-readonly RESOLVED_URL_RE='^(?i:https?)://[^/]+/.*(?:@[^/]+/)?[^/]+/-/[^/]+\.tgz$'
+#
+# The tail must be widened in LOCKSTEP with TARBALL_PATH_RE. Everything this
+# accepts has to be capturable by that one, or an entry passes validation and is
+# then handed to `capture`, which yields empty on a non-match - and `|= empty`
+# DELETES the key rather than raising. A test asserts the two agree.
+readonly RESOLVED_URL_RE='^(?i:https?)://[^/]+/.*(?:@[^/]+/)?[^/]+/-/.+\.tgz$'
 
 # The single definition of "which entries this tooling has an opinion about",
 # and of "what a normalized entry looks like". Three hand-written copies of this

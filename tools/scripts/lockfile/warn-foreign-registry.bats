@@ -147,3 +147,20 @@ setup() {
   [ "${rc}" -eq 0 ]
   [ -z "${out}" ]
 }
+
+@test "does not report an odd-shaped entry that is already on the proxy" {
+  # The inventory these warnings produce is what decides when the
+  # replace-registry-host=never mitigation can be removed, so a false positive
+  # is not cosmetic: it keeps the count above zero forever. Measured on
+  # cplace-paw-fe release/25.2, which reported 18 entries where only 14 were
+  # actually foreign.
+  write_mixed_lockfile "${TMP}"
+  "${BATS_TEST_DIRNAME}/normalize-lockfile.sh" "${TMP}" >/dev/null
+  mutate "${TMP}" '.packages["node_modules/beta"].resolved =
+    "https://cplace.jfrog.io/artifactory/api/npm/cplace-npm/@cplace-next/beta/-/@cplace-next/beta-2.0.0.tgz"'
+
+  run "${WARN}" "${TMP}"
+
+  [ "${status}" -eq 0 ]
+  [ -z "${output}" ]
+}

@@ -384,3 +384,77 @@ setup() {
   [[ "${output}" == *'must carry exactly the cplace npm proxy prefix'* ]]
   [[ "${output}" != *'distinct registry prefixes found (expected exactly 1)'* ]]
 }
+
+@test "an entry whose tarball path repeats the scope passes the guard" {
+  # Measured on cplace-paw-fe release/25.2, where npm installs it without
+  # complaint: JFrog serves some privately published scoped packages with the
+  # scope repeated after `/-/`. Requiring `[^/]+` there reported an entry that
+  # was already on the proxy as foreign.
+  mutate "${CAND}" '.packages["node_modules/beta"].resolved =
+    "https://cplace.jfrog.io/artifactory/api/npm/cplace-npm/@cplace-next/beta/-/@cplace-next/beta-2.0.0.tgz"'
+
+  run "${CHECK}" --prefix-only "${CAND}"
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *'PASS: exactly 1 registry prefix'* ]]
+}
+
+@test "an entry with a version segment in its tarball path passes the guard" {
+  # The other real shape from the same lockfile: `/-/<version>/<file>.tgz`.
+  mutate "${CAND}" '.packages["node_modules/beta"].resolved =
+    "https://cplace.jfrog.io/artifactory/api/npm/cplace-npm/@fortawesome/beta/-/2.0.0/beta-2.0.0.tgz"'
+
+  run "${CHECK}" --prefix-only "${CAND}"
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *'PASS: exactly 1 registry prefix'* ]]
+}
+
+@test "the same entry on a foreign host is still rejected" {
+  # The widening must not turn into "anything ending in .tgz is fine".
+  mutate "${CAND}" '.packages["node_modules/beta"].resolved =
+    "https://registry.npmjs.org/@cplace-next/beta/-/@cplace-next/beta-2.0.0.tgz"'
+
+  run "${CHECK}" --prefix-only "${CAND}"
+
+  [ "${status}" -eq 1 ]
+  [[ "${output}" == *'node_modules/beta'* ]]
+}
+
+@test "a prefix containing its own /-/ keeps the debris in the compared path" {
+  # `.+` may cross a `/-/`, so the match anchors on the first one. No registry
+  # in use has `/-/` in its prefix; this pins which way the ambiguity resolves,
+  # and the direction is fail-loud: the retained path carries prefix debris, so
+  # the entry cannot silently compare equal to a proxy-hosted one.
+  source "${BATS_TEST_DIRNAME}/lib.sh"
+
+  run jq -rn --arg re "${TARBALL_PATH_RE}" \
+    --arg u 'https://host/a/-/b/beta/-/beta-2.0.0.tgz' '$u | capture($re) | .t'
+
+  [ "${status}" -eq 0 ]
+  [ "${output}" = 'a/-/b/beta/-/beta-2.0.0.tgz' ]
+}
+
+@test "every URL assert_resolvable accepts can be captured by the tarball regex" {
+  # The lockstep invariant between RESOLVED_URL_RE and TARBALL_PATH_RE. If a URL
+  # passes validation but the capture misses it, jq's capture yields empty and
+  # `|= empty` DELETES the resolved key instead of raising - a silent loss, not
+  # a loud failure. Widening one regex without the other reintroduces exactly
+  # that, so assert it directly rather than trusting the two to stay aligned.
+  source "${BATS_TEST_DIRNAME}/lib.sh"
+
+  local urls=(
+    "${PROXY}beta/-/beta-2.0.0.tgz"
+    "${PROXY}@scope/beta/-/beta-2.0.0.tgz"
+    "${PROXY}@cplace-next/beta/-/@cplace-next/beta-2.0.0.tgz"
+    "${PROXY}@fortawesome/beta/-/2.0.0/beta-2.0.0.tgz"
+    "HTTPS://attacker.example.com/beta/-/beta-2.0.0.tgz"
+  )
+
+  local url
+  for url in "${urls[@]}"; do
+    echo "validating: ${url}"
+    jq -en --arg u "${url}" --arg url_re "${RESOLVED_URL_RE}" '$u | test($url_re)' >/dev/null
+    jq -en --arg u "${url}" --arg re "${TARBALL_PATH_RE}" '$u | test($re)' >/dev/null
+  done
+}

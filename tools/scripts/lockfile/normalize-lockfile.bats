@@ -177,3 +177,33 @@ setup() {
   [[ "${out}" == *'left untouched'* ]]
   [ "$(cat "${TMP}")" = "${before}" ]
 }
+
+@test "rewrites a scope-repeating tarball path onto the proxy" {
+  # The npmjs form of the shape JFrog serves for privately published scoped
+  # packages. The captured path must keep the repeated scope verbatim.
+  write_mixed_lockfile "${TMP}"
+  mutate "${TMP}" '.packages["node_modules/beta"].resolved =
+    "https://registry.npmjs.org/@cplace-next/beta/-/@cplace-next/beta-2.0.0.tgz"'
+
+  run "${NORMALIZE}" "${TMP}"
+
+  [ "${status}" -eq 0 ]
+  [ "$(jq -r '.packages["node_modules/beta"].resolved' "${TMP}")" \
+    = "${PROXY}@cplace-next/beta/-/@cplace-next/beta-2.0.0.tgz" ]
+}
+
+@test "leaves an odd-shaped entry already on the proxy untouched" {
+  # This is what the pre-widening regex got wrong: the entry is already correct,
+  # so the normalizer must neither rewrite it nor - via a capture that matches
+  # nothing - drop its resolved key.
+  write_mixed_lockfile "${TMP}"
+  mutate "${TMP}" '.packages["node_modules/beta"].resolved =
+    "https://cplace.jfrog.io/artifactory/api/npm/cplace-npm/@fortawesome/beta/-/2.0.0/beta-2.0.0.tgz"'
+
+  run "${NORMALIZE}" "${TMP}"
+
+  [ "${status}" -eq 0 ]
+  [ "$(jq -r '.packages["node_modules/beta"].resolved' "${TMP}")" \
+    = "${PROXY}@fortawesome/beta/-/2.0.0/beta-2.0.0.tgz" ]
+  [[ "${output}" == *'entries rewritten: 1'* ]]
+}
