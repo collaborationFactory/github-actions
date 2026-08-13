@@ -1715,7 +1715,8 @@ deliberately case-sensitive while the scheme is not. *(discharges [1.14])*
       directly and pinned by a bats case
 - [x] Review findings [1.5], [1.9], [1.10], [1.11], [1.12], [1.13] and [1.14] marked resolved in `review.md` — all 15
       findings are now ticked, 0 open
-- [ ] `pr-checks.yml` green on PR #163
+- [x] `pr-checks.yml` green on PR #163 — run `31710289086` at `5b7a73b`: `Lockfile registry invariant` pass (8s),
+      `Shell scripts` pass (27s)
 
 #### Manual Verification
 
