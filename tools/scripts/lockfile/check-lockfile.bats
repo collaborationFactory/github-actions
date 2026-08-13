@@ -458,3 +458,99 @@ setup() {
     jq -en --arg u "${url}" --arg re "${TARBALL_PATH_RE}" '$u | test($re)' >/dev/null
   done
 }
+
+@test "resolves a baseline from a :2: merge stage" {
+  # The Flow 2 conflict runbook: `git checkout --ours`, re-normalize, verify
+  # against `:2:`. That is the arm of resolve_baseline that appends the
+  # candidate's path to a spec ending in a colon, and it runs when someone is
+  # mid-upmerge and least able to debug the guard.
+  cd "${BATS_TEST_TMPDIR}"
+  git init -q -b main .
+  git config user.email 'test@example.com'
+  git config user.name 'test'
+  write_mixed_lockfile package-lock.json
+  git add package-lock.json
+  git commit -qm 'base'
+
+  git checkout -q -b theirs
+  mutate package-lock.json '.packages["node_modules/@scope/alpha"].resolved =
+      "https://registry.npmjs.org/@scope/alpha/-/alpha-1.0.1.tgz"
+    | .packages["node_modules/@scope/alpha"].version = "1.0.1"'
+  git commit -qam 'theirs'
+
+  git checkout -q main
+  "${NORMALIZE}" package-lock.json >/dev/null
+  git commit -qam 'ours'
+
+  run git merge theirs
+  [ "${status}" -ne 0 ]
+
+  git checkout -q --ours -- package-lock.json
+  "${NORMALIZE}" package-lock.json >/dev/null
+
+  run "${CHECK}" --baseline :2:
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *'baseline: :2:package-lock.json'* ]]
+  [[ "${output}" == *'PASS: dependency graph identical to baseline'* ]]
+}
+
+@test "a lockfile with no lockfileVersion at all fails readably" {
+  # The `missing` arm of assert_supported_lockfile, distinct from its
+  # unsupported-version sibling: this message asks whether the file is a
+  # package-lock.json in the first place.
+  printf '{"name":"x","packages":{}}\n' >"${CAND}"
+
+  run "${CHECK}" --prefix-only "${CAND}"
+
+  [ "${status}" -eq 1 ]
+  [[ "${output}" == *'is it a package-lock.json?'* ]]
+}
+
+@test "a lockfileVersion 1 baseline fails readably instead of a jq trace" {
+  # The baseline used to reach fingerprint.jq unchecked, where `.packages` is
+  # absent in a v1 file: `null (null) has no keys`, then "cannot fingerprint the
+  # baseline (is fingerprint.jq present?)" - a jq trace and a wrong diagnosis.
+  printf '{"name":"x","lockfileVersion":1,"dependencies":{}}\n' >"${BATS_TEST_TMPDIR}/v1.json"
+
+  run "${CHECK}" --baseline "${BATS_TEST_TMPDIR}/v1.json" "${CAND}"
+
+  [ "${status}" -eq 1 ]
+  [[ "${output}" == *'baseline'* ]]
+  [[ "${output}" == *'lockfileVersion 1'* ]]
+  [[ "${output}" != *'has no keys'* ]]
+  [[ "${output}" != *'fingerprint.jq present'* ]]
+}
+
+@test "a lockfile with no registry entries does not claim proxy compliance" {
+  # Zero entries examined used to print "exactly 0 registry prefix, matching the
+  # expected proxy" and "resolves entirely via the cplace npm proxy" - a fact
+  # asserted from an empty set.
+  printf '%s\n' '{"name":"x","lockfileVersion":3,"packages":{"":{"name":"x"},"node_modules/a":{"resolved":"link:../a","link":true}}}' >"${CAND}"
+
+  run "${CHECK}" --prefix-only "${CAND}"
+
+  [ "${status}" -eq 1 ]
+  [[ "${output}" == *'no registry entries to check'* ]]
+  [[ "${output}" != *'resolves entirely via'* ]]
+}
+
+@test "the pass line reports how many entries were examined" {
+  run "${CHECK}" --prefix-only "${CAND}"
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *'(2 entries examined)'* ]]
+}
+
+@test "an http entry on the proxy host is named as a scheme downgrade" {
+  # It fails the exact-prefix comparison either way; without the extra line the
+  # message sends the reader looking for a path mistake that is not there.
+  mutate "${CAND}" '.packages["node_modules/beta"].resolved =
+    "http://cplace.jfrog.io/artifactory/api/npm/cplace-npm/beta/-/beta-2.0.0.tgz"'
+
+  run "${CHECK}" --prefix-only "${CAND}"
+
+  [ "${status}" -eq 1 ]
+  [[ "${output}" == *'ONLY in scheme'* ]]
+  [[ "${output}" == *'plain http'* ]]
+}

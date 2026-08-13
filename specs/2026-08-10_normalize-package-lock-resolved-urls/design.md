@@ -259,9 +259,14 @@ subset, because the subset misses t3 and the full form is a shorter filter.
   the `fetch-depth: 0` idiom.~~ **Superseded 2026-08-11 (`604f95e`):** the PR guard runs `--prefix-only` and compares
   against no baseline, so the default shallow checkout suffices. The requirement stands for the by-hand `--baseline`
   runs (Flows 1 and 2), which happen on a developer's full clone. See the Deployment section below.
-- Entries missing `resolved` outside the `""` root are a hard failure, so a future legitimate `link:`/`file:`/`git+ssh:`
-  dependency requires a deliberate, visible loosening rather than a silent pass. Measured safe today:
-  `no resolved = 0`, `other protocol = 0` on all seven branches.
+- ~~Entries missing `resolved` outside the `""` root are a hard failure, so a future legitimate `link:`/`file:`/`git+ssh:`
+  dependency requires a deliberate, visible loosening rather than a silent pass.~~ **Superseded 2026-08-11 (`604f95e`):**
+  the hard failure holds on the `--baseline` path and in the normalizer, where `assert_resolvable` is a precondition
+  for fingerprinting. The PR guard runs `--prefix-only`, which deliberately does not run it and passes over non-http
+  values — without that, the guard hard-failed on exactly the npm-workspace and `link:` entries the mode exists to
+  allow. Such an entry therefore reaches `main` without a visible loosening; the deliberate-review requirement now
+  rests on the normalizer and on review, not on CI. Measured safe today: `no resolved = 0`, `other protocol = 0` on
+  all seven branches.
 
 ---
 

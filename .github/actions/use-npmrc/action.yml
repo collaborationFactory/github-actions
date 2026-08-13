@@ -38,4 +38,4 @@ runs:
       # the consumer's job before `npm ci` in all seven workflows using this
       # action. `continue-on-error:` is not honoured on composite steps, so
       # `|| true` is the mechanism that actually works here.
-      run: bash "${{ github.action_path }}/../../../tools/scripts/lockfile/warn-foreign-registry.sh" || true
+      run: bash "$GITHUB_ACTION_PATH/../../../tools/scripts/lockfile/warn-foreign-registry.sh" || true

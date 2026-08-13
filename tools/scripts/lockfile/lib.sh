@@ -48,9 +48,11 @@ readonly JFROG_NPM_PROXY='https://cplace.jfrog.io/artifactory/api/npm/cplace-npm
 readonly TARBALL_PATH_RE='(?<t>(?:@[^/]+/)?[^/]+/-/.+\.tgz)$'
 
 # Shape every non-root entry's `resolved` must have. Checked BEFORE any
-# `capture`, because jq's capture raises an error rather than returning null
-# when it does not match - which would replace a readable "package X has no
-# usable tarball URL" with a jq stack trace.
+# `capture`, because a non-matching `capture` does not raise: it produces
+# `empty`, and `.value.resolved |= empty` DELETES the key. Unvalidated, an
+# unexpected shape would therefore lose its `resolved` silently - and
+# fingerprint.jq makes the identical deletion on both sides of a comparison, so
+# neither the self-assertion nor graph invariance can see it happen.
 #
 # The scheme is matched case-insensitively because npm treats it that way: a
 # `HTTPS://` entry is a registry reference and must be normalized like any
@@ -127,15 +129,19 @@ byte_size() {
 # Guarding `.packages` alone would make a v1 file pass vacuously - reporting
 # "resolves entirely via the proxy" having examined nothing at all, which is a
 # worse outcome than the raw jq trace it replaced. Fail loudly instead.
+#
+# The optional second argument names the file in the message. The baseline is
+# checked through a `mktemp` copy, and "/var/folders/.../tmp.4Xh2 has no
+# lockfileVersion" tells the reader nothing about which ref they passed.
 assert_supported_lockfile() {
-  local lockfile="$1" version
+  local lockfile="$1" label="${2:-$1}" version
   version="$(jq -r '.lockfileVersion // "missing"' "${lockfile}" 2>/dev/null)" \
-    || die "cannot read ${lockfile} as JSON"
+    || die "cannot read ${label} as JSON"
 
   case "${version}" in
     2 | 3) return 0 ;;
-    missing) die "${lockfile} has no lockfileVersion - is it a package-lock.json? See ${README_PATH}" ;;
-    *) die "${lockfile} is lockfileVersion ${version}; these scripts need 2 or 3 (they operate on '.packages'). See ${README_PATH}" ;;
+    missing) die "${label} has no lockfileVersion - is it a package-lock.json? See ${README_PATH}" ;;
+    *) die "${label} is lockfileVersion ${version}; these scripts need 2 or 3 (they operate on '.packages'). See ${README_PATH}" ;;
   esac
 }
 

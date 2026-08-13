@@ -37,9 +37,20 @@ main() {
   # shellcheck disable=SC2064  # expand ${tmp} now, not when the trap fires
   trap "rm -f '${tmp}'" EXIT
 
+  # The guards are the shared predicate's own terms (lib.sh's
+  # JQ_REGISTRY_ENTRIES), so that what this rewrites and what
+  # count_foreign_entries reports cannot disagree. Without the `.key != ""` arm
+  # the root entry was rewritten while the count - which excludes it - still
+  # said "entries rewritten: 0, already normalized" about a changed file; and a
+  # root `resolved` that is not a tarball URL lost its key entirely, because a
+  # non-matching capture yields empty and `|= empty` deletes.
   jq --arg proxy "${JFROG_NPM_PROXY}" --arg tarball_re "${TARBALL_PATH_RE}" '
     .packages |= with_entries(
-      if (.value | type) == "object" and (.value.resolved | type) == "string" then
+      if .key != ""
+        and (.value | type) == "object"
+        and (.value.resolved | type) == "string"
+        and (.value.resolved | test("^https?://"; "i"))
+      then
         .value.resolved |= ($proxy + (capture($tarball_re) | .t))
       else
         .

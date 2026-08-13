@@ -192,6 +192,44 @@ setup() {
     = "${PROXY}@cplace-next/beta/-/@cplace-next/beta-2.0.0.tgz" ]
 }
 
+@test "a lockfile with no lockfileVersion at all fails readably" {
+  printf '{"name":"x","packages":{}}\n' >"${TMP}"
+
+  run "${NORMALIZE}" "${TMP}"
+
+  [ "${status}" -eq 1 ]
+  [[ "${output}" == *'is it a package-lock.json?'* ]]
+}
+
+@test "the root entry is left alone, and the reported count says so" {
+  # The rewrite used to run on every entry with a string `resolved` while
+  # count_foreign_entries excluded the root key, so a run that rewrote the root
+  # still printed "entries rewritten: 0" and "already normalized" about a file
+  # it had changed - and README Flow 1 makes that count the verification signal.
+  write_mixed_lockfile "${TMP}"
+  mutate "${TMP}" '.packages[""].resolved = "https://registry.npmjs.org/x/-/x-1.0.0.tgz"'
+
+  run "${NORMALIZE}" "${TMP}"
+
+  [ "${status}" -eq 0 ]
+  [ "$(jq -r '.packages[""].resolved' "${TMP}")" = 'https://registry.npmjs.org/x/-/x-1.0.0.tgz' ]
+  [[ "${output}" == *'entries rewritten: 1'* ]]
+}
+
+@test "a root entry whose resolved is not a tarball URL keeps its key" {
+  # assert_resolvable deliberately skips the root entry, so this value reached
+  # `capture` unvalidated - which yields empty on a non-match, and `|= empty`
+  # deletes the key. The loss was silent: fingerprint.jq dropped it on both
+  # sides, so the self-assertion compared equal and the run reported success.
+  write_mixed_lockfile "${TMP}"
+  mutate "${TMP}" '.packages[""].resolved = "packages/root"'
+
+  run "${NORMALIZE}" "${TMP}"
+
+  [ "${status}" -eq 0 ]
+  [ "$(jq -r '.packages[""].resolved' "${TMP}")" = 'packages/root' ]
+}
+
 @test "leaves an odd-shaped entry already on the proxy untouched" {
   # This is what the pre-widening regex got wrong: the entry is already correct,
   # so the normalizer must neither rewrite it nor - via a capture that matches

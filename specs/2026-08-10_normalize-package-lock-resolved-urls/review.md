@@ -71,7 +71,7 @@ to six more branches.
 
 ### [1.5] 🙏 The `:2:`/`:3:` merge-stage baseline the runbook depends on has no test
 
-- [ ] Resolved
+- [x] Resolved — added a bats case that drives a real merge conflict on `package-lock.json`, resolves it the way Flow 2 documents (`--ours`, re-normalize) and asserts `--baseline :2:` resolves to `:2:package-lock.json` and passes graph invariance
 
 **File(s):**
 - [check-lockfile.bats](/tools/scripts/lockfile/check-lockfile.bats)
@@ -126,7 +126,7 @@ the four criteria that are reviewer judgement rather than machine-checkable are 
 
 ### [1.9] 💡 The new composite step spells `$GITHUB_ACTION_PATH` differently from all four siblings
 
-- [ ] Resolved
+- [x] Resolved — the step now uses the bash variable `$GITHUB_ACTION_PATH`, matching all four siblings; it is also the form quoted at runtime rather than interpolated into the command line, which is what the step's own comment worries about
 
 **File(s):**
 - [use-npmrc/action.yml:41](/.github/actions/use-npmrc/action.yml#L41)
@@ -137,7 +137,7 @@ instead, introducing a second spelling of the identical value in the same direct
 
 ### [1.10] 💡 The README's "The two scripts" section contradicts itself
 
-- [ ] Resolved
+- [x] Resolved — section retitled "The scripts", "Both default" corrected to "All three default", and the invocation claim split: the normalizer and the check have no npm script and no wrapper, while the advisory is named as wrapped and run by `use-npmrc`
 
 **File(s):**
 - [README.md:31](/tools/scripts/lockfile/README.md#L31)
@@ -150,7 +150,7 @@ incompatible things in the same paragraph.
 
 ### [1.11] 💡 The `missing lockfileVersion` arm is untested
 
-- [ ] Resolved
+- [x] Resolved — both suites now feed a lockfile omitting the key and assert exit 1 plus the arm's own "is it a package-lock.json?" message, which distinguishes it from the unsupported-version sibling
 
 **File(s):**
 - [lib.sh:111](/tools/scripts/lockfile/lib.sh#L111)
@@ -162,7 +162,7 @@ distinguishing it from its sibling.
 
 ### [1.12] ❓ `--prefix-only` skips `assert_resolvable`, so a `link:`/`git+ssh:` entry now passes CI silently
 
-- [ ] Resolved
+- [x] Resolved — the loosening was sanctioned in `604f95e`, which moved `assert_resolvable` behind the baseline path so the guard would stop hard-failing on the npm-workspace and `link:` entries `--prefix-only` exists to allow; `design.md`'s Dimension 2 implication is now struck through and annotated to say the hard failure holds on the baseline path and in the normalizer but not in CI, and the README's "no usable tarball URL" section carries the same caveat
 
 **File(s):**
 - [check-lockfile.sh:212](/tools/scripts/lockfile/check-lockfile.sh#L212)
@@ -177,7 +177,7 @@ implication be amended to match?
 
 ### [1.13] ℹ️ A third jq-embedding style now sits alongside the established one
 
-- [ ] Resolved
+- [x] Resolved — both programs in `assert_prefix_exactness` are now single-quoted fragments concatenated around `JQ_REGISTRY_ENTRIES`, so no jq `$var` sits inside a double-quoted bash string and the `\$tarball_re` / `\"\"` escaping is gone; the `--arg proxy` the `distinct` program never referenced was dropped at the same time
 
 **File(s):**
 - [check-lockfile.sh:131](/tools/scripts/lockfile/check-lockfile.sh#L131)
@@ -191,7 +191,7 @@ the more fragile style now lives next to the plainer one.
 
 ### [1.14] ℹ️ The tarball regex was tightened to require `.tgz`, diverging from Key Discovery 4
 
-- [ ] Resolved
+- [x] Resolved — `plan.md`'s Phase 1 constant and Key Discovery 4 are struck through and annotated with the shipped form `'(?<t>(?:@[^/]+/)?[^/]+/-/.+\.tgz)$'` and both changes that produced it: `\.tgz` required in review, then the tail widened on 2026-08-13 after the canary showed JFrog serves tarball paths containing slashes. Key Discovery 4's premise is corrected rather than deleted — the 542-entry measurement was right, but it was not a sample of what the tooling meets on consumer lockfiles
 
 **File(s):**
 - [lib.sh:35](/tools/scripts/lockfile/lib.sh#L35)

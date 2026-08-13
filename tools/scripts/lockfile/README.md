@@ -28,7 +28,7 @@ nothing installed.
 
 **Prerequisite:** `jq`. macOS: `brew install jq`. It is pre-installed on GitHub-hosted ubuntu runners.
 
-## The two scripts
+## The scripts
 
 | script | what it does |
 | --- | --- |
@@ -37,8 +37,9 @@ nothing installed.
 | `check-lockfile.sh --prefix-only [<candidate>]` | Asserts only that every entry resolves via the proxy. **This is the PR guard.** |
 | `warn-foreign-registry.sh [<lockfile>]` | Advisory. Warns when a lockfile has entries outside the proxy. Never fails. Run by `use-npmrc`. |
 
-Both default to `./package-lock.json`. Call them by path — there is no npm script and no composite action wrapper, so
-that they keep working when `npm ci` does not.
+All three default to `./package-lock.json`. Call the normalizer and the check by path: they have no npm script and no
+composite action wrapper, so that they keep working when `npm ci` does not. The advisory is the exception — it is
+wrapped, run by `use-npmrc` on every consumer's runner, and can also be called by hand the same way.
 
 ---
 
@@ -165,6 +166,11 @@ ERROR: these entries in package-lock.json have no usable tarball URL:
 A non-root entry has no `resolved`, or resolves over `link:` / `file:` / `git+ssh:`. There are none today (measured: 0
 on all seven branches), and this is a **deliberate** hard failure rather than a silent skip. Introducing such a
 dependency legitimately means loosening `assert_resolvable` in `lib.sh` as a reviewed edit — not working around it.
+
+**This fires on the `--baseline` path and on the normalizer, not on the PR guard.** `assert_resolvable` is a
+precondition for *fingerprinting* — every entry needs a tarball path to compare on — so `--prefix-only` deliberately
+does not run it, and passes over non-http values instead. That is what lets an npm workspace through the guard; it
+also means CI is not the thing that would catch such an entry.
 
 ---
 

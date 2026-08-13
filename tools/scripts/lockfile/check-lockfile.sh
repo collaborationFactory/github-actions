@@ -114,18 +114,42 @@ assert_graph_invariant() {
 # Assertion 2. Prints every package path not on the one correct proxy.
 assert_prefix_exactness() {
   local candidate="$1"
-  local offenders distinct
+  local offenders distinct examined scheme_only
 
+  # Single-quoted jq programs with the shared predicate spliced between them.
+  # Written as one double-quoted string, every jq `$var` in the literal text had
+  # to be backslash-escaped, which is the fragile spelling in a file where every
+  # other jq call is a plain single-quoted program.
+  #
   # Considers only entries whose `resolved` is an http(s) URL. A `link:`/`file:`/
   # workspace entry is not a registry reference at all, so rejecting it here
   # would block the first pull request introducing an npm workspace - and would
   # contradict warn-foreign-registry.sh, which passes over the same class.
+  examined="$(jq -r '[ '"${JQ_REGISTRY_ENTRIES}"' ] | length' "${candidate}")" \
+    || die "cannot read ${candidate} as a lockfile (is it valid JSON?)"
+
+  # An empty set proves nothing, and saying "resolves entirely via the proxy"
+  # about it is the vacuous pass assert_supported_lockfile exists to prevent:
+  # every entry examined, zero examined, same message.
+  #
+  # Returns 2, not 1: the caller must not answer this with "run the normalizer",
+  # which would rewrite the same zero entries and change nothing.
+  if ((examined == 0)); then
+    err "FAIL: ${candidate} has no registry entries to check."
+    err "      Refusing to report proxy compliance from an empty set - nothing was examined."
+    err "A lockfile that is genuinely all workspace/link: entries needs a deliberate,"
+    err "reviewed loosening here rather than a silent pass."
+    return 2
+  fi
+
+  # shellcheck disable=SC2016  # $proxy/$tarball_re are jq variables, bound via --arg
   offenders="$(jq -r --arg proxy "${JFROG_NPM_PROXY}" --arg tarball_re "${TARBALL_PATH_RE}" \
-    "[ ${JQ_REGISTRY_ENTRIES} | select((.value.resolved | sub(\$tarball_re; \"\")) != \$proxy) | .key ] | .[]" \
+    '[ '"${JQ_REGISTRY_ENTRIES}"' | select((.value.resolved | sub($tarball_re; "")) != $proxy) | .key ] | .[]' \
     "${candidate}")" || die "cannot read ${candidate} as a lockfile (is it valid JSON?)"
 
-  distinct="$(jq -r --arg proxy "${JFROG_NPM_PROXY}" --arg tarball_re "${TARBALL_PATH_RE}" \
-    "[ ${JQ_REGISTRY_ENTRIES} | (.value.resolved | sub(\$tarball_re; \"\")) ] | unique | length" \
+  # shellcheck disable=SC2016  # $tarball_re is a jq variable, bound via --arg
+  distinct="$(jq -r --arg tarball_re "${TARBALL_PATH_RE}" \
+    '[ '"${JQ_REGISTRY_ENTRIES}"' | (.value.resolved | sub($tarball_re; "")) ] | unique | length' \
     "${candidate}")" || die "cannot read ${candidate} as a lockfile (is it valid JSON?)"
 
   if [[ -n "${offenders}" ]]; then
@@ -140,10 +164,24 @@ assert_prefix_exactness() {
     while IFS= read -r package_path; do
       err "  ${package_path}"
     done <<<"${offenders}"
+
+    # An entry on the right host over plain http fails the exact-prefix
+    # comparison like any other, but "does not resolve via the cplace npm proxy"
+    # sends the reader looking for a path problem that is not there.
+    # shellcheck disable=SC2016  # $proxy/$tarball_re are jq variables, bound via --arg
+    scheme_only="$(jq -r --arg proxy "${JFROG_NPM_PROXY}" --arg tarball_re "${TARBALL_PATH_RE}" \
+      '[ '"${JQ_REGISTRY_ENTRIES}"' | (.value.resolved | sub($tarball_re; ""))
+         | select(. != $proxy) | select(sub("^http://"; "https://") == $proxy) ] | length' \
+      "${candidate}")" || scheme_only=0
+    if ((scheme_only > 0)); then
+      err ""
+      err "${scheme_only} of these differ from the proxy ONLY in scheme: they use plain http."
+      err "The proxy prefix is https; an http URL is a downgrade, not a path mistake."
+    fi
     return 1
   fi
 
-  info "PASS: exactly ${distinct} registry prefix, matching the expected proxy"
+  info "PASS: exactly ${distinct} registry prefix, matching the expected proxy (${examined} entries examined)"
 }
 
 main() {
@@ -203,9 +241,16 @@ main() {
   # normalization commit, where the graph genuinely must not move.
   if ((prefix_only)); then
     info "candidate: ${candidate} (prefix-exactness only; dependency changes allowed)"
-    if ! assert_prefix_exactness "${candidate}"; then
+    local prefix_rc=0
+    assert_prefix_exactness "${candidate}" || prefix_rc=$?
+    if ((prefix_rc != 0)); then
       err ""
-      err "To fix: run ${NORMALIZE_CMD}"
+      # Status 2 is the "nothing to examine" refusal, which the normalizer cannot
+      # fix - it would rewrite the same zero entries. Only offer the command when
+      # rewriting is actually the remedy.
+      if ((prefix_rc == 1)); then
+        err "To fix: run ${NORMALIZE_CMD}"
+      fi
       err "See ${README_PATH}"
       exit 1
     fi
@@ -226,6 +271,12 @@ main() {
   trap "rm -f '${baseline_file}' '${fp_base}' '${fp_cand}'" EXIT
 
   resolve_baseline "${baseline}" "${baseline_file}" "${candidate}"
+  # The baseline is a lockfile too, and fingerprint.jq reduces `.packages` -
+  # absent in lockfileVersion 1. Unchecked, a baseline ref predating the v2/v3
+  # upgrade produced a raw `null (null) has no keys` jq trace followed by
+  # "cannot fingerprint the baseline (is fingerprint.jq present?)", which is the
+  # wrong diagnosis as well as the unreadable failure this toolkit replaces.
+  assert_supported_lockfile "${baseline_file}" "baseline ${baseline}"
   info "candidate: ${candidate}"
 
   # assert_resolvable is a precondition for FINGERPRINTING - every entry must

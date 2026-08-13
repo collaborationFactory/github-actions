@@ -81,9 +81,14 @@ These were measured during planning and change what gets written:
    entry produces an unreadable jq stack trace instead of `design.md`'s promised "names the package path". Verified: the
    pre-validation filter catches an injected `link: true` entry and returns zero offenders on the real lockfile.
 4. **The tarball-path regex is unambiguous here.** Every `resolved` contains exactly one `/-/`, so
-   `(?:@[^/]+/)?[^/]+/-/[^/]+$` extracts `@scope/name/-/file.tgz` or `name/-/file.tgz` correctly for all 542 entries,
-   scoped and unscoped alike. It is defined **once**, in `lib.sh`, and passed to jq via `--arg` so the normalizer and
-   the fingerprint cannot drift apart.
+   ~~`(?:@[^/]+/)?[^/]+/-/[^/]+$`~~ extracts `@scope/name/-/file.tgz` or `name/-/file.tgz` correctly for all 542
+   entries, scoped and unscoped alike. It is defined **once**, in `lib.sh`, and passed to jq via `--arg` so the
+   normalizer and the fingerprint cannot drift apart.
+   **Amended:** the shipped constant is `(?:@[^/]+/)?[^/]+/-/.+\.tgz$` — `\.tgz` required in review, the tail widened
+   on 2026-08-13 (`8cb5d67`). "Exactly one `/-/`, and nothing after it but a filename" holds for this repository's own
+   lockfiles but **not** for consumer ones: JFrog serves `…/-/@scope/name-1.2.3.tgz` and `…/-/<version>/name.tgz`,
+   measured on cplace-paw-fe `release/25.2`. The 542-entry measurement is still correct; it was simply not a sample of
+   what the tooling would meet downstream.
 5. **The introducing PR guards itself.** For `pull_request` (unlike `pull_request_target`), the workflow runs from the
    merge commit, which contains both the base branch's tree and the PR's changes. Because `design.md` puts the tooling
    commit and the lockfile commit in the *same* PR, the new `lockfile` job runs on the PR that introduces it and passes
@@ -250,7 +255,18 @@ readonly JFROG_NPM_PROXY='https://cplace.jfrog.io/artifactory/api/npm/cplace-npm
 #
 # Defined once, here, and passed to jq via --arg, so that the normalizer and
 # fingerprint.jq can never drift apart.
-readonly TARBALL_PATH_RE='(?<t>(?:@[^/]+/)?[^/]+/-/[^/]+)$'
+readonly TARBALL_PATH_RE='(?<t>(?:@[^/]+/)?[^/]+/-/[^/]+)$'   # superseded, see below
+```
+
+~~The regex above is what this phase specified.~~ **Superseded — the shipped constant is**
+`'(?<t>(?:@[^/]+/)?[^/]+/-/.+\.tgz)$'`. Two changes, in order: `\.tgz` was **required** in response to review of
+PR #163, so the regex matches what the documentation and the error messages promise (0 of 542 entries affected,
+fingerprint unchanged, `\.tgz` deliberately case-sensitive while the scheme is not); then the tail was **widened**
+from `[^/]+` to `.+` on 2026-08-13 (`8cb5d67`), because JFrog serves tarball paths containing slashes — a repeated
+scope and an interposed version segment — which the narrower form rejected on entries that were already on the proxy.
+See Phase 9. The fingerprint is byte-identical on all seven branches under both changes.
+
+```bash
 
 # Shape every non-root entry's `resolved` must have. Checked BEFORE any
 # `capture`, because jq's capture raises an error rather than returning null
@@ -1688,20 +1704,28 @@ deliberately case-sensitive while the scheme is not. *(discharges [1.14])*
 
 #### Automated Verification
 
-- [ ] `bats tools/scripts/lockfile/` passes, including every case added above
-- [ ] `shellcheck tools/scripts/lockfile/*.sh` is clean
-- [ ] On the real `package-lock.json`: `check-lockfile.sh --prefix-only` exits 0 and now reports the number of entries
-      examined; `normalize-lockfile.sh` reports `entries rewritten: 0` with byte delta 0
-- [ ] `check-lockfile.sh --baseline HEAD~1` still exits 0 across the Phase 5 normalization commit
-- [ ] A root entry carrying `"resolved": "packages/root"` survives a normalizer run with its key intact
-- [ ] Review findings [1.5], [1.9], [1.10], [1.11], [1.12], [1.13] and [1.14] marked resolved in `review.md` — meaning
-      each finding's `- [ ] Resolved` line is edited to `- [x] Resolved — <one sentence saying how>`. ([1.15] was
-      already ticked during triage as a no-change resolution.)
+- [x] `bats tools/scripts/lockfile/` passes, including every case added above — **74/74** (57 before triage, 65 after
+      the regex widening, 74 now)
+- [x] `shellcheck tools/scripts/lockfile/*.sh` is clean
+- [x] On the real `package-lock.json`: `check-lockfile.sh --prefix-only` exits 0 and now reports the number of entries
+      examined (`542 entries examined`); `normalize-lockfile.sh` reports `entries rewritten: 0` with byte delta 0
+- [x] `check-lockfile.sh --baseline` still exits 0 across the Phase 5 normalization commit (`f08ac98`): `PASS:
+      dependency graph identical to baseline`, `542 entries examined`
+- [x] A root entry carrying `"resolved": "packages/root"` survives a normalizer run with its key intact — verified
+      directly and pinned by a bats case
+- [x] Review findings [1.5], [1.9], [1.10], [1.11], [1.12], [1.13] and [1.14] marked resolved in `review.md` — all 15
+      findings are now ticked, 0 open
 - [ ] `pr-checks.yml` green on PR #163
 
 #### Manual Verification
 
-- [ ] The four audit fixes are re-read against the reproductions in the Overview table — each one no longer occurs
+- [x] The four audit fixes are re-read against the reproductions in the Overview table — each one no longer occurs:
+      the root entry keeps `resolved` and the count no longer says 0 about a changed file (N1); the `capture`
+      rationale states what jq actually does (N2); a zero-entry lockfile is refused rather than reported compliant,
+      with status 2 so the normalizer is not offered as the remedy (N3); a lockfileVersion 1 baseline fails with
+      `baseline v1.json is lockfileVersion 1`, no jq trace and no "is fingerprint.jq present?" (N4)
+- [x] The fingerprint is byte-identical on all seven branches **after** the `fingerprint.jq` guards — the change most
+      able to move the comparison basis, re-measured against the pre-phase transform
 - [ ] The tooling digest is recomputed **after** this phase, and it is that digest Phase 7 replicates
 
 ---
