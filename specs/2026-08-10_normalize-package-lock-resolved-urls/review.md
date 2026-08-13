@@ -204,7 +204,7 @@ behaviour-neutral on real data (0 of 542 entries fail it, fingerprint unchanged)
 
 ### [1.15] ℹ️ The mitigation widens the trust boundary for every consumer until 34454 lands
 
-- [ ] Resolved
+- [x] Resolved — no change: the widened boundary is accepted and documented in `design.md:484-486`, the README and the action's own comment, its removal is owned by PFM-ISSUE-34454, and the advisory warnings are the criteria that trigger it
 
 **File(s):**
 - [use-npmrc/action.yml:25](/.github/actions/use-npmrc/action.yml#L25)

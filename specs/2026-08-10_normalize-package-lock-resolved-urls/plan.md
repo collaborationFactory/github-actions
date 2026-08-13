@@ -1537,6 +1537,155 @@ rollout — the guard is unenforced until the first one lands.
 
 ---
 
+## Phase 9: Review iteration 1 — triage fixes and jq audit (added 2026-08-13)
+
+### Overview
+
+Discharges the seven iteration-1 review findings that require a change, plus four defects found by an
+argument-by-argument audit of every `jq` invocation in the toolkit, run during triage at the reviewer's request.
+
+**This phase must complete before Phase 7.** The tooling files are meant to be byte-identical across all seven
+branches, so a fix made after replication has to be made seven times instead of once.
+
+The audit's headline: `normalize-lockfile.sh` and `fingerprint.jq` do **not** use the shared `JQ_REGISTRY_ENTRIES`
+predicate — they transform every entry with a string `resolved`, including the root `""` key that the predicate
+excludes. Reproduced on jq 1.8.1:
+
+| input | observed |
+| --- | --- |
+| root entry resolving to `https://registry.npmjs.org/x/-/x-1.0.0.tgz` | file rewritten, +90 bytes, run printed `entries rewritten: 0` and `already normalized - nothing to do` |
+| root entry resolving to `packages/root` | `resolved` **silently deleted**, exit 0, `already normalized` |
+
+The cause is a false premise recorded in `lib.sh:37-40`: jq's `capture` does **not** raise on a non-match, it produces
+`empty` — and `.x |= empty` *deletes* the key (`{"a":1,"b":2}` → `{"b":2}`). `fingerprint.jq` performs the identical
+deletion on both sides of the comparison, so the fail-closed self-assertion and graph invariance are both blind to it.
+Non-root entries are protected, because `assert_resolvable` runs first and every string matching `RESOLVED_URL_RE`
+also matches `TARBALL_PATH_RE`; real lockfiles do not put `resolved` on the root entry, so this is latent rather than
+firing today.
+
+**Not a defect, recorded because it was raised and checked:** the `https?` scheme test is not a permission. The proxy
+constant is `https://`, and `assert_prefix_exactness` demands exact equality, so `http://cplace.jfrog.io/…` fails the
+guard (verified, exit 1), the advisory reports it, and the normalizer rewrites it to `https`. Narrowing the selector to
+`^https://` would make plaintext-http entries *invisible* to the predicate and therefore silently compliant — bug
+[1.3] again in a new scheme. The selector stays `https?`; only the failure message changes.
+
+### Changes Required
+
+**File**: `tools/scripts/lockfile/normalize-lockfile.sh`
+
+**Changes**: gate the rewrite on the shared predicate's own terms — skip the root `""` key and require
+`(.value.resolved | test("^https?://"; "i"))` — so `capture` is never handed a value `JQ_REGISTRY_ENTRIES` would have
+passed over, and so `count_foreign_entries` and the rewrite genuinely agree, as `lib.sh:161-165` already claims they
+do.
+
+**File**: `tools/scripts/lockfile/fingerprint.jq`
+
+**Changes**: apply the same two guards, so a root `resolved` is compared verbatim instead of being captured away —
+which is what makes the graph comparison able to see it at all. Extend the header comment: it currently documents only
+`--arg tarball_re`, while the transform additionally requires that the caller has already run `assert_resolvable`.
+
+**File**: `tools/scripts/lockfile/lib.sh`
+
+**Changes**: correct the `RESOLVED_URL_RE` rationale at lines 37-40. A non-matching `capture` yields `empty`, and
+`|= empty` deletes the key — pre-validation exists to stop a *silent deletion*, not a jq stack trace. The conclusion
+stands; only the stated mechanism was wrong, and the wrong one is what made the root-entry path read as safe. Give
+`assert_supported_lockfile` an optional display-name argument, so the baseline can be checked without the error
+message naming a `mktemp` path.
+
+**File**: `tools/scripts/lockfile/check-lockfile.sh`
+
+**Changes**:
+- Call `assert_supported_lockfile` on the resolved baseline before fingerprinting it, passing the baseline spec as the
+  display name. Today a lockfileVersion 1 baseline — `--baseline <ref>` predating the v2/v3 upgrade is the realistic
+  way in — produces `jq: error … null (null) has no keys` followed by `internal error: cannot fingerprint the baseline
+  (is fingerprint.jq present?)`: a raw jq trace plus a wrong diagnosis, the exact failure class this toolkit exists to
+  eliminate.
+- Report the number of registry entries examined on the `PASS:` line, and refuse to report compliance from an empty
+  set. A lockfile whose entries are all `link:`, and one carrying only a root entry, both currently print
+  `PASS: exactly 0 registry prefix, matching the expected proxy` and `OK: … resolves entirely via the cplace npm
+  proxy` — asserting a fact from nothing, which is the vacuity `assert_supported_lockfile` was written to prevent.
+  Trade-off, stated deliberately: a genuinely dependency-free lockfile now fails rather than passing silently;
+  measured 542 entries on `release/25.2` and non-zero on all seven branches.
+- When an offender's stripped prefix differs from the proxy **only** in scheme, add a line naming the plaintext-`http`
+  downgrade as the reason. The entry already fails; the message says only "does not resolve via the cplace npm proxy",
+  which is true but sends the reader looking for a path problem.
+- Rebuild both jq programs in `assert_prefix_exactness` from single-quoted fragments concatenated around
+  `JQ_REGISTRY_ENTRIES` — `'[ '"${JQ_REGISTRY_ENTRIES}"' | select(…) ]'` — so no jq `$var` sits inside a
+  double-quoted bash string needing `\$tarball_re` / `\"\"` escaping. Drop the `--arg proxy` passed to the `distinct`
+  program, which never references it. *(discharges [1.13])*
+
+**File**: `tools/scripts/lockfile/check-lockfile.bats`
+
+**Changes**: add cases for
+- a `:2:` merge-stage baseline: build a real conflict on `package-lock.json`, then assert
+  `check-lockfile.sh --baseline :2:` resolves and prints `baseline: :2:package-lock.json`. This is the
+  `spec="${spec}${lockfile_path}"` arm of `resolve_baseline` and the path the Flow 2 runbook depends on *(discharges
+  [1.5])*
+- a lockfile omitting `lockfileVersion` entirely: exit 1 and `is it a package-lock.json?`, distinguishing the
+  `missing` arm from its unsupported-version sibling *(discharges [1.11])*
+- a lockfileVersion 1 baseline: fails with the readable message, no jq trace
+- a lockfile with zero registry entries: does not claim proxy compliance
+- an `http://` entry on the proxy host: fails, and the message names the scheme
+
+**File**: `tools/scripts/lockfile/normalize-lockfile.bats`
+
+**Changes**: add cases for
+- a lockfile omitting `lockfileVersion` *(discharges [1.11])*
+- a root entry carrying a foreign tarball URL: whatever the run reports must match what the file did — no
+  `entries rewritten: 0` on a file that changed
+- a root entry whose `resolved` is not a tarball URL: the key survives the run
+
+**File**: `.github/actions/use-npmrc/action.yml`
+
+**Changes**: line 41 uses the bash variable `$GITHUB_ACTION_PATH`, as `artifacts`, `snapshots`, `upmerge` and
+`run-many` all do, instead of the `${{ github.action_path }}` expression — one spelling of the value per directory,
+and the form that is quoted at runtime rather than interpolated into the command line, which is what the step's own
+comment worries about. *(discharges [1.9])*
+
+**File**: `tools/scripts/lockfile/README.md`
+
+**Changes**: retitle "The two scripts" to "The scripts" (the table lists three, in four rows); change "Both default to
+`./package-lock.json`" to "All three default"; split the invocation claim so "no npm script and no composite action
+wrapper" applies to the two lockfile scripts it is true of, while `warn-foreign-registry.sh` is named as invoked by
+`use-npmrc`. *(discharges [1.10])* In "no usable tarball URL", state that the hard failure fires on the `--baseline`
+path and not on the `--prefix-only` PR guard. *(discharges [1.12])*
+
+**File**: `specs/2026-08-10_normalize-package-lock-resolved-urls/design.md`
+
+**Changes**: strike through Dimension 2's `link:`/`file:`/`git+ssh:` implication and annotate it
+"**Superseded 2026-08-11 (`604f95e`)**" — matching the treatment its neighbouring `fetch-depth` implication already
+carries — recording that the hard failure holds on the `--baseline` path while `--prefix-only` admits non-http entries
+by design, so the guard would stop blocking npm workspaces. *(discharges [1.12])*
+
+**File**: `specs/2026-08-10_normalize-package-lock-resolved-urls/plan.md`
+
+**Changes**: strike through the `TARBALL_PATH_RE` line in the Phase 1 code block and the inline regex in Key
+Discovery 4, annotating both with the shipped `\.tgz` form, that it was tightened in response to review, that 0 of 542
+entries are affected and the fingerprint is unchanged, and that `\.tgz` is deliberately case-sensitive while the
+scheme is not. *(discharges [1.14])*
+
+### Success Criteria
+
+#### Automated Verification
+
+- [ ] `bats tools/scripts/lockfile/` passes, including every case added above
+- [ ] `shellcheck tools/scripts/lockfile/*.sh` is clean
+- [ ] On the real `package-lock.json`: `check-lockfile.sh --prefix-only` exits 0 and now reports the number of entries
+      examined; `normalize-lockfile.sh` reports `entries rewritten: 0` with byte delta 0
+- [ ] `check-lockfile.sh --baseline HEAD~1` still exits 0 across the Phase 5 normalization commit
+- [ ] A root entry carrying `"resolved": "packages/root"` survives a normalizer run with its key intact
+- [ ] Review findings [1.5], [1.9], [1.10], [1.11], [1.12], [1.13] and [1.14] marked resolved in `review.md` — meaning
+      each finding's `- [ ] Resolved` line is edited to `- [x] Resolved — <one sentence saying how>`. ([1.15] was
+      already ticked during triage as a no-change resolution.)
+- [ ] `pr-checks.yml` green on PR #163
+
+#### Manual Verification
+
+- [ ] The four audit fixes are re-read against the reproductions in the Overview table — each one no longer occurs
+- [ ] The tooling digest is recomputed **after** this phase, and it is that digest Phase 7 replicates
+
+---
+
 ## Testing Strategy
 
 ### Unit / behavioural tests (bats)
