@@ -1,0 +1,61 @@
+name: PR Checks
+
+# This repository's first `on: pull_request` workflow. Everything under
+# .github/workflows/ is otherwise `workflow_call`-only, and the `pull_request`
+# trigger lives in .github/workflow-templates/fe/fe-pr.yml, which GitHub never
+# executes.
+#
+# No `paths:` filter on purpose: a path-filtered workflow reports as pending
+# rather than success, and would permanently block merges once it becomes a
+# required check.
+on:
+  pull_request:
+    branches:
+      - '**'
+
+permissions:
+  contents: read
+
+jobs:
+  lockfile:
+    name: Lockfile registry invariant
+    runs-on: ${{ vars.SMALL_RUNNER || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      # --prefix-only, NOT a baseline comparison. The ongoing guard must answer
+      # only "does every entry resolve via the proxy?" - a pull request has to
+      # stay free to add, remove or update dependencies.
+      #
+      # Comparing against the base branch would fail every legitimate dependency
+      # change, and would then advise running the normalizer, which cannot fix a
+      # graph difference. Graph invariance belongs to verifying a normalization
+      # commit (`--baseline HEAD~1`), not to everyday pull requests.
+      #
+      # With no baseline there is nothing to fetch, so the default shallow
+      # checkout is enough. jq is pre-installed on GitHub-hosted ubuntu runners,
+      # and this job runs no node and no `npm ci` - the guard has to be
+      # trustworthy precisely when the lockfile is broken.
+      - name: Check package-lock.json resolved URLs
+        run: ./tools/scripts/lockfile/check-lockfile.sh --prefix-only
+
+  scripts:
+    name: Shell scripts
+    runs-on: ${{ vars.SMALL_RUNNER || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      # Never npm devDependencies: adding them would mutate package-lock.json on
+      # all seven branches and break the invariant this workflow exists to guard.
+      # shellcheck ships in the ubuntu image, but is installed here anyway so the
+      # job does not silently depend on image contents.
+      - name: Install bats and shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats shellcheck
+
+      - name: shellcheck
+        run: shellcheck tools/scripts/lockfile/*.sh tools/scripts/lockfile/test-helper.bash
+
+      - name: bats
+        run: bats tools/scripts/lockfile/
