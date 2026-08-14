@@ -55,21 +55,32 @@ This tells npm to fetch each `resolved` URL **verbatim** rather than rewriting i
 It makes an un-normalized lockfile install on any npm version, so it protects **consumer** repositories too, not just
 this one. JFrog URLs stay authenticated by the secret, so it introduces no dependency on anonymous JFrog access.
 
-**The rewrite it disables is only broken on newer npm.** Measured 2026-08-14 with a one-package fixture, on a runner
-and locally:
+**The rewrite it disables is broken on npm 11, not on npm 10.** Measured 2026-08-14 with a one-package fixture, on a
+runner and locally:
 
 | npm | un-normalized entry, no mitigation | tarball served by |
 | --- | --- | --- |
-| 10.2.4 (node 18.19.1 — what every pipeline pins today) | installs | the **proxy** — the rewrite keeps its path prefix |
-| 11.3.0 (developer machines; any runner on node 24) | **`E404`**, masked as `***` | — prefix dropped |
+| 10.2.4 | installs | the **proxy** — the rewrite keeps its path prefix |
+| 11.3.0 | **`E404`**, masked as `***` | — prefix dropped |
+
+**Which npm a pipeline gets is decided per branch, and most branches are on the broken one.** The reusable workflows
+pin the node version, and only `release/25.2` is still on the old one:
+
+| branch | node pinned | npm | un-normalized behaviour |
+| --- | --- | --- | --- |
+| `release/25.2` | 18.19.1 | 10 | worked without the flag |
+| `release/25.3`, `25.4`, `26.1`, `26.2`, `26.3`, `master` | 22.15.0 | 11 | **failed** without the flag |
+
+That is not hypothetical: `cplace-vwg-ptm-fe` reported exactly this against `release/26.2` — `E404` on
+`update-browserslist-db`, inside the composite's own `npm ci`, on node 22.15.0.
 
 **It is a mitigation, not the fix**, and it is not free on either version. Under it, an entry still pointing at
 `registry.npmjs.org` is fetched *directly from npmjs*, bypassing the proxy — no Xray, no curation. On npm 10 that is
 its only effect, because the rewrite it disables was working. On npm 11 it buys compatibility and spends proxy
 routing. Normalizing buys both: the entry resolves through the proxy on every version, flag or no flag.
 
-**This is why the Node 24 migration depends on the rollout, not the other way round.** Nothing fails in CI today;
-everything un-normalized fails the moment runners move to npm 11.
+**The Node 24 migration and this rollout are the same problem.** Six of the seven branches already run npm 11, which
+is why un-normalized lockfiles were failing there before this landed.
 
 Because of that, `use-npmrc` also runs `warn-foreign-registry.sh` against the consumer's own `package-lock.json` and
 emits a `::warning` annotation plus a job summary listing the offending package paths. **Those warnings are the
