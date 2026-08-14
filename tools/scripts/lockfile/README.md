@@ -51,13 +51,25 @@ wrapped, run by `use-npmrc` on every consumer's runner, and can also be called b
 replace-registry-host=never
 ```
 
-This tells npm to fetch each `resolved` URL **verbatim** rather than rewriting its host onto the configured registry —
-which is exactly the bug. It makes an un-normalized lockfile install successfully, so it protects **consumer**
-repositories too, not just this one. JFrog URLs stay authenticated by the secret, so it introduces no dependency on
-anonymous JFrog access.
+This tells npm to fetch each `resolved` URL **verbatim** rather than rewriting its host onto the configured registry.
+It makes an un-normalized lockfile install on any npm version, so it protects **consumer** repositories too, not just
+this one. JFrog URLs stay authenticated by the secret, so it introduces no dependency on anonymous JFrog access.
 
-**It is a mitigation, not the fix.** Under it, any entry still pointing at `registry.npmjs.org` is fetched *directly
-from npmjs*, bypassing the proxy — no Xray, no curation. That is precisely what this ticket exists to eliminate.
+**The rewrite it disables is only broken on newer npm.** Measured 2026-08-14 with a one-package fixture, on a runner
+and locally:
+
+| npm | un-normalized entry, no mitigation | tarball served by |
+| --- | --- | --- |
+| 10.2.4 (node 18.19.1 — what every pipeline pins today) | installs | the **proxy** — the rewrite keeps its path prefix |
+| 11.3.0 (developer machines; any runner on node 24) | **`E404`**, masked as `***` | — prefix dropped |
+
+**It is a mitigation, not the fix**, and it is not free on either version. Under it, an entry still pointing at
+`registry.npmjs.org` is fetched *directly from npmjs*, bypassing the proxy — no Xray, no curation. On npm 10 that is
+its only effect, because the rewrite it disables was working. On npm 11 it buys compatibility and spends proxy
+routing. Normalizing buys both: the entry resolves through the proxy on every version, flag or no flag.
+
+**This is why the Node 24 migration depends on the rollout, not the other way round.** Nothing fails in CI today;
+everything un-normalized fails the moment runners move to npm 11.
 
 Because of that, `use-npmrc` also runs `warn-foreign-registry.sh` against the consumer's own `package-lock.json` and
 emits a `::warning` annotation plus a job summary listing the offending package paths. **Those warnings are the

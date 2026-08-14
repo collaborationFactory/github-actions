@@ -16,21 +16,32 @@ An HTML edition of this document, with hand-drawn diagrams, sits beside it as
 ## 1. The fix
 
 A lockfile entry that resolves via `registry.npmjs.org` is not fetched from where it says. npm's default
-`replace-registry-host=npmjs` rewrites the host onto whatever registry `~/.npmrc` configures — and pacote builds the
-new URL by joining the *old pathname* onto the new base, so the registry's own path prefix is discarded. The request
-404s, and because that prefix is the `JFROG_URL` secret, CI prints the whole thing as `***`. That is why **every
-message these scripts print names a package path and never a URL.**
+`replace-registry-host=npmjs` rewrites the host onto whatever registry `~/.npmrc` configures — and on **npm 11** pacote
+builds the new URL by joining the *old pathname* onto the new base, so the registry's own path prefix is discarded. The
+request 404s, and because that prefix is the `JFROG_URL` secret, CI prints the whole thing as `***`. That is why
+**every message these scripts print names a package path and never a URL.**
+
+**The version qualifier is load-bearing.** Measured 2026-08-14 with a one-package fixture, on a runner and locally:
+
+| npm | un-normalized entry, no mitigation | tarball served by |
+| --- | --- | --- |
+| 10.2.4 — node 18.19.1, what every pipeline pins today | installs | the **proxy**; the rewrite keeps the path prefix |
+| 11.3.0 — developer machines, and any runner on node 24 | **`E404`** | — prefix dropped |
+
+So the prefix drop is a **regression in newer npm**: nothing is failing in CI today, and everything un-normalized
+fails the moment runners move to node 24. That makes this work a **prerequisite for the Node 24 migration** rather
+than a cleanup after it.
 
 The fix has two parts, attacking the same rewrite from opposite ends:
 
 | | What it does | Where |
 | --- | --- | --- |
-| **The fix** — permanent | Rewrite every `resolved` prefix onto the proxy, so the lockfile already agrees with the registry and there is nothing to rewrite | `normalize-lockfile.sh`, guarded by `check-lockfile.sh` |
-| **The mitigation** — interim | `replace-registry-host=never` switches the rewrite off entirely, rescuing lockfiles nobody has normalized yet — including every consumer's | [`use-npmrc/action.yml:25`](../../.github/actions/use-npmrc/action.yml) |
+| **The fix** — permanent | Rewrite every `resolved` prefix onto the proxy, so the lockfile already agrees with the registry and there is nothing to rewrite. Works on every npm version, always through the proxy | `normalize-lockfile.sh`, guarded by `check-lockfile.sh` |
+| **The mitigation** — interim | `replace-registry-host=never` switches the rewrite off entirely, so un-normalized lockfiles install on npm 11 too — at the cost of fetching those entries **outside the proxy**, on every version | [`use-npmrc/action.yml:25`](../../.github/actions/use-npmrc/action.yml) |
 
 ```mermaid
 flowchart TB
-  subgraph L1["1 · unfixed, default npm"]
+  subgraph L1["1 · unfixed, npm 11 (default rewrite)"]
     A1["entry on npmjs<br/>registry.npmjs.org/foo/-/foo-1.0.0.tgz"]
     A2["host rewritten<br/>new URL(oldPathname, registry)"]
     A3["GET cplace.jfrog.io/foo/-/foo-1.0.0.tgz<br/>no /artifactory/api/npm/cplace-npm"]
@@ -66,12 +77,14 @@ flowchart TB
   class C2,C3,C4 ok;
 ```
 
-Lane 2 removes the rewrite; lane 3 removes the *need* for it. Because the flag is a no-op on a normalized lockfile,
-the two compose in either order and the flag can be dropped **per branch** rather than in a coordinated switchover —
-once the advisory stops reporting anywhere.
+Lane 1 is npm 11; on npm 10.2.4 the same rewrite lands on the proxy correctly and installs. Lane 2 removes the
+rewrite; lane 3 removes the *need* for it. Because the flag is a no-op on a normalized lockfile, the two compose in
+either order and the flag can be dropped **per branch** rather than in a coordinated switchover — once the advisory
+stops reporting anywhere.
 
 The mitigation is not free, and lane 2 is why: an entry still on npmjs is fetched *from* npmjs, bypassing whatever
-curation the proxy enforces. A deliberate, documented trade, owned by PFM-ISSUE-34454.
+curation the proxy enforces — on **every** npm version. On npm 11 that buys compatibility; on npm 10, where the
+rewrite was already working, it buys nothing at all. A deliberate, documented trade, owned by PFM-ISSUE-34454.
 
 ---
 

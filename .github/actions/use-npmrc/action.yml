@@ -15,9 +15,15 @@ runs:
         echo "$DOT_NPMRC" > ~/.npmrc
         # PFM-ISSUE-34453 mitigation. npm's default `replace-registry-host=npmjs`
         # rewrites a lockfile's registry.npmjs.org URLs onto the configured
-        # registry and DROPS that registry's path prefix, producing an E404 that
-        # is masked as *** because the prefix is the JFROG_URL secret.
-        # `never` makes npm fetch each `resolved` URL verbatim instead.
+        # registry. npm 10.2.4 does that correctly and the entry resolves through
+        # the proxy; npm 11.3.0 DROPS that registry's path prefix, producing an
+        # E404 masked as *** because the prefix is the JFROG_URL secret. Measured
+        # 2026-08-14 on a runner and locally with the same one-package fixture.
+        #
+        # `never` makes npm fetch each `resolved` URL verbatim, which survives
+        # both versions - at a cost: an entry still on npmjs is then fetched FROM
+        # npmjs, outside the proxy. This line buys npm-11 compatibility and
+        # spends proxy routing; normalizing the lockfile buys both.
         #
         # This is a no-op on a lockfile that already resolves entirely through
         # the proxy, so it is safe to leave in place, and it is removable once
