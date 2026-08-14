@@ -199,5 +199,8 @@ conflict-free add/add. Change them on one branch and the change has to reach the
 ## Related
 
 - `specs/2026-08-10_normalize-package-lock-resolved-urls/` — research, design and implementation plan
+- `specs/2026-08-10_normalize-package-lock-resolved-urls/overview.md` — **start here for the whole picture**: the
+  rewrite that breaks `npm ci`, the two-part fix, the two assertions, the two modes and the seven-branch rollout, with
+  diagrams. `overview.html` beside it is the same document with hand-drawn figures
 - PFM-ISSUE-34453 — the ticket
 - PFM-ISSUE-34454 — `DOT_NPMRC` standardization and the JFrog anonymous-access shutdown

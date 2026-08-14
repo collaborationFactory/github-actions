@@ -1,0 +1,1140 @@
+<title>Lockfile Registry Invariant</title>
+
+<style>
+  :root {
+    --paper:        #f3f6f6;
+    --paper-raised: #ffffff;
+    --paper-sunk:   #e7edee;
+    --ink:          #10171a;
+    --ink-soft:     #46585d;
+    --ink-faint:    #7b8c91;
+    --rule:         #cfdadc;
+    --accent:       #0d6b6e;
+    --accent-soft:  #d7e8e8;
+    --ok:           #1f7a5a;
+    --bad:          #b3261e;
+    --warn:         #9a6200;
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, "Cascadia Mono", Menlo, Consolas, monospace;
+    --serif: ui-serif, "New York", Georgia, "Iowan Old Style", serif;
+
+    --measure: 68ch;
+    --band: 1080px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:        #0f1416;
+      --paper-raised: #161d20;
+      --paper-sunk:   #0a0e10;
+      --ink:          #dde7e8;
+      --ink-soft:     #9aacb0;
+      --ink-faint:    #6d8085;
+      --rule:         #263135;
+      --accent:       #4cbcc0;
+      --accent-soft:  #12312f;
+      --ok:           #4cc294;
+      --bad:          #ef6b5f;
+      --warn:         #d9a039;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:        #0f1416;
+    --paper-raised: #161d20;
+    --paper-sunk:   #0a0e10;
+    --ink:          #dde7e8;
+    --ink-soft:     #9aacb0;
+    --ink-faint:    #6d8085;
+    --rule:         #263135;
+    --accent:       #4cbcc0;
+    --accent-soft:  #12312f;
+    --ok:           #4cc294;
+    --bad:          #ef6b5f;
+    --warn:         #d9a039;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: var(--band);
+    margin: 0 auto;
+    padding: 0 24px 96px;
+    display: flex;
+    flex-direction: column;
+    gap: 56px;
+  }
+
+  .col { max-width: var(--measure); }
+
+  /* ---------- masthead ---------- */
+
+  header.mast {
+    padding: 72px 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0;
+  }
+
+  h1 {
+    font-family: var(--mono);
+    font-size: clamp(30px, 4.4vw, 46px);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  .standfirst {
+    font-size: 20px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: var(--measure);
+    margin: 0;
+  }
+
+  .invariant {
+    border-left: 3px solid var(--accent);
+    background: var(--paper-raised);
+    padding: 18px 22px;
+    max-width: var(--measure);
+    font-size: 18px;
+  }
+  .invariant strong { font-weight: 600; }
+
+  /* ---------- sections ---------- */
+
+  section { display: flex; flex-direction: column; gap: 20px; }
+
+  h2 {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--rule);
+    max-width: none;
+  }
+
+  h3 {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+
+  p { margin: 0; max-width: var(--measure); }
+  p + p { margin-top: 14px; }
+
+  a { color: var(--accent); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.88em;
+    background: var(--paper-sunk);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+  }
+
+  pre {
+    font-family: var(--mono);
+    font-size: 13.5px;
+    line-height: 1.55;
+    background: var(--paper-sunk);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 0;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+
+  .term-ok  { color: var(--ok); }
+  .term-bad { color: var(--bad); }
+  .term-dim { color: var(--ink-faint); }
+
+  /* ---------- figures ---------- */
+
+  figure {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .figbox {
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 20px;
+    overflow-x: auto;
+  }
+  figure svg { display: block; width: 100%; min-width: 620px; height: auto; }
+  figcaption {
+    font-size: 15px;
+    color: var(--ink-soft);
+    max-width: var(--measure);
+  }
+  .svg-node { fill: none; stroke: currentColor; stroke-width: 1.25; }
+  .svg-node-emph { fill: none; stroke: currentColor; stroke-width: 2.25; }
+  .num { font-variant-numeric: tabular-nums; }
+  .svg-node-soft { fill: none; stroke: currentColor; stroke-width: 1; opacity: 0.45; }
+  .svg-line { stroke: currentColor; stroke-width: 1.25; fill: none; }
+  .svg-line-dash { stroke: currentColor; stroke-width: 1.25; fill: none; stroke-dasharray: 5 4; opacity: 0.8; }
+  .svg-t { font-family: var(--mono); font-size: 12px; fill: currentColor; }
+  .svg-t-sm { font-family: var(--mono); font-size: 10.5px; fill: currentColor; opacity: 0.72; }
+  .svg-t-lbl { font-family: var(--mono); font-size: 10.5px; fill: currentColor; opacity: 0.85; letter-spacing: 0.04em; }
+  .hit-bad { stroke: var(--bad); color: var(--bad); }
+  .hit-ok  { stroke: var(--ok);  color: var(--ok); }
+  .fill-bad { fill: var(--bad); }
+  .fill-ok  { fill: var(--ok); }
+  .fill-accent { fill: var(--accent); }
+
+  /* ---------- comparison cards ---------- */
+
+  .pair {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+    gap: 18px;
+  }
+  .card {
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .card h3 { font-size: 16px; }
+  .card p { font-size: 15.5px; max-width: none; }
+  .card ul { margin: 0; padding-left: 1.1em; font-size: 15.5px; display: flex; flex-direction: column; gap: 6px; }
+  .tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  /* ---------- tables ---------- */
+
+  .tablewrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 4px; background: var(--paper-raised); }
+  table { border-collapse: collapse; width: 100%; font-size: 15px; }
+  th, td { text-align: left; padding: 11px 16px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  thead th {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.mono, th.mono { font-family: var(--mono); font-size: 13px; white-space: nowrap; }
+  td .num { font-variant-numeric: tabular-nums; }
+
+  /* ---------- flows ---------- */
+
+  .flow {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px 18px;
+    align-items: baseline;
+  }
+  .flow .n {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    padding-top: 2px;
+  }
+  .flow .body { display: flex; flex-direction: column; gap: 10px; }
+  .flow .body p { max-width: var(--measure); }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 20px;
+    font-size: 14px;
+    color: var(--ink-faint);
+    max-width: var(--measure);
+  }
+  footer code { background: none; padding: 0; }
+</style>
+
+<div class="wrap">
+
+  <header class="mast">
+    <p class="eyebrow">tools/scripts/lockfile</p>
+    <h1>Lockfile Registry Invariant</h1>
+    <p class="standfirst">
+      Three bash scripts, one jq program and a composite action that together keep every
+      <code>resolved</code> URL in <code>package-lock.json</code> pointing at the cplace JFrog npm proxy —
+      and prove that a normalization commit changed nothing else.
+    </p>
+    <p class="invariant">
+      <strong>The invariant:</strong> every non-root entry's <code>resolved</code> URL consists of exactly one
+      registry prefix — <code>https://cplace.jfrog.io/artifactory/api/npm/cplace-npm/</code> — followed by that
+      package's tarball path. Nothing else in the file may move when the prefixes are rewritten.
+    </p>
+  </header>
+
+  <section>
+    <h2>The fix</h2>
+    <div class="col">
+      <p>
+        A lockfile entry that resolves via <code>registry.npmjs.org</code> is not fetched from where it says. npm's
+        default <code>replace-registry-host=npmjs</code> rewrites the host onto whatever registry
+        <code>~/.npmrc</code> configures — and pacote builds the new URL by joining the <em>old pathname</em> onto the
+        new base, so the registry's own path prefix is discarded. The request 404s, and because that prefix is the
+        <code>JFROG_URL</code> secret, CI prints the whole thing as <code>***</code>. That is why
+        <strong>every message these scripts print names a package path and never a URL.</strong>
+      </p>
+      <p>
+        The fix has two parts, and they attack the same rewrite from opposite ends.
+      </p>
+    </div>
+
+    <div class="pair">
+      <div class="card">
+        <span class="tag">The fix — permanent</span>
+        <h3>Normalize the lockfile</h3>
+        <p>
+          Rewrite every <code>resolved</code> prefix onto the proxy, so the URL in the lockfile already agrees with the
+          registry. There is then nothing for npm to rewrite, whatever any <code>~/.npmrc</code> says. This is what
+          <code>normalize-lockfile.sh</code> does and what <code>check-lockfile.sh</code> guards.
+        </p>
+      </div>
+      <div class="card">
+        <span class="tag">The mitigation — interim</span>
+        <h3><code>replace-registry-host=never</code></h3>
+        <p>
+          One line appended to <code>~/.npmrc</code> by
+          <a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/.github/actions/use-npmrc/action.yml#L25"><code>use-npmrc:25</code></a>,
+          switching the rewrite off entirely. It fixes lockfiles nobody has normalized yet — including every
+          consumer's — which is why it ships to all ~41 downstream repositories rather than just this one.
+        </p>
+      </div>
+    </div>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 1000 510" role="img" aria-label="Three lanes: unfixed, npm rewrites the host and drops the path prefix, giving a 404; with replace-registry-host=never the rewrite is switched off and the entry is fetched from npmjs directly, bypassing the proxy; normalized, the entry already points at the proxy and is fetched through it.">
+          <defs>
+            <marker id="ar0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+
+          <text class="svg-t-lbl" x="20" y="24">1 — UNFIXED, DEFAULT NPM</text>
+          <text class="svg-t-lbl" x="355" y="24">2 — MITIGATION APPLIED</text>
+          <text class="svg-t-lbl" x="690" y="24">3 — LOCKFILE NORMALIZED</text>
+
+          <rect class="svg-node" x="20" y="44" width="290" height="72" rx="3"/>
+          <text class="svg-t" x="36" y="68">entry on npmjs</text>
+          <text class="svg-t-sm" x="36" y="88">registry.npmjs.org/</text>
+          <text class="svg-t-sm" x="36" y="103">foo/-/foo-1.0.0.tgz</text>
+
+          <line class="svg-line" x1="44" y1="116" x2="44" y2="174" marker-end="url(#ar0)"/>
+          <text class="svg-t-sm" x="60" y="140">replace-registry-host</text>
+          <text class="svg-t-sm" x="60" y="155">= npmjs (the default)</text>
+
+          <rect class="svg-node hit-bad" x="20" y="176" width="290" height="72" rx="3"/>
+          <text class="svg-t" x="36" y="200">host rewritten</text>
+          <text class="svg-t-sm" x="36" y="220">new URL(oldPathname, registry)</text>
+          <text class="svg-t-sm" x="36" y="235">— proxy path prefix dropped</text>
+
+          <line class="svg-line hit-bad" x1="44" y1="248" x2="44" y2="306" marker-end="url(#ar0)"/>
+
+          <rect class="svg-node hit-bad" x="20" y="308" width="290" height="72" rx="3"/>
+          <text class="svg-t" x="36" y="332">GET cplace.jfrog.io/</text>
+          <text class="svg-t-sm" x="36" y="352">foo/-/foo-1.0.0.tgz</text>
+          <text class="svg-t-sm" x="36" y="367">no /artifactory/api/npm/…</text>
+
+          <line class="svg-line hit-bad" x1="44" y1="380" x2="44" y2="424" marker-end="url(#ar0)"/>
+
+          <rect class="svg-node hit-bad" x="20" y="426" width="290" height="60" rx="3"/>
+          <text class="svg-t fill-bad" x="36" y="450">404</text>
+          <text class="svg-t-sm" x="82" y="450">masked as *** in CI,</text>
+          <text class="svg-t-sm" x="36" y="470">because the prefix is the secret</text>
+
+          <rect class="svg-node" x="355" y="44" width="290" height="72" rx="3"/>
+          <text class="svg-t" x="371" y="68">entry on npmjs</text>
+          <text class="svg-t-sm" x="371" y="88">unchanged — nobody has</text>
+          <text class="svg-t-sm" x="371" y="103">normalized this lockfile yet</text>
+
+          <line class="svg-line" x1="379" y1="116" x2="379" y2="174" marker-end="url(#ar0)"/>
+          <text class="svg-t-sm" x="395" y="140">use-npmrc:25 appends</text>
+          <text class="svg-t-sm" x="395" y="155">replace-registry-host=never</text>
+
+          <rect class="svg-node-emph" x="355" y="176" width="290" height="72" rx="3"/>
+          <text class="svg-t" x="371" y="200">no rewrite at all</text>
+          <text class="svg-t-sm" x="371" y="220">npm fetches each resolved URL</text>
+          <text class="svg-t-sm" x="371" y="235">exactly as written</text>
+
+          <line class="svg-line" x1="379" y1="248" x2="379" y2="306" marker-end="url(#ar0)"/>
+
+          <rect class="svg-node" x="355" y="308" width="290" height="72" rx="3"/>
+          <text class="svg-t" x="371" y="332">GET registry.npmjs.org/</text>
+          <text class="svg-t-sm" x="371" y="352">foo/-/foo-1.0.0.tgz</text>
+          <text class="svg-t-sm" x="371" y="367">straight from public npm</text>
+
+          <line class="svg-line" x1="379" y1="380" x2="379" y2="424" marker-end="url(#ar0)"/>
+
+          <rect class="svg-node" x="355" y="426" width="290" height="60" rx="3"/>
+          <text class="svg-t fill-ok" x="371" y="450">200</text>
+          <text class="svg-t-sm" x="417" y="450">— but it bypassed the proxy:</text>
+          <text class="svg-t-sm" x="371" y="470">no Xray, no curation</text>
+
+          <rect class="svg-node" x="690" y="44" width="290" height="72" rx="3"/>
+          <text class="svg-t" x="706" y="68">entry on the proxy</text>
+          <text class="svg-t-sm" x="706" y="88">cplace.jfrog.io/…/cplace-npm/</text>
+          <text class="svg-t-sm" x="706" y="103">foo/-/foo-1.0.0.tgz</text>
+
+          <line class="svg-line" x1="714" y1="116" x2="714" y2="174" marker-end="url(#ar0)"/>
+          <text class="svg-t-sm" x="730" y="140">host already matches —</text>
+          <text class="svg-t-sm" x="730" y="155">the flag is a no-op here</text>
+
+          <rect class="svg-node hit-ok" x="690" y="176" width="290" height="72" rx="3"/>
+          <text class="svg-t" x="706" y="200">nothing to rewrite</text>
+          <text class="svg-t-sm" x="706" y="220">true with the flag and</text>
+          <text class="svg-t-sm" x="706" y="235">without it — hence removable</text>
+
+          <line class="svg-line hit-ok" x1="714" y1="248" x2="714" y2="306" marker-end="url(#ar0)"/>
+
+          <rect class="svg-node hit-ok" x="690" y="308" width="290" height="72" rx="3"/>
+          <text class="svg-t" x="706" y="332">GET cplace.jfrog.io/</text>
+          <text class="svg-t-sm" x="706" y="352">artifactory/api/npm/cplace-npm/</text>
+          <text class="svg-t-sm" x="706" y="367">foo/-/foo-1.0.0.tgz</text>
+
+          <line class="svg-line hit-ok" x1="714" y1="380" x2="714" y2="424" marker-end="url(#ar0)"/>
+
+          <rect class="svg-node hit-ok" x="690" y="426" width="290" height="60" rx="3"/>
+          <text class="svg-t fill-ok" x="706" y="450">200</text>
+          <text class="svg-t-sm" x="752" y="450">— through the proxy,</text>
+          <text class="svg-t-sm" x="706" y="470">with its policy applied</text>
+        </svg>
+      </div>
+      <figcaption>
+        Lane 2 removes the rewrite; lane 3 removes the <em>need</em> for it. The pairing is what makes the rollout
+        lazy rather than a coordinated switchover: on a normalized lockfile the flag changes nothing, so the two
+        compose in either order and the flag can come out per branch — once the advisory stops reporting anywhere.
+      </figcaption>
+    </figure>
+
+    <div class="col">
+      <p>
+        The mitigation is not free, and lane 2 is why: an entry still on npmjs is fetched <em>from</em> npmjs,
+        bypassing whatever curation the proxy enforces. It is a deliberate, documented trade — and the advisory's
+        warnings are the inventory that decides when it can be withdrawn.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>What the pull request contains</h2>
+    <div class="col">
+      <p>
+        19 files, <span class="num">+5596</span>/<span class="num">−173</span> against <code>release/25.2</code>. Four
+        distinct things, deliberately separable — and the lockfile is committed <strong>on its own</strong>, so its
+        parent is the baseline the check verifies it against.
+      </p>
+    </div>
+
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Part</th><th>Files</th><th>What it is</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>The toolchain</td>
+            <td class="mono">tools/scripts/lockfile/ <span class="num">(10)</span></td>
+            <td>Normalizer, check, advisory, shared <code>lib.sh</code>, <code>fingerprint.jq</code>, three bats suites and their fixtures, plus the README runbook.</td>
+          </tr>
+          <tr>
+            <td>The guard</td>
+            <td class="mono">.github/workflows/pr-checks.yml</td>
+            <td>This repository's first <code>on: pull_request</code> workflow — everything else here is <code>workflow_call</code>-only. Two jobs: the invariant, and shellcheck + bats.</td>
+          </tr>
+          <tr>
+            <td>The mitigation</td>
+            <td class="mono">.github/actions/use-npmrc/action.yml</td>
+            <td><code>replace-registry-host=never</code>, plus the advisory step that inventories which consumer lockfiles still need normalizing.</td>
+          </tr>
+          <tr>
+            <td>The lockfile</td>
+            <td class="mono">package-lock.json</td>
+            <td><span class="num">342</span> changed lines, <span class="num">+4788</span> bytes, <span class="num">171</span> npmjs URLs → <span class="num">0</span>. Not one changed line outside a <code>"resolved"</code>.</td>
+          </tr>
+          <tr>
+            <td>The record</td>
+            <td class="mono">specs/2026-08-10_… <span class="num">(5)</span></td>
+            <td>Research, design, plan, the consumer survey across 41 repositories, and the review with all 15 findings resolved.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="col">
+      <p>
+        <code>.prettierignore</code> gains <code>package-lock.json</code>: prettier would otherwise reformat the file
+        the invariant is asserted over, and every branch would drift on the first save.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>The pieces</h2>
+    <div class="col">
+      <p>
+        Bash and jq, in a repository that is otherwise TypeScript — deliberately.
+        <code>npx ts-node</code> needs <code>node_modules</code>, which needs <code>npm ci</code>, which is exactly
+        what is broken when the lockfile carries npmjs URLs. A TypeScript normalizer could not repair the lockfile it
+        exists to repair. These need only <code>bash</code>, <code>jq</code> and <code>git</code>.
+      </p>
+    </div>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 900 400" role="img" aria-label="Three callers invoke three scripts; all three scripts source lib.sh for the shared constants, and check-lockfile.sh additionally runs fingerprint.jq.">
+          <defs>
+            <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+
+          <text class="svg-t-lbl" x="30" y="24">CALLERS</text>
+          <text class="svg-t-lbl" x="330" y="24">SCRIPTS</text>
+          <text class="svg-t-lbl" x="650" y="24">SHARED</text>
+
+          <rect class="svg-node-soft" x="30" y="40" width="210" height="58" rx="3"/>
+          <text class="svg-t" x="44" y="64">pr-checks.yml</text>
+          <text class="svg-t-sm" x="44" y="82">every pull request</text>
+
+          <rect class="svg-node-soft" x="30" y="170" width="210" height="58" rx="3"/>
+          <text class="svg-t" x="44" y="194">developer shell</text>
+          <text class="svg-t-sm" x="44" y="212">flows 1 and 2</text>
+
+          <rect class="svg-node-soft" x="30" y="300" width="210" height="58" rx="3"/>
+          <text class="svg-t" x="44" y="324">use-npmrc action</text>
+          <text class="svg-t-sm" x="44" y="342">writes ~/.npmrc + the flag</text>
+
+          <rect class="svg-node" x="330" y="40" width="230" height="58" rx="3"/>
+          <text class="svg-t" x="344" y="64">check-lockfile.sh</text>
+          <text class="svg-t-sm" x="344" y="82">asserts — exit 0 or 1</text>
+
+          <rect class="svg-node" x="330" y="170" width="230" height="58" rx="3"/>
+          <text class="svg-t" x="344" y="194">normalize-lockfile.sh</text>
+          <text class="svg-t-sm" x="344" y="212">rewrites — idempotent</text>
+
+          <rect class="svg-node" x="330" y="300" width="230" height="58" rx="3"/>
+          <text class="svg-t" x="344" y="324">warn-foreign-registry.sh</text>
+          <text class="svg-t-sm" x="344" y="342">advisory — always exit 0</text>
+
+          <rect class="svg-node" x="650" y="40" width="210" height="58" rx="3"/>
+          <text class="svg-t" x="664" y="64">fingerprint.jq</text>
+          <text class="svg-t-sm" x="664" y="82">registry-blind form</text>
+
+          <rect class="svg-node-emph" x="650" y="170" width="210" height="58" rx="3"/>
+          <text class="svg-t" x="664" y="194">lib.sh</text>
+          <text class="svg-t-sm" x="664" y="212">constants + helpers</text>
+
+          <line class="svg-line" x1="240" y1="69" x2="324" y2="69" marker-end="url(#ar2)"/>
+          <text class="svg-t-sm" x="282" y="61" text-anchor="middle">--prefix-only</text>
+
+          <line class="svg-line" x1="240" y1="193" x2="324" y2="180" marker-end="url(#ar2)"/>
+          <line class="svg-line" x1="240" y1="205" x2="324" y2="199" marker-end="url(#ar2)"/>
+          <text class="svg-t-sm" x="282" y="228" text-anchor="middle">--baseline</text>
+
+          <line class="svg-line" x1="240" y1="329" x2="324" y2="329" marker-end="url(#ar2)"/>
+          <text class="svg-t-sm" x="282" y="321" text-anchor="middle">|| true</text>
+
+          <line class="svg-line-dash" x1="560" y1="80" x2="644" y2="188" marker-end="url(#ar2)"/>
+          <line class="svg-line-dash" x1="560" y1="199" x2="644" y2="199" marker-end="url(#ar2)"/>
+          <line class="svg-line-dash" x1="560" y1="320" x2="644" y2="216" marker-end="url(#ar2)"/>
+          <text class="svg-t-sm" x="602" y="176" text-anchor="middle">sources</text>
+
+          <line class="svg-line" x1="560" y1="62" x2="644" y2="62" marker-end="url(#ar2)"/>
+          <text class="svg-t-sm" x="602" y="54" text-anchor="middle">jq -f</text>
+        </svg>
+      </div>
+      <figcaption>
+        <code>lib.sh</code> is sourced, never executed. It holds the proxy constant, both regexes and the one shared
+        jq predicate — defined once so the normalizer, the guard and the advisory cannot drift apart. They already had:
+        three hand-written copies of that predicate disagreed, and one of them passed an entry the guard rejected.
+      </figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>What a resolved URL is made of</h2>
+    <div class="col">
+      <p>
+        Both assertions read the same string and cut it in the same place. Everything downstream follows from that
+        one split.
+      </p>
+    </div>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 900 230" role="img" aria-label="A resolved URL split into a registry prefix and a tarball path; prefix exactness compares the prefix against the constant, graph invariance strips the prefix and compares everything else.">
+          <defs>
+            <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+
+          <text class="svg-t" x="30" y="60">https://cplace.jfrog.io/artifactory/api/npm/cplace-npm/</text>
+          <text class="svg-t" x="484" y="60">@scope/pkg/-/pkg-1.2.3.tgz</text>
+
+          <path class="svg-line" d="M 30 74 L 30 86 L 478 86 L 478 74"/>
+          <path class="svg-line" d="M 484 74 L 484 86 L 700 86 L 700 74"/>
+
+          <text class="svg-t-sm" x="254" y="104" text-anchor="middle">registry prefix</text>
+          <text class="svg-t-sm" x="592" y="104" text-anchor="middle">tarball path — captured by TARBALL_PATH_RE</text>
+
+          <line class="svg-line" x1="254" y1="112" x2="254" y2="146" marker-end="url(#ar3)"/>
+          <line class="svg-line" x1="592" y1="112" x2="592" y2="146" marker-end="url(#ar3)"/>
+
+          <rect class="svg-node" x="30" y="150" width="448" height="56" rx="3"/>
+          <text class="svg-t" x="44" y="172">Assertion 2 — prefix exactness</text>
+          <text class="svg-t-sm" x="44" y="192">strip the path, require what remains to equal the constant</text>
+
+          <rect class="svg-node" x="492" y="150" width="378" height="56" rx="3"/>
+          <text class="svg-t" x="506" y="172">Assertion 1 — graph invariance</text>
+          <text class="svg-t-sm" x="506" y="192">keep only this, compare the whole document</text>
+        </svg>
+      </div>
+      <figcaption>
+        The split is why neither assertion subsumes the other. Graph invariance is blind to <em>which host</em> an
+        entry sits on; prefix exactness is blind to everything except the host. A poisoned <code>integrity</code>
+        passes the second; an entry left on npmjs passes the first.
+      </figcaption>
+    </figure>
+
+    <div class="pair">
+      <div class="card">
+        <span class="tag">Assertion 1</span>
+        <h3>Graph invariance</h3>
+        <p>Reduce both documents to their registry-blind form and require them byte-identical.</p>
+        <ul>
+          <li>Catches a changed version, a poisoned <code>integrity</code>, a renamed tarball, a moved dependency edge, an added or dropped entry.</li>
+          <li>Runs only with <code>--baseline</code>.</li>
+          <li>Needs <code>assert_resolvable</code> first — every entry must have a tarball path to compare on.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="tag">Assertion 2</span>
+        <h3>Prefix exactness</h3>
+        <p>Every registry entry's prefix must equal the one constant — exactly, not <code>startswith</code>.</p>
+        <ul>
+          <li>Catches an entry on npmjs, a typo'd <code>cplace-nmp</code>, a stray path segment, an <code>http://</code> downgrade, an uppercase <code>HTTPS://</code>.</li>
+          <li>Runs in both modes. It is the whole of the PR guard.</li>
+          <li>Refuses to report compliance when it examined zero entries.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>The two modes</h2>
+    <div class="col">
+      <p>
+        Getting this distinction wrong blocks every dependency update — and it did, in review. Graph invariance
+        forbids <em>any</em> change to the dependency graph, which is exactly right when proving a normalization
+        commit touched nothing but prefixes, and exactly wrong on an everyday pull request where adding a dependency
+        is the point.
+      </p>
+    </div>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 860 640" role="img" aria-label="Control flow of check-lockfile.sh: after the lockfile version check it branches into prefix-only mode, which runs prefix exactness alone, or baseline mode, which resolves a baseline, checks resolvability and runs both assertions.">
+          <defs>
+            <marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+
+          <rect class="svg-node" x="330" y="20" width="200" height="46" rx="3"/>
+          <text class="svg-t" x="430" y="48" text-anchor="middle">main()</text>
+
+          <line class="svg-line" x1="430" y1="66" x2="430" y2="90" marker-end="url(#ar4)"/>
+
+          <rect class="svg-node" x="290" y="94" width="280" height="46" rx="3"/>
+          <text class="svg-t" x="430" y="114" text-anchor="middle">assert_supported_lockfile</text>
+          <text class="svg-t-sm" x="430" y="130" text-anchor="middle">lockfileVersion 2 or 3, else die</text>
+
+          <line class="svg-line" x1="430" y1="140" x2="430" y2="166" marker-end="url(#ar4)"/>
+
+          <path class="svg-node" d="M 430 170 L 560 208 L 430 246 L 300 208 Z"/>
+          <text class="svg-t" x="430" y="213" text-anchor="middle">--prefix-only ?</text>
+
+          <line class="svg-line" x1="300" y1="208" x2="190" y2="208" marker-end="url(#ar4)"/>
+          <text class="svg-t-sm" x="245" y="200" text-anchor="middle">yes</text>
+          <line class="svg-line" x1="560" y1="208" x2="670" y2="208" marker-end="url(#ar4)"/>
+          <text class="svg-t-sm" x="615" y="200" text-anchor="middle">no</text>
+
+          <text class="svg-t-lbl" x="30" y="270">THE PR GUARD</text>
+          <rect class="svg-node" x="30" y="284" width="290" height="60" rx="3"/>
+          <text class="svg-t" x="44" y="308">assert_prefix_exactness</text>
+          <text class="svg-t-sm" x="44" y="328">no git, no baseline, no network</text>
+
+          <line class="svg-line" x1="175" y1="344" x2="175" y2="370" marker-end="url(#ar4)"/>
+
+          <rect class="svg-node" x="30" y="374" width="290" height="60" rx="3"/>
+          <text class="svg-t" x="44" y="398">0 entries examined?</text>
+          <text class="svg-t-sm" x="44" y="418">refuse — rc 2, no normalizer advice</text>
+
+          <line class="svg-line" x1="175" y1="434" x2="175" y2="460" marker-end="url(#ar4)"/>
+
+          <rect class="svg-node hit-ok" x="30" y="464" width="290" height="60" rx="3"/>
+          <text class="svg-t" x="44" y="488">OK — resolves via the proxy</text>
+          <text class="svg-t-sm" x="44" y="508">n entries examined, exit 0</text>
+
+          <text class="svg-t-lbl" x="560" y="270">VERIFYING A NORMALIZATION</text>
+          <rect class="svg-node" x="560" y="284" width="270" height="60" rx="3"/>
+          <text class="svg-t" x="574" y="308">resolve_baseline</text>
+          <text class="svg-t-sm" x="574" y="328">ref, :2: merge stage, or file</text>
+
+          <line class="svg-line" x1="695" y1="344" x2="695" y2="370" marker-end="url(#ar4)"/>
+
+          <rect class="svg-node" x="560" y="374" width="270" height="60" rx="3"/>
+          <text class="svg-t" x="574" y="398">assert_resolvable × 2</text>
+          <text class="svg-t-sm" x="574" y="418">baseline and candidate</text>
+
+          <line class="svg-line" x1="695" y1="434" x2="695" y2="460" marker-end="url(#ar4)"/>
+
+          <rect class="svg-node" x="560" y="464" width="270" height="76" rx="3"/>
+          <text class="svg-t" x="574" y="488">both assertions run</text>
+          <text class="svg-t-sm" x="574" y="508">graph invariance, then prefix</text>
+          <text class="svg-t-sm" x="574" y="524">exactness — one run, all faults</text>
+
+          <line class="svg-line" x1="695" y1="540" x2="695" y2="566" marker-end="url(#ar4)"/>
+          <rect class="svg-node hit-ok" x="560" y="570" width="270" height="46" rx="3"/>
+          <text class="svg-t" x="574" y="598">normalized and graph-identical</text>
+
+          <line class="svg-line-dash" x1="175" y1="524" x2="175" y2="570" marker-end="url(#ar4)"/>
+          <rect class="svg-node hit-bad" x="30" y="570" width="290" height="46" rx="3"/>
+          <text class="svg-t" x="44" y="590">FAIL — names every package path</text>
+          <text class="svg-t-sm" x="44" y="606">exit 1, never a URL</text>
+        </svg>
+      </div>
+      <figcaption>
+        <code>assert_resolvable</code> sits on the baseline path only. It is a precondition for
+        <em>fingerprinting</em> — not for prefix exactness — and in front of <code>--prefix-only</code> it hard-failed
+        on exactly the npm-workspace and <code>link:</code> entries that mode exists to allow.
+      </figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Where it runs</h2>
+
+    <div class="flow">
+      <span class="n">CI</span>
+      <div class="body">
+        <h3>The pull-request guard</h3>
+        <p>
+          <a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/.github/workflows/pr-checks.yml#L39">
+          <code>pr-checks.yml</code></a> runs one line on every pull request, on any branch. No
+          <code>setup-node</code>, no <code>npm ci</code>, no baseline to fetch — the guard has to be trustworthy
+          precisely when the lockfile is broken.
+        </p>
+        <pre><code>- name: Check package-lock.json resolved URLs
+  run: ./tools/scripts/lockfile/check-lockfile.sh --prefix-only</code></pre>
+        <p>
+          A second job runs <code>shellcheck</code> and the 74 <code>bats</code> cases. Neither job may add npm
+          devDependencies — that would mutate <code>package-lock.json</code> on all seven branches and break the very
+          invariant this workflow guards.
+        </p>
+      </div>
+
+      <span class="n">FLOW 1</span>
+      <div class="body">
+        <h3>Normalizing a branch</h3>
+        <pre><code>./tools/scripts/lockfile/normalize-lockfile.sh
+git add package-lock.json
+git commit -m 'PFM-ISSUE-34453 - github-actions: normalize …'
+./tools/scripts/lockfile/check-lockfile.sh --baseline HEAD~1</code></pre>
+        <p>
+          Commit the lockfile <strong>on its own</strong>. Then the commit's parent <em>is</em> the baseline and
+          verification needs no ref to remember. Expect <span class="num">342</span> changed lines,
+          <span class="num">+4788</span> bytes, and not one changed line outside a <code>"resolved"</code>.
+        </p>
+      </div>
+
+      <span class="n">FLOW 2</span>
+      <div class="body">
+        <h3>Resolving an upmerge conflict</h3>
+        <pre><code>git checkout --ours -- package-lock.json
+./tools/scripts/lockfile/normalize-lockfile.sh
+./tools/scripts/lockfile/check-lockfile.sh --baseline :2:   <span class="term-dim"># :2: ours, :3: theirs</span></code></pre>
+        <p>
+          Proceed only on exit 0. Never <code>--theirs</code>, never a hand edit: the point is that correctness does
+          not depend on anyone reading a 262 KB diff.
+        </p>
+      </div>
+
+      <span class="n">CONSUMERS</span>
+      <div class="body">
+        <h3>The advisory, on every consumer's runner</h3>
+        <p>
+          <a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/.github/actions/use-npmrc/action.yml#L27">
+          <code>use-npmrc/action.yml:27</code></a> — the step you highlighted — runs
+          <code>warn-foreign-registry.sh</code> against the <em>consumer's</em> lockfile, through seven reusable
+          workflows across roughly 41 repositories.
+        </p>
+        <pre><code>run: bash "$GITHUB_ACTION_PATH/../../../tools/scripts/lockfile/warn-foreign-registry.sh" || true</code></pre>
+        <p>
+          Two details carry weight. The <code>|| true</code> is not belt-and-braces: the script's own "every
+          precondition is a silent success" contract cannot cover <em>not being reachable</em> — a missing exec bit, a
+          path with spaces — and <code>continue-on-error</code> is not honoured on composite steps. And the same
+          action <a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/.github/actions/use-npmrc/action.yml#L25">appends
+          <code>replace-registry-host=never</code></a> to <code>~/.npmrc</code>, which switches off the rewrite in the
+          first diagram. That line is a mitigation, not the fix — under it, an entry still on npmjs is fetched
+          straight from npmjs, bypassing the proxy's curation. <strong>The warnings are the inventory that decides
+          when it can be removed.</strong>
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Reading a failure</h2>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>What you see</th><th>What it means</th><th>What to do</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono term-bad">the dependency graph differs<br>from the baseline</td>
+            <td>Something other than a registry prefix changed — the bad-merge case.</td>
+            <td>Do <strong>not</strong> re-run the normalizer; it rewrites prefixes and would not touch this. Work out why that entry moved.</td>
+          </tr>
+          <tr>
+            <td class="mono term-bad">every 'resolved' must carry<br>exactly the … proxy prefix</td>
+            <td>An entry is on npmjs, or on a typo'd proxy path.</td>
+            <td>Run <code>normalize-lockfile.sh</code>.</td>
+          </tr>
+          <tr>
+            <td class="mono term-bad">… differ from the proxy ONLY<br>in scheme: they use plain http</td>
+            <td>Right host, wrong scheme. It fails the exact comparison like any other mismatch.</td>
+            <td>Run the normalizer — it rewrites onto <code>https</code>.</td>
+          </tr>
+          <tr>
+            <td class="mono term-bad">no usable tarball URL</td>
+            <td>A non-root entry has no <code>resolved</code>, or resolves over <code>link:</code>/<code>file:</code>/<code>git+ssh:</code>.</td>
+            <td>A deliberate, reviewed loosening of <code>assert_resolvable</code> — not a workaround. Fires on the baseline path and in the normalizer, never in the PR guard.</td>
+          </tr>
+          <tr>
+            <td class="mono term-bad">has no registry entries<br>to check</td>
+            <td>Zero entries examined. Reporting compliance from an empty set is the vacuous pass this refuses to give.</td>
+            <td>Expected only for an all-workspace lockfile; that needs a reviewed loosening too.</td>
+          </tr>
+          <tr>
+            <td class="mono term-dim">n entries in package-lock.json<br>do not resolve via the … proxy</td>
+            <td>The advisory, on a consumer runner. Never fails a build.</td>
+            <td>Normalize that lockfile. When no pipeline reports this any more, <code>replace-registry-host=never</code> comes out.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>The bats suite</h2>
+    <div class="col">
+      <p>
+        <span class="num">74</span> cases across three files — <span class="num">42</span> for the check,
+        <span class="num">19</span> for the normalizer, <span class="num">13</span> for the advisory. They run on every
+        pull request beside <code>shellcheck</code>, and neither job may install an npm devDependency: that would
+        mutate <code>package-lock.json</code> on all seven branches and break the invariant under test.
+      </p>
+      <pre><code>bats tools/scripts/lockfile/
+shellcheck tools/scripts/lockfile/*.sh tools/scripts/lockfile/test-helper.bash</code></pre>
+      <p>
+        Fixtures are tiny hand-written lockfiles from
+        <a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/tools/scripts/lockfile/test-helper.bash"><code>test-helper.bash</code></a>
+        — <code>write_mixed_lockfile</code> (one npmjs entry, one proxy entry, a root entry with no
+        <code>resolved</code>), plus builders for the unresolvable and <code>git+ssh:</code> shapes. Not copies of the
+        real 262&nbsp;KB file: the tests assert behaviour, never byte counts.
+      </p>
+    </div>
+
+    <div class="col">
+      <h3>The six drift cases</h3>
+      <p>
+        <code>t1</code>–<code>t6</code> are the measured evidence behind the two-assertion design. Each one injects a
+        single fault and asserts not merely that the check fails, but that it fails <strong>via the right
+        assertion</strong> — without that, the two could silently collapse into one and nobody would notice until a
+        bad merge slipped through.
+      </p>
+    </div>
+
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th class="mono">Case</th><th>Injected fault</th><th>Must fail via</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">t1</td><td>Changed tarball filename</td><td>Graph invariance</td></tr>
+          <tr><td class="mono">t2</td><td>Typo'd proxy repo name — <code>cplace-nmp</code></td><td>Prefix exactness</td></tr>
+          <tr><td class="mono">t3</td><td>Changed dependency edge</td><td>Graph invariance</td></tr>
+          <tr><td class="mono">t4</td><td>An entry left on npmjs</td><td>Prefix exactness</td></tr>
+          <tr><td class="mono">t5</td><td>Poisoned <code>integrity</code> hash</td><td>Graph invariance</td></tr>
+          <tr><td class="mono">t6</td><td>Poisoned <code>version</code></td><td>Graph invariance</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pair">
+      <div class="card">
+        <span class="tag">Fails closed</span>
+        <h3>The paths that must not pass quietly</h3>
+        <ul>
+          <li>When <code>fingerprint_of</code> cannot run, the normalizer leaves the lockfile <em>untouched</em> and exits non-zero — the case that once passed by comparing two empty outputs.</li>
+          <li>A lockfileVersion 1 file, and one with no <code>lockfileVersion</code> at all, each fail with their own message rather than a jq trace.</li>
+          <li>A baseline predating the v2/v3 upgrade fails readably instead of <code>null (null) has no keys</code>.</li>
+          <li>A lockfile with zero registry entries is refused, not reported compliant.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="tag">Contracts</span>
+        <h3>Properties, not just outcomes</h3>
+        <ul>
+          <li><strong>No failure message contains the JFrog host</strong> — asserted directly, because CI masks it as <code>***</code>.</li>
+          <li>The advisory and the guard <strong>agree on what an offender is</strong>; they once disagreed, and the advisory under-reported.</li>
+          <li>The advisory exits 0 on a missing file, missing <code>jq</code>, invalid JSON, no <code>packages</code> section, and an unreachable <code>lib.sh</code>.</li>
+          <li>Everything <code>RESOLVED_URL_RE</code> accepts is capturable by <code>TARBALL_PATH_RE</code> — widening one without the other deletes <code>resolved</code> keys instead of raising.</li>
+          <li>The reported rewrite count matches what the rewrite actually changed.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="col">
+      <p>
+        Two cases exist because a canary caught what the suite had not. A tarball path containing slashes —
+        <code>…/-/@scope/pkg-1.2.3.tgz</code>, which JFrog really serves — was reported as foreign while sitting on the
+        proxy; and the root entry, which <code>assert_resolvable</code> deliberately skips, could lose its
+        <code>resolved</code> key silently. Both are now pinned by tests, in the suite that had passed
+        <span class="num">65</span>/<span class="num">65</span> the moment before.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Seven branches, byte-identical</h2>
+    <div class="col">
+      <p>
+        The same toolchain has to exist on every long-lived branch, and it has to be <strong>the same bytes</strong> on
+        each. Not for tidiness: an upmerge that finds an identical file on both sides resolves as a conflict-free
+        add/add. One stray character and every future upmerge stops on <code>tools/scripts/lockfile/</code> — the
+        directory whose whole purpose is to make upmerges mechanical.
+      </p>
+    </div>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 900 330" role="img" aria-label="The upmerge chain runs from release 25.2 through 25.3, 25.4, 26.1 to 26.2; master and release 26.3 sit outside the chain and each need their own pull request. All seven carry the same thirteen-file digest.">
+          <defs>
+            <marker id="ar5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+
+          <text class="svg-t-lbl" x="20" y="26">THE UPMERGE CHAIN — EACH INHERITS FROM THE LEFT</text>
+
+          <rect class="svg-node-emph" x="20" y="44" width="150" height="54" rx="3"/>
+          <text class="svg-t" x="36" y="68">release/25.2</text>
+          <text class="svg-t-sm" x="36" y="86">PR #163 — the seed</text>
+
+          <line class="svg-line" x1="170" y1="71" x2="198" y2="71" marker-end="url(#ar5)"/>
+          <rect class="svg-node" x="200" y="44" width="150" height="54" rx="3"/>
+          <text class="svg-t" x="216" y="68">release/25.3</text>
+
+          <line class="svg-line" x1="350" y1="71" x2="378" y2="71" marker-end="url(#ar5)"/>
+          <rect class="svg-node" x="380" y="44" width="150" height="54" rx="3"/>
+          <text class="svg-t" x="396" y="68">release/25.4</text>
+
+          <line class="svg-line" x1="530" y1="71" x2="558" y2="71" marker-end="url(#ar5)"/>
+          <rect class="svg-node" x="560" y="44" width="150" height="54" rx="3"/>
+          <text class="svg-t" x="576" y="68">release/26.1</text>
+
+          <line class="svg-line" x1="710" y1="71" x2="738" y2="71" marker-end="url(#ar5)"/>
+          <rect class="svg-node" x="740" y="44" width="150" height="54" rx="3"/>
+          <text class="svg-t" x="756" y="68">release/26.2</text>
+
+          <text class="svg-t-lbl" x="20" y="150">NOT DOWNSTREAM — THE FIX CANNOT RIDE THE UPMERGE</text>
+
+          <rect class="svg-node" x="200" y="168" width="150" height="54" rx="3"/>
+          <text class="svg-t" x="216" y="192">master</text>
+          <text class="svg-t-sm" x="216" y="210">own pull request</text>
+
+          <rect class="svg-node" x="380" y="168" width="150" height="54" rx="3"/>
+          <text class="svg-t" x="396" y="192">release/26.3</text>
+          <text class="svg-t-sm" x="396" y="210">own pull request</text>
+
+          <line class="svg-line-dash" x1="275" y1="168" x2="275" y2="110"/>
+          <line class="svg-line-dash" x1="455" y1="168" x2="455" y2="110"/>
+          <text class="svg-t-sm" x="285" y="140">no inherited path</text>
+
+          <line class="svg-line-dash" x1="20" y1="256" x2="880" y2="256"/>
+
+          <text class="svg-t" x="20" y="288">13 files · digest f0a7638dcfd16ba8 · identical on all seven</text>
+          <text class="svg-t-sm" x="20" y="308">tools/scripts/lockfile/* · pr-checks.yml · use-npmrc/action.yml · .prettierignore</text>
+        </svg>
+      </div>
+      <figcaption>
+        <code>master</code> and <code>release/26.3</code> are not downstream of <code>26.2</code>, so no amount of
+        upmerging carries the fix to them — each needs its own pull request. That is why the rollout is seven PRs and
+        not one plus a wait.
+      </figcaption>
+    </figure>
+
+    <div class="col">
+      <h3>How the rule is kept</h3>
+      <p>
+        The digest is the gate: hash those 13 files on each branch and require one value. It is computed after every
+        change to the toolchain, and the six downstream branches are rebuilt from the seed rather than patched — the
+        tooling commit is copied verbatim, then the normalizer runs and the lockfile is committed alone. Both commits,
+        then <code>check-lockfile.sh --baseline HEAD~1</code> to prove the second one moved nothing but prefixes.
+      </p>
+      <p>
+        The consequence worth internalising: <strong>a fix to any of these files is seven commits, not one.</strong>
+        Three times during review the toolchain changed and all six staged branches were discarded and rebuilt. That is
+        cheap when the branches are held back and expensive once they are pushed — which is exactly why they are held
+        back until the seed is approved.
+      </p>
+    </div>
+
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Branch</th><th class="mono">Entries</th><th class="mono">Lockfile commit</th><th>Route</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">release/25.2</td><td class="mono"><span class="num">542</span></td><td class="mono"><span class="num">342</span> lines · <span class="num">+4788</span> B</td><td>PR #163 — the seed</td></tr>
+          <tr><td class="mono">release/25.3</td><td class="mono"><span class="num">542</span></td><td class="mono"><span class="num">342</span> lines · <span class="num">+4788</span> B</td><td>own PR, then upmerge</td></tr>
+          <tr><td class="mono">release/25.4</td><td class="mono"><span class="num">542</span></td><td class="mono"><span class="num">342</span> lines · <span class="num">+4788</span> B</td><td>own PR, then upmerge</td></tr>
+          <tr><td class="mono">release/26.1</td><td class="mono"><span class="num">558</span></td><td class="mono"><span class="num">342</span> lines · <span class="num">+4788</span> B</td><td>own PR, then upmerge</td></tr>
+          <tr><td class="mono">release/26.2</td><td class="mono"><span class="num">558</span></td><td class="mono"><span class="num">342</span> lines · <span class="num">+4788</span> B</td><td>own PR, then upmerge</td></tr>
+          <tr><td class="mono">release/26.3</td><td class="mono"><span class="num">558</span></td><td class="mono"><span class="num">342</span> lines · <span class="num">+4788</span> B</td><td>own PR — off-chain</td></tr>
+          <tr><td class="mono">master</td><td class="mono"><span class="num">558</span></td><td class="mono"><span class="num">342</span> lines · <span class="num">+4788</span> B</td><td>own PR — off-chain</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="col">
+      <p>
+        Identical line and byte counts across branches with different entry counts is not a coincidence to gloss over:
+        the <span class="num">171</span> npmjs entries are the same 171 packages everywhere, so the same rewrite
+        applies. It is also a cheap tripwire — a branch reporting different numbers has something else going on.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Source map</h2>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>File</th><th>Role</th><th class="mono">Key lines</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono"><a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/tools/scripts/lockfile/lib.sh">lib.sh</a></td>
+            <td>Shared constants and helpers. Sourced, never executed.</td>
+            <td class="mono">
+              <a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/tools/scripts/lockfile/lib.sh#L20">L20</a> proxy ·
+              <a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/tools/scripts/lockfile/lib.sh#L48">L48</a> tarball re ·
+              <a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/tools/scripts/lockfile/lib.sh#L82">L82</a> predicate ·
+              <a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/tools/scripts/lockfile/lib.sh#L151">L151</a> resolvable
+            </td>
+          </tr>
+          <tr>
+            <td class="mono"><a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/tools/scripts/lockfile/check-lockfile.sh">check-lockfile.sh</a></td>
+            <td>The invariant check. Both assertions, both modes.</td>
+            <td class="mono">
+              <a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/tools/scripts/lockfile/check-lockfile.sh#L44">L44</a> baseline ·
+              <a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/tools/scripts/lockfile/check-lockfile.sh#L73">L73</a> graph ·
+              <a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/tools/scripts/lockfile/check-lockfile.sh#L115">L115</a> prefix ·
+              <a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/tools/scripts/lockfile/check-lockfile.sh#L187">L187</a> main
+            </td>
+          </tr>
+          <tr>
+            <td class="mono"><a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/tools/scripts/lockfile/normalize-lockfile.sh">normalize-lockfile.sh</a></td>
+            <td>The normalizer. Idempotent, and fails closed on its own fingerprint self-check before writing.</td>
+            <td class="mono"><a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/tools/scripts/lockfile/normalize-lockfile.sh#L47">L47</a> rewrite</td>
+          </tr>
+          <tr>
+            <td class="mono"><a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/tools/scripts/lockfile/warn-foreign-registry.sh">warn-foreign-registry.sh</a></td>
+            <td>Advisory. Emits a <code>::warning</code> plus a job summary; every exit is 0.</td>
+            <td class="mono"><a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/tools/scripts/lockfile/warn-foreign-registry.sh#L47">L47</a> main</td>
+          </tr>
+          <tr>
+            <td class="mono"><a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/tools/scripts/lockfile/fingerprint.jq">fingerprint.jq</a></td>
+            <td>Reduces a lockfile to its registry-independent comparable form.</td>
+            <td class="mono">—</td>
+          </tr>
+          <tr>
+            <td class="mono"><a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/.github/actions/use-npmrc/action.yml">use-npmrc/action.yml</a></td>
+            <td>Writes <code>~/.npmrc</code>, appends the mitigation, runs the advisory.</td>
+            <td class="mono">
+              <a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/.github/actions/use-npmrc/action.yml#L25">L25</a> mitigation ·
+              <a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/.github/actions/use-npmrc/action.yml#L27">L27</a> advisory
+            </td>
+          </tr>
+          <tr>
+            <td class="mono"><a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/.github/workflows/pr-checks.yml">pr-checks.yml</a></td>
+            <td>The guard job and the shellcheck/bats job.</td>
+            <td class="mono"><a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/.github/workflows/pr-checks.yml#L39">L39</a></td>
+          </tr>
+          <tr>
+            <td class="mono"><a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/tools/scripts/lockfile/README.md">README.md</a></td>
+            <td>The runbook these sections condense.</td>
+            <td class="mono">—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="col">
+      <p>
+        Two properties worth keeping in mind when changing any of this. The proxy URL is a hard-coded constant
+        <em>on purpose</em> — it <em>is</em> the invariant being asserted, and a caller-supplied prefix would validate
+        itself. And these files are meant to be <strong>byte-identical across all seven long-lived branches</strong>,
+        so a future upmerge sees a conflict-free add/add: change them on one branch and the change has to reach the
+        others.
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    Links point at commit <code>9b1d3bf</code> on
+    <code>fix/PFM-ISSUE-34453-normalize-package-lock-json/25.2</code> — PR #163. Counts as measured there:
+    542 entries on the 25.x branches, 558 on 26.x, 74 bats cases.
+  </footer>
+
+</div>
