@@ -1,5 +1,5 @@
 name: 'Use .npmrc'
-description: 'Writes the given .npmrc content to ~/.npmrc'
+description: 'Writes the given .npmrc content to ~/.npmrc and warns about lockfile entries outside the cplace npm proxy'
 inputs:
   dot-npmrc:
     description: 'Content of the .npmrc file'
@@ -11,4 +11,31 @@ runs:
       shell: bash
       env:
         DOT_NPMRC: ${{ inputs.dot-npmrc }}
-      run: echo "$DOT_NPMRC" > ~/.npmrc
+      run: |
+        echo "$DOT_NPMRC" > ~/.npmrc
+        # PFM-ISSUE-34453 mitigation. npm's default `replace-registry-host=npmjs`
+        # rewrites a lockfile's registry.npmjs.org URLs onto the configured
+        # registry and DROPS that registry's path prefix, producing an E404 that
+        # is masked as *** because the prefix is the JFROG_URL secret.
+        # `never` makes npm fetch each `resolved` URL verbatim instead.
+        #
+        # This is a no-op on a lockfile that already resolves entirely through
+        # the proxy, so it is safe to leave in place, and it is removable once
+        # the warning below stops firing anywhere.
+        echo 'replace-registry-host=never' >> ~/.npmrc
+
+    - name: Warn on lockfile entries outside the cplace npm proxy
+      shell: bash
+      # Advisory only - never fails the build. The warnings are the inventory of
+      # lockfiles that still need normalizing; when none report, the mitigation
+      # above can be dropped.
+      #
+      # Invoked as `bash "<path>" || true`, not as a bare path. The script's own
+      # "every precondition is a silent success" contract cannot cover NOT BEING
+      # REACHABLE - a missing exec bit after checkout, a path containing spaces,
+      # or a runner where action_path is a backslashed Windows path. That is an
+      # exit 127 from the shell rather than from the script, and it would fail
+      # the consumer's job before `npm ci` in all seven workflows using this
+      # action. `continue-on-error:` is not honoured on composite steps, so
+      # `|| true` is the mechanism that actually works here.
+      run: bash "$GITHUB_ACTION_PATH/../../../tools/scripts/lockfile/warn-foreign-registry.sh" || true
