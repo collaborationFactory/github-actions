@@ -1,0 +1,247 @@
+#!/usr/bin/env bats
+#
+# Behavioural tests for normalize-lockfile.sh.
+#
+# Run with: bats tools/scripts/lockfile/
+
+setup() {
+  load 'test-helper'
+  NORMALIZE="${BATS_TEST_DIRNAME}/normalize-lockfile.sh"
+  TMP="${BATS_TEST_TMPDIR}/package-lock.json"
+}
+
+@test "rewrites npmjs entries onto the proxy and leaves proxy entries alone" {
+  write_mixed_lockfile "${TMP}"
+
+  run "${NORMALIZE}" "${TMP}"
+
+  [ "${status}" -eq 0 ]
+  [ "$(grep -c 'registry.npmjs.org' "${TMP}" || true)" -eq 0 ]
+  [ "$(jq -r '.packages["node_modules/@scope/alpha"].resolved' "${TMP}")" \
+    = "${PROXY}@scope/alpha/-/alpha-1.0.0.tgz" ]
+  [ "$(jq -r '.packages["node_modules/beta"].resolved' "${TMP}")" \
+    = "${PROXY}beta/-/beta-2.0.0.tgz" ]
+  [ "$(jq -r '.packages["node_modules/@scope/alpha"].integrity' "${TMP}")" = 'sha512-AAAA==' ]
+}
+
+@test "reports how many entries it rewrote" {
+  write_mixed_lockfile "${TMP}"
+
+  run "${NORMALIZE}" "${TMP}"
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *'entries rewritten: 1'* ]]
+}
+
+@test "is idempotent - a second run rewrites nothing and changes no bytes" {
+  write_mixed_lockfile "${TMP}"
+  "${NORMALIZE}" "${TMP}" >/dev/null
+  local before
+  before="$(wc -c <"${TMP}")"
+
+  run "${NORMALIZE}" "${TMP}"
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *'entries rewritten: 0'* ]]
+  [[ "${output}" == *'already normalized'* ]]
+  [ "$(wc -c <"${TMP}")" -eq "${before}" ]
+}
+
+@test "leaves version, integrity and dependency edges untouched" {
+  write_mixed_lockfile "${TMP}"
+  local before
+  before="$(jq -S 'del(.packages[].resolved)' "${TMP}")"
+
+  "${NORMALIZE}" "${TMP}" >/dev/null
+
+  [ "$(jq -S 'del(.packages[].resolved)' "${TMP}")" = "${before}" ]
+}
+
+@test "preserves the trailing newline" {
+  write_mixed_lockfile "${TMP}"
+
+  "${NORMALIZE}" "${TMP}" >/dev/null
+
+  # od, not xxd: the workflow installs only bats and shellcheck, so anything
+  # outside coreutils is an undeclared dependency on the runner image.
+  [ "$(tail -c 1 "${TMP}" | od -An -tx1 | tr -d '[:space:]')" = '0a' ]
+}
+
+@test "fails, naming the package path, when an entry has no resolved URL" {
+  write_unresolvable_lockfile "${TMP}"
+
+  run "${NORMALIZE}" "${TMP}"
+
+  [ "${status}" -eq 1 ]
+  [[ "${output}" == *'node_modules/beta'* ]]
+  [[ "${output}" == *'no usable tarball URL'* ]]
+}
+
+@test "fails, naming the package path, on a git+ssh resolved URL" {
+  write_git_protocol_lockfile "${TMP}"
+
+  run "${NORMALIZE}" "${TMP}"
+
+  [ "${status}" -eq 1 ]
+  [[ "${output}" == *'node_modules/beta'* ]]
+  # A jq capture stack trace would leak through here instead of a named path.
+  [[ "${output}" != *'jq: error'* ]]
+}
+
+@test "fails, naming the package path, on a tarball URL that is not .tgz" {
+  write_mixed_lockfile "${TMP}"
+  mutate "${TMP}" '.packages["node_modules/beta"].resolved =
+    "https://cplace.jfrog.io/artifactory/api/npm/cplace-npm/beta/-/beta-2.0.0.zip"'
+
+  run "${NORMALIZE}" "${TMP}"
+
+  [ "${status}" -eq 1 ]
+  [[ "${output}" == *'node_modules/beta'* ]]
+  [[ "${output}" != *'jq: error'* ]]
+}
+
+@test "leaves the lockfile untouched when it refuses to normalize" {
+  write_git_protocol_lockfile "${TMP}"
+  local before
+  before="$(cat "${TMP}")"
+
+  run "${NORMALIZE}" "${TMP}"
+
+  [ "${status}" -eq 1 ]
+  [ "$(cat "${TMP}")" = "${before}" ]
+}
+
+@test "fails cleanly when the lockfile does not exist" {
+  run "${NORMALIZE}" "${BATS_TEST_TMPDIR}/absent.json"
+
+  [ "${status}" -eq 1 ]
+  [[ "${output}" == *'no such lockfile'* ]]
+}
+
+@test "no failure message leaks the JFrog host, which CI masks as ***" {
+  write_unresolvable_lockfile "${TMP}"
+
+  run "${NORMALIZE}" "${TMP}"
+
+  [ "${status}" -eq 1 ]
+  [[ "${output}" != *'cplace.jfrog.io'* ]]
+}
+
+@test "the reported count matches what the rewrite actually changes" {
+  # count_foreign_entries used `startswith($proxy)` while the rewrite asked
+  # whether $proxy + <captured tarball path> differed. An entry already under
+  # the proxy host but with a stray path segment satisfied the first and not the
+  # second, so the normalizer reported "0 rewritten / already normalized" while
+  # silently rewriting the file - and README Flow 1 makes that count the
+  # documented verification signal.
+  write_mixed_lockfile "${TMP}"
+  mutate "${TMP}" '.packages["node_modules/beta"].resolved =
+    "https://cplace.jfrog.io/artifactory/api/npm/cplace-npm/extra/beta/-/beta-2.0.0.tgz"'
+  local before
+  before="$(wc -c <"${TMP}")"
+
+  run "${NORMALIZE}" "${TMP}"
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *'entries rewritten: 2'* ]]
+  [[ "${output}" != *'already normalized'* ]]
+  [ "$(wc -c <"${TMP}")" -ne "${before}" ]
+}
+
+@test "an unsupported lockfileVersion fails readably instead of a jq trace" {
+  printf '{"name":"x","lockfileVersion":1}\n' >"${TMP}"
+
+  run "${NORMALIZE}" "${TMP}"
+
+  [ "${status}" -eq 1 ]
+  [[ "${output}" == *'lockfileVersion 1'* ]]
+  [[ "${output}" != *'jq: error'* ]]
+}
+
+@test "the self-assertion FAILS CLOSED and leaves the lockfile untouched when it cannot run" {
+  # `if ! diff -q <(fingerprint_of A) <(fingerprint_of B)` disabled `set -e` for
+  # the condition, so a failing fingerprint_of produced two empty streams, diff
+  # called them identical, and the file was overwritten unverified with exit 0.
+  write_mixed_lockfile "${TMP}"
+  local before
+  before="$(cat "${TMP}")"
+  local hidden="${BATS_TEST_TMPDIR}/fingerprint.jq.hidden"
+  mv "${BATS_TEST_DIRNAME}/fingerprint.jq" "${hidden}"
+
+  run "${NORMALIZE}" "${TMP}"
+  local rc="${status}" out="${output}"
+
+  mv "${hidden}" "${BATS_TEST_DIRNAME}/fingerprint.jq"
+
+  [ "${rc}" -ne 0 ]
+  [[ "${out}" == *'left untouched'* ]]
+  [ "$(cat "${TMP}")" = "${before}" ]
+}
+
+@test "rewrites a scope-repeating tarball path onto the proxy" {
+  # The npmjs form of the shape JFrog serves for privately published scoped
+  # packages. The captured path must keep the repeated scope verbatim.
+  write_mixed_lockfile "${TMP}"
+  mutate "${TMP}" '.packages["node_modules/beta"].resolved =
+    "https://registry.npmjs.org/@cplace-next/beta/-/@cplace-next/beta-2.0.0.tgz"'
+
+  run "${NORMALIZE}" "${TMP}"
+
+  [ "${status}" -eq 0 ]
+  [ "$(jq -r '.packages["node_modules/beta"].resolved' "${TMP}")" \
+    = "${PROXY}@cplace-next/beta/-/@cplace-next/beta-2.0.0.tgz" ]
+}
+
+@test "a lockfile with no lockfileVersion at all fails readably" {
+  printf '{"name":"x","packages":{}}\n' >"${TMP}"
+
+  run "${NORMALIZE}" "${TMP}"
+
+  [ "${status}" -eq 1 ]
+  [[ "${output}" == *'is it a package-lock.json?'* ]]
+}
+
+@test "the root entry is left alone, and the reported count says so" {
+  # The rewrite used to run on every entry with a string `resolved` while
+  # count_foreign_entries excluded the root key, so a run that rewrote the root
+  # still printed "entries rewritten: 0" and "already normalized" about a file
+  # it had changed - and README Flow 1 makes that count the verification signal.
+  write_mixed_lockfile "${TMP}"
+  mutate "${TMP}" '.packages[""].resolved = "https://registry.npmjs.org/x/-/x-1.0.0.tgz"'
+
+  run "${NORMALIZE}" "${TMP}"
+
+  [ "${status}" -eq 0 ]
+  [ "$(jq -r '.packages[""].resolved' "${TMP}")" = 'https://registry.npmjs.org/x/-/x-1.0.0.tgz' ]
+  [[ "${output}" == *'entries rewritten: 1'* ]]
+}
+
+@test "a root entry whose resolved is not a tarball URL keeps its key" {
+  # assert_resolvable deliberately skips the root entry, so this value reached
+  # `capture` unvalidated - which yields empty on a non-match, and `|= empty`
+  # deletes the key. The loss was silent: fingerprint.jq dropped it on both
+  # sides, so the self-assertion compared equal and the run reported success.
+  write_mixed_lockfile "${TMP}"
+  mutate "${TMP}" '.packages[""].resolved = "packages/root"'
+
+  run "${NORMALIZE}" "${TMP}"
+
+  [ "${status}" -eq 0 ]
+  [ "$(jq -r '.packages[""].resolved' "${TMP}")" = 'packages/root' ]
+}
+
+@test "leaves an odd-shaped entry already on the proxy untouched" {
+  # This is what the pre-widening regex got wrong: the entry is already correct,
+  # so the normalizer must neither rewrite it nor - via a capture that matches
+  # nothing - drop its resolved key.
+  write_mixed_lockfile "${TMP}"
+  mutate "${TMP}" '.packages["node_modules/beta"].resolved =
+    "https://cplace.jfrog.io/artifactory/api/npm/cplace-npm/@fortawesome/beta/-/2.0.0/beta-2.0.0.tgz"'
+
+  run "${NORMALIZE}" "${TMP}"
+
+  [ "${status}" -eq 0 ]
+  [ "$(jq -r '.packages["node_modules/beta"].resolved' "${TMP}")" \
+    = "${PROXY}@fortawesome/beta/-/2.0.0/beta-2.0.0.tgz" ]
+  [[ "${output}" == *'entries rewritten: 1'* ]]
+}
