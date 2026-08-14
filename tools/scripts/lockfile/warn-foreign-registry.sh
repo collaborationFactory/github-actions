@@ -7,10 +7,12 @@
 #   ./tools/scripts/lockfile/warn-foreign-registry.sh [<lockfile>]
 #
 # Runs inside the `use-npmrc` composite, so it inspects the CONSUMER's lockfile
-# on the runner. Those entries resolve today only because `use-npmrc` sets
-# `replace-registry-host=never`; without it npm rewrites their host onto the
-# configured registry, drops that registry's path prefix, and fails with an
-# E404 masked as *** (PFM-ISSUE-34453).
+# on the runner. Under `replace-registry-host=never`, which `use-npmrc` sets,
+# those entries are fetched verbatim from the registry they name - outside the
+# proxy. Without that flag the outcome depends on the npm version: 10.2.4
+# rewrites the host onto the configured registry correctly and resolves THROUGH
+# the proxy, while 11.3.0 drops the registry's path prefix and fails with an
+# E404 masked as *** (PFM-ISSUE-34453). Measured 2026-08-14, both ways.
 #
 # ADVISORY ONLY - this must never fail a consumer's build. Every exit is 0.
 # It is a discovery mechanism: the warnings are the inventory of lockfiles that
@@ -71,7 +73,7 @@ main() {
 
   total="$(printf '%s\n' "${offenders}" | wc -l | tr -d '[:space:]')"
 
-  printf '::warning file=%s::%s entries in package-lock.json do not resolve via the cplace npm proxy. They install today only because use-npmrc sets replace-registry-host=never. Normalize this lockfile - see PFM-ISSUE-34453.\n' \
+  printf '::warning file=%s::%s entries in package-lock.json do not resolve via the cplace npm proxy. Under replace-registry-host=never (set by use-npmrc) they are fetched from the registry they name, bypassing the proxy; without that flag they fail on npm 11 and newer. Normalize this lockfile - see PFM-ISSUE-34453.\n' \
     "$(basename "${lockfile}")" "${total}"
 
   if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
@@ -80,11 +82,16 @@ main() {
       printf '### Lockfile entries outside the cplace npm proxy\n\n'
       printf '**%s** `resolved` entries in `%s` point somewhere other than the cplace npm proxy.\n\n' \
         "${total}" "${lockfile#"${GITHUB_WORKSPACE:-}/"}"
-      printf 'They install successfully only because `use-npmrc` sets `replace-registry-host=never`. '
-      printf 'Without it npm rewrites their host onto the configured registry, drops its path prefix, '
-      printf 'and fails with an `E404` masked as `***`.\n\n'
-      printf 'Fix by normalizing the lockfile onto the proxy (PFM-ISSUE-34453); the mitigation can be '
-      printf 'removed once no lockfile reports this.\n\n'
+      printf '`use-npmrc` sets `replace-registry-host=never`, so npm fetches each of these URLs verbatim '
+      printf '**from the registry the lockfile names, not through the cplace proxy**.\n\n'
+      printf 'What would happen without that flag depends on the npm version: **npm 10.2.4** rewrites the '
+      printf 'host onto the configured registry correctly, and the entry resolves *through* the proxy; '
+      printf '**npm 11.3.0** drops the path prefix and fails with an `E404` masked as `***`. Both measured '
+      printf '2026-08-14. Runners pinned to node 18.19.1 are on npm 10; developer machines, and any runner '
+      printf 'moving to node 24, are not.\n\n'
+      printf 'Fix by normalizing the lockfile onto the proxy (PFM-ISSUE-34453) - it then resolves through '
+      printf 'the proxy on every npm version, with or without the flag, and the mitigation can be removed '
+      printf 'once no lockfile reports this.\n\n'
       printf '<details><summary>First %s affected packages</summary>\n\n' "${MAX_LISTED}"
       printf '```\n'
       printf '%s\n' "${offenders}" | head -n "${MAX_LISTED}"

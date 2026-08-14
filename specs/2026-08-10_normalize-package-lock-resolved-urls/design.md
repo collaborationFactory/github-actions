@@ -456,18 +456,41 @@ additionally runs an advisory `warn-foreign-registry.sh` against the **consumer'
 
 **Rationale:** Dimension 8 declared consumer-repo lockfiles out of scope on the reasoning that a failing check in a
 reusable workflow would break currently-green pipelines. Implementation found that reasoning rested on a false premise:
-**`cplace-paw-fe` `release/25.2` and `release/25.3` are not green — they are broken today**, each carrying 14
+~~**`cplace-paw-fe` `release/25.2` and `release/25.3` are not green — they are broken today**, each carrying 14
 `registry.npmjs.org` entries in their own lockfile. Verified with a cold cache and the real secret:
 `E404 GET https://cplace.jfrog.io/readdirp/-/readdirp-3.6.0.tgz`. Nothing masks it: that repo has zero caches on those
 branches, and the cache key is `hashFiles('**/package-lock.json')`, so a cross-branch hit is impossible by
-construction.
+construction.~~
+
+**Corrected 2026-08-14 — the premise was half right, and the half that was wrong changes the timeline.** Those two
+branches do each carry 14 `registry.npmjs.org` entries, but they are **not failing today**. The `E404` is
+**npm-version-dependent**, measured both ways with a one-package fixture (`color-name@1.1.4`, proven installable
+through the proxy):
+
+| npm | environment | un-normalized entry, no mitigation | tarball served by |
+| --- | --- | --- | --- |
+| **10.2.4** | runner, node 18.19.1 | installs | the **proxy** — the rewrite preserves its path prefix |
+| **11.3.0** | developer machine, node 22.15.0 | **`E404`** | — prefix dropped |
+
+Every pipeline pins node 18.19.1 (this repo's reusable workflows; paw-fe's `.nvmrc`), so all of them are on npm 10,
+and paw-fe's run history contains no failure of this shape. The original `E404` was real — it was reproduced on a
+developer machine, where npm is newer.
+
+**The consequence is a sequencing one:** the prefix drop is a *regression in newer npm*, so nothing breaks in CI today
+and everything un-normalized breaks the moment runners move to node 24 / npm 11
+(`specs/2026-06-05_node24-workflow-migration`). Normalization is a **prerequisite for that migration**, not a cleanup
+after it.
+
+**And the mitigation's cost is unconditional.** Measured in the same runs: under `replace-registry-host=never` the
+tarball came from `registry.npmjs.org` (proxy fetches: 0) on *both* npm versions. On npm 11 that buys compatibility;
+on npm 10 it buys nothing and is the sole reason traffic leaves the proxy.
 
 That splits the problem into **two failure surfaces**, which this design had treated as one:
 
 | surface | where `npm ci` runs | whose lockfile | fixed by |
 | --- | --- | --- | --- |
 | composite | the action's own checkout, outside the workspace | *this* repo's | normalization (Dimensions 1–3) |
-| consumer | the workspace | the *consumer's* | **only** the mitigation, or normalizing that consumer |
+| consumer | the workspace | the *consumer's* | the mitigation (npm ≥ 11 only), or normalizing that consumer (every version) |
 
 `replace-registry-host=never` makes npm fetch each `resolved` URL verbatim rather than rewriting its host, which fixes
 both surfaces at once and needs no lockfile change anywhere. Measured against real lockfiles with the real secret:
@@ -489,6 +512,12 @@ github-actions un-normalized → `added 542 packages`; `cplace-paw-fe release/25
 
 - **This is a mitigation, not the fix.** Under it, entries still on npmjs are fetched directly from npmjs, bypassing
   Xray and curation. Removal is owned by PFM-ISSUE-34454.
+- **On npm 10 the bypass is its *only* effect** (measured 2026-08-14): without the flag those same entries resolve
+  through the proxy. It is therefore worth asking, at removal time, whether it should come out ahead of the inventory
+  reaching zero — the answer today is no, because `use-npmrc` writes the `~/.npmrc` developer machines use, and those
+  are on npm 11.
+- **The removal criterion is unchanged, but its reason is not.** "Remove when no lockfile reports foreign entries"
+  holds because the flag then has nothing to act on — not because removing it would otherwise break something.
 - **The warnings are the removal criteria.** `warn-foreign-registry.sh` emits a `::warning` annotation plus a job
   summary naming offending package paths; when no pipeline reports one, the line comes out. The mitigation thus
   inventories its own obsolescence.

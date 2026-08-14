@@ -307,13 +307,22 @@
       <p>
         A lockfile entry that resolves via <code>registry.npmjs.org</code> is not fetched from where it says. npm's
         default <code>replace-registry-host=npmjs</code> rewrites the host onto whatever registry
-        <code>~/.npmrc</code> configures — and pacote builds the new URL by joining the <em>old pathname</em> onto the
-        new base, so the registry's own path prefix is discarded. The request 404s, and because that prefix is the
+        <code>~/.npmrc</code> configures — and on <strong>npm 11</strong> pacote builds the new URL by joining the
+        <em>old pathname</em> onto the new base, so the registry's own path prefix is discarded. The request 404s, and because that prefix is the
         <code>JFROG_URL</code> secret, CI prints the whole thing as <code>***</code>. That is why
         <strong>every message these scripts print names a package path and never a URL.</strong>
       </p>
       <p>
         The fix has two parts, and they attack the same rewrite from opposite ends.
+      </p>
+      <p>
+        <strong>The version qualifier is load-bearing.</strong> Measured 2026-08-14 with a one-package fixture, on a
+        runner and locally: <strong>npm 10.2.4</strong> — node 18.19.1, what every pipeline pins today — rewrites the
+        host onto the configured registry correctly and installs <em>through the proxy</em>, while
+        <strong>npm 11.3.0</strong> — developer machines, and any runner on node 24 — drops the prefix and fails. The
+        prefix drop is a <strong>regression in newer npm</strong>: nothing is failing in CI today, and everything
+        un-normalized fails the moment runners move to node 24. That makes this work a prerequisite for the Node 24
+        migration rather than a cleanup after it.
       </p>
     </div>
 
@@ -333,8 +342,9 @@
         <p>
           One line appended to <code>~/.npmrc</code> by
           <a href="https://github.com/collaborationFactory/github-actions/blob/9b1d3bf/.github/actions/use-npmrc/action.yml#L25"><code>use-npmrc:25</code></a>,
-          switching the rewrite off entirely. It fixes lockfiles nobody has normalized yet — including every
-          consumer's — which is why it ships to all ~41 downstream repositories rather than just this one.
+          switching the rewrite off entirely, so un-normalized lockfiles install on npm 11 too — including every
+          consumer's, which is why it ships to all ~41 downstream repositories. The cost is unconditional: those
+          entries are then fetched <strong>outside the proxy</strong>, on every npm version.
         </p>
       </div>
     </div>
@@ -348,7 +358,7 @@
             </marker>
           </defs>
 
-          <text class="svg-t-lbl" x="20" y="24">1 — UNFIXED, DEFAULT NPM</text>
+          <text class="svg-t-lbl" x="20" y="24">1 — UNFIXED, NPM 11 (DEFAULT REWRITE)</text>
           <text class="svg-t-lbl" x="355" y="24">2 — MITIGATION APPLIED</text>
           <text class="svg-t-lbl" x="690" y="24">3 — LOCKFILE NORMALIZED</text>
 
@@ -438,7 +448,8 @@
         </svg>
       </div>
       <figcaption>
-        Lane 2 removes the rewrite; lane 3 removes the <em>need</em> for it. The pairing is what makes the rollout
+        Lane 1 is npm 11; on npm 10.2.4 the same rewrite lands on the proxy correctly and installs. Lane 2 removes
+        the rewrite; lane 3 removes the <em>need</em> for it. The pairing is what makes the rollout
         lazy rather than a coordinated switchover: on a normalized lockfile the flag changes nothing, so the two
         compose in either order and the flag can come out per branch — once the advisory stops reporting anywhere.
       </figcaption>
@@ -447,8 +458,9 @@
     <div class="col">
       <p>
         The mitigation is not free, and lane 2 is why: an entry still on npmjs is fetched <em>from</em> npmjs,
-        bypassing whatever curation the proxy enforces. It is a deliberate, documented trade — and the advisory's
-        warnings are the inventory that decides when it can be withdrawn.
+        bypassing whatever curation the proxy enforces — on <strong>every</strong> npm version. On npm 11 that buys
+        compatibility; on npm 10, where the rewrite was already working, it buys nothing at all. A deliberate,
+        documented trade — and the advisory's warnings are the inventory that decides when it can be withdrawn.
       </p>
     </div>
   </section>
