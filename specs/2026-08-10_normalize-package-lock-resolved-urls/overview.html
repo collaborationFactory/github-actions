@@ -316,13 +316,16 @@
         The fix has two parts, and they attack the same rewrite from opposite ends.
       </p>
       <p>
-        <strong>The version qualifier is load-bearing.</strong> Measured 2026-08-14 with a one-package fixture, on a
-        runner and locally: <strong>npm 10.2.4</strong> — node 18.19.1, what every pipeline pins today — rewrites the
-        host onto the configured registry correctly and installs <em>through the proxy</em>, while
-        <strong>npm 11.3.0</strong> — developer machines, and any runner on node 24 — drops the prefix and fails. The
-        prefix drop is a <strong>regression in newer npm</strong>: nothing is failing in CI today, and everything
-        un-normalized fails the moment runners move to node 24. That makes this work a prerequisite for the Node 24
-        migration rather than a cleanup after it.
+        <strong>The version qualifier is load-bearing.</strong> Measured 2026-08-14 with a one-package fixture, on
+        a runner and locally: <strong>npm 10.2.4</strong> rewrites the host onto the configured registry correctly and
+        installs <em>through the proxy</em>, while <strong>npm 11.3.0</strong> drops the prefix and fails. The prefix
+        drop is a <strong>regression in newer npm</strong> — and which npm a pipeline gets is decided
+        <strong>per branch</strong> by the reusable workflows: only <code>release/25.2</code> still pins node 18.19.1
+        (npm 10); <code>release/25.3</code>, <code>25.4</code>, <code>26.1</code>, <code>26.2</code>,
+        <code>26.3</code> and <code>master</code> all pin node 22.15.0, which is npm 11. Six of the seven branches
+        were therefore already failing on un-normalized lockfiles — as <code>cplace-vwg-ptm-fe</code> reported against
+        <code>release/26.2</code>: <code>E404</code> on <code>update-browserslist-db</code>, inside the composite's own
+        <code>npm ci</code>. This work is a prerequisite for the rest of the Node 24 migration, not a cleanup after it.
       </p>
     </div>
 
@@ -448,7 +451,8 @@
         </svg>
       </div>
       <figcaption>
-        Lane 1 is npm 11; on npm 10.2.4 the same rewrite lands on the proxy correctly and installs. Lane 2 removes
+        Lane 1 is npm 11 — what <code>release/25.3</code> and every newer branch pin; on npm 10.2.4
+        (<code>release/25.2</code> only) the same rewrite lands on the proxy correctly and installs. Lane 2 removes
         the rewrite; lane 3 removes the <em>need</em> for it. The pairing is what makes the rollout
         lazy rather than a coordinated switchover: on a normalized lockfile the flag changes nothing, so the two
         compose in either order and the flag can come out per branch — once the advisory stops reporting anywhere.
