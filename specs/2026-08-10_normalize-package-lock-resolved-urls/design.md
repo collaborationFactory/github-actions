@@ -472,14 +472,27 @@ through the proxy):
 | **10.2.4** | runner, node 18.19.1 | installs | the **proxy** — the rewrite preserves its path prefix |
 | **11.3.0** | developer machine, node 22.15.0 | **`E404`** | — prefix dropped |
 
-Every pipeline pins node 18.19.1 (this repo's reusable workflows; paw-fe's `.nvmrc`), so all of them are on npm 10,
+~~Every pipeline pins node 18.19.1 (this repo's reusable workflows; paw-fe's `.nvmrc`), so all of them are on npm 10,
 and paw-fe's run history contains no failure of this shape. The original `E404` was real — it was reproduced on a
-developer machine, where npm is newer.
+developer machine, where npm is newer.~~
 
-**The consequence is a sequencing one:** the prefix drop is a *regression in newer npm*, so nothing breaks in CI today
-and everything un-normalized breaks the moment runners move to node 24 / npm 11
-(`specs/2026-06-05_node24-workflow-migration`). Normalization is a **prerequisite for that migration**, not a cleanup
-after it.
+**Corrected again 2026-08-14, later the same day — the "not failing today" reading was wrong.** The node version is
+pinned **per branch** by the reusable workflows, and only `release/25.2` is still on the old one:
+
+| branch | node pinned | npm | un-normalized behaviour |
+| --- | --- | --- | --- |
+| `release/25.2` | 18.19.1 | 10 | works without the flag |
+| `release/25.3`, `25.4`, `26.1`, `26.2`, `26.3`, `master` | 22.15.0 | **11** | **fails** without the flag |
+
+The first correction generalised from `release/25.2` — the branch checked out at the time — and from `cplace-paw-fe`,
+whose pipelines pin `25.2`. Six of the seven branches were on npm 11 and therefore **were** failing, which is what
+Dimension 9 originally claimed. Confirmed by a real report: `cplace-vwg-ptm-fe`
+[run 31167462200](https://github.com/collaborationFactory/cplace-vwg-ptm-fe/actions/runs/31167462200) failed on
+`release/26.2` with `E404 … update-browserslist-db`, inside the composite's own `npm ci`, on node 22.15.0.
+
+**The consequence is still a sequencing one, but sharper:** the prefix drop is a regression in newer npm, and most
+branches already run it. Normalization was overdue rather than pre-emptive, and it remains a **prerequisite** for the
+rest of `specs/2026-06-05_node24-workflow-migration`.
 
 **And the mitigation's cost is unconditional.** Measured in the same runs: under `replace-registry-host=never` the
 tarball came from `registry.npmjs.org` (proxy fetches: 0) on *both* npm versions. On npm 11 that buys compatibility;

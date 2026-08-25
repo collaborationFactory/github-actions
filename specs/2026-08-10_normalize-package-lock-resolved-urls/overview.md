@@ -25,12 +25,20 @@ request 404s, and because that prefix is the `JFROG_URL` secret, CI prints the w
 
 | npm | un-normalized entry, no mitigation | tarball served by |
 | --- | --- | --- |
-| 10.2.4 — node 18.19.1, what every pipeline pins today | installs | the **proxy**; the rewrite keeps the path prefix |
-| 11.3.0 — developer machines, and any runner on node 24 | **`E404`** | — prefix dropped |
+| 10.2.4 | installs | the **proxy**; the rewrite keeps the path prefix |
+| 11.3.0 | **`E404`** | — prefix dropped |
 
-So the prefix drop is a **regression in newer npm**: nothing is failing in CI today, and everything un-normalized
-fails the moment runners move to node 24. That makes this work a **prerequisite for the Node 24 migration** rather
-than a cleanup after it.
+The prefix drop is a **regression in newer npm** — and which npm a pipeline gets is decided **per branch** by the
+reusable workflows:
+
+| branch | node pinned | npm | un-normalized behaviour |
+| --- | --- | --- | --- |
+| `release/25.2` | 18.19.1 | 10 | works without the flag |
+| `release/25.3`, `25.4`, `26.1`, `26.2`, `26.3`, `master` | 22.15.0 | **11** | **fails** without the flag |
+
+Six of the seven branches were already on npm 11, so un-normalized lockfiles **were** failing there — as
+`cplace-vwg-ptm-fe` reported against `release/26.2`: `E404` on `update-browserslist-db`, inside the composite's own
+`npm ci`. This work is a **prerequisite for the rest of the Node 24 migration**, not a cleanup after it.
 
 The fix has two parts, attacking the same rewrite from opposite ends:
 
@@ -77,7 +85,8 @@ flowchart TB
   class C2,C3,C4 ok;
 ```
 
-Lane 1 is npm 11; on npm 10.2.4 the same rewrite lands on the proxy correctly and installs. Lane 2 removes the
+Lane 1 is npm 11 — which is what `release/25.3` and every newer branch pin; on npm 10.2.4 (`release/25.2` only)
+the same rewrite lands on the proxy correctly and installs. Lane 2 removes the
 rewrite; lane 3 removes the *need* for it. Because the flag is a no-op on a normalized lockfile, the two compose in
 either order and the flag can be dropped **per branch** rather than in a coordinated switchover — once the advisory
 stops reporting anywhere.
