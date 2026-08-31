@@ -8,6 +8,7 @@ import { JfrogCredentials } from './jfrog-credentials';
 import { Version } from './version';
 import { getJfrogUrl } from './configuration';
 import { NpmPackage } from './types';
+import { existsSync } from 'node:fs';
 
 interface PackageJson {
   author: string;
@@ -56,6 +57,9 @@ export class NxProject {
           this.isPublishable = true;
       }
     } else {
+      console.log(`Path to app package.json ${this.getPackageJsonPathInSource()}`);
+      this.hasPackageJson = existsSync(this.getPackageJsonPathInSource());
+      console.log(`App package.json exists ${this.hasPackageJson}`);
       this.isPublishable = true;
     }
   }
@@ -262,6 +266,14 @@ export class NxProject {
     console.log('wrote .npmrc to:  ' + npmrcPathInDist);
   }
 
+  private getPackageJsonPath(): string{
+    let packageJsonPath = this.getPackageJsonPathInDist();
+    if(!existsSync(packageJsonPath)) {
+      packageJsonPath = this.getPackageJsonPathInSource();
+    }
+    return packageJsonPath;
+  }
+
   public setVersionOrGeneratePackageJsonInDist(
     version: Version,
     registry: string
@@ -269,7 +281,7 @@ export class NxProject {
     if (this.hasPackageJson) {
       try {
         this.packageJsonContent = JSON.parse(
-          fs.readFileSync(this.getPackageJsonPathInDist()).toString()
+          fs.readFileSync(this.getPackageJsonPath()).toString()
         );
         this.packageJsonContent.author = 'squad-fe';
         this.packageJsonContent.version = version.toString();
