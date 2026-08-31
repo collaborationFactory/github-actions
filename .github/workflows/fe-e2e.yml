@@ -14,6 +14,48 @@ on:
         required: true
 
 jobs:
+  e2e-playwright:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.GHA_REF }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 22.15.0
+
+      - name: Cache Node Modules
+        id: npm-cache
+        uses: actions/cache@v4
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
+      - name: Fetch base branch
+        run: git fetch origin ${{ inputs.GHA_BASE }}:${{ inputs.GHA_BASE }} || true
+
+      - name: Affected Regression Tests
+        id: playwrightRegressionTests
+        continue-on-error: true
+        uses: collaborationFactory/github-actions/.github/actions/run-many@test/playwright
+        with:
+          target: 'e2e-playwright'
+          jobIndex: 1
+          jobCount: 1
+          base: ${{ inputs.GHA_BASE }}
+          ref: ${{ inputs.GHA_REF }}
+
+      - name: Fail pipeline if regressionTests step failed
+        run: |
+          if [ "${{ steps.playwrightRegressionTests.outcome }}" = "failure" ]; then
+            echo "Regression tests step failed, failing the pipeline."
+            exit 1
+          fi
   e2e:
     runs-on: ubuntu-latest
     container:
