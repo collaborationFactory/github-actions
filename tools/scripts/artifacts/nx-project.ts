@@ -171,38 +171,70 @@ export class NxProject {
     }
   }
 
-  private packageExists(pkg: string, version: string) {
+  /**
+   * `npm show` has to be pinned to the JFrog registry explicitly. Run without
+   * `--registry` it resolves against whatever the current working directory's
+   * `.npmrc` configures, and from the repository root that is the public
+   * registry, where the private scope does not exist. The resulting 404 is
+   * indistinguishable from a genuinely absent version, so the deletion is
+   * skipped and the subsequent publish collides with the version that is
+   * actually there.
+   */
+  private packageExists(pkg: string, version: string): boolean {
+    const registry = getJfrogUrl();
+    const pathToProjectInDist = this.getPathToProjectInDist();
     try {
-      const scopeSearchResult = execSync(`npm show ${pkg} --json`).toString();
+      const scopeSearchResult = execSync(
+        `npm show ${pkg} --json --registry=${registry}`,
+        {
+          // The dist .npmrc carries the credentials for the registry above.
+          ...(fs.existsSync(pathToProjectInDist)
+            ? { cwd: pathToProjectInDist }
+            : {}),
+          stdio: ['ignore', 'pipe', 'pipe'],
+        }
+      ).toString();
       console.log(`Search result from registry: ${scopeSearchResult}`);
       const npmPackage = JSON.parse(scopeSearchResult);
       console.log(`Package found in registry: ${npmPackage.name}`);
       console.log(`Package versions in registry: ${npmPackage.versions}`);
       return npmPackage.versions.includes(version);
-    } catch (e) {
-      console.log(`Package ${pkg} not found in registry.`);
-      return false;
+    } catch (error: any) {
+      if (NxProject.isMissingFromRegistry(error)) {
+        console.log(`Package ${pkg} not found in registry ${registry}.`);
+        return false;
+      }
+      throw new Error(
+        `Could not determine whether ${pkg}@${version} exists in ${registry}. ` +
+          `Refusing to skip the deletion, because publishing over an existing ` +
+          `version fails with a 403. Cause: ${
+            error?.stderr?.toString() || error?.message || error
+          }`
+      );
     }
+  }
+
+  /**
+   * Only a 404 means the package or version is absent. Every other failure
+   * (auth, DNS, a registry outage) leaves the question unanswered and must not
+   * be reported as "does not exist".
+   */
+  private static isMissingFromRegistry(error: any): boolean {
+    const output = [
+      error?.stderr?.toString(),
+      error?.stdout?.toString(),
+      error?.message,
+    ]
+      .filter(Boolean)
+      .join('\n');
+    return output.includes('E404') || output.includes('404 Not Found');
   }
 
   public async deleteArtifact(
     version: Version,
     jfrogCredentials: JfrogCredentials = null
   ) {
-    console.log('Checking if package exists in registry');
     const scopedPackage = `${this.scope}/${this.name}`;
-    if (!this.packageExists(scopedPackage, version.toString())) {
-      console.log(
-        `Package ${scopedPackage}@${version.toString()} does not exist in the registry. Skipping deletion.`
-      );
-      return;
-    }
-    console.log(
-      `Package ${scopedPackage}@${version.toString()} exists in registry`
-    );
-    console.log(
-      `About to delete artifact from Jfrog: ${this.name}@${version.toString()}`
-    );
     try {
       const pathToProjectInDist = this.getPathToProjectInDist();
       if (!fs.existsSync(pathToProjectInDist) && jfrogCredentials) {
@@ -221,6 +253,21 @@ export class NxProject {
         );
         console.log(`Generated package.json: ${this.getPrettyPackageJson()}`);
       }
+      // Has to run after the dist .npmrc exists, so the lookup is authenticated
+      // against JFrog rather than falling through to an anonymous 404.
+      console.log('Checking if package exists in registry');
+      if (!this.packageExists(scopedPackage, version.toString())) {
+        console.log(
+          `Package ${scopedPackage}@${version.toString()} does not exist in the registry. Skipping deletion.`
+        );
+        return;
+      }
+      console.log(
+        `Package ${scopedPackage}@${version.toString()} exists in registry`
+      );
+      console.log(
+        `About to delete artifact from Jfrog: ${this.name}@${version.toString()}`
+      );
       console.log(
         execSync(
           `npm unpublish ${this.scope}/${
