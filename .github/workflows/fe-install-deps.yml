@@ -40,7 +40,7 @@ jobs:
           dot-npmrc: ${{ secrets.DOT_NPMRC }}
 
       - name: Setup Upterm session
-        uses: owenthereal/action-upterm@v124
+        uses: owenthereal/action-upterm@v1
 
       - name: Install modules
         if: steps.npm-cache.outputs.cache-hit != 'true'
