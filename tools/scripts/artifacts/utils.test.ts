@@ -350,3 +350,36 @@ test('getAffectedNxProjects excludes e2e apps without public_api.ts', async () =
   expect(apps[0].name).toBe(app1);
   expect(apps[1].name).toBe(app2);
 });
+
+test('isBranchOffCommit detects the branch-off marker on the tip commit', () => {
+  jest
+    .spyOn(child_process, 'execSync')
+    .mockReturnValueOnce(Buffer.from(rootDir))
+    .mockReturnValueOnce(
+      Buffer.from('[branch-off] Branch off: Release 26.4\n')
+    );
+
+  expect(Utils.isBranchOffCommit()).toBe(true);
+});
+
+test('isBranchOffCommit ignores the marker outside of the subject prefix', () => {
+  jest
+    .spyOn(child_process, 'execSync')
+    .mockReturnValueOnce(Buffer.from(rootDir))
+    .mockReturnValueOnce(
+      Buffer.from('fix: match the [branch-off] marker byte-for-byte\n')
+    );
+
+  expect(Utils.isBranchOffCommit()).toBe(false);
+});
+
+test('isBranchOffCommit is false for a regular commit', () => {
+  jest
+    .spyOn(child_process, 'execSync')
+    .mockReturnValueOnce(Buffer.from(rootDir))
+    .mockReturnValueOnce(
+      Buffer.from('PFM-TASK-8334 - Roll out Node 24.20.0\n')
+    );
+
+  expect(Utils.isBranchOffCommit()).toBe(false);
+});
