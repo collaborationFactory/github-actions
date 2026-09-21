@@ -237,6 +237,12 @@ export class Utils {
    * True if the checked out tip commit was created by cf-devkit's branch-off.
    * Branch-off bumps versions and publishes the artifacts itself, so CI must not
    * tag and publish the same commit a second time.
+   *
+   * Reads the subject of whatever commit the workflow checked out, so it depends
+   * on the checkout ref of the caller. Every current caller checks out a real
+   * branch head or SHA (head.ref, head.sha, inputs.GHA_REF). A caller switching
+   * to the pull request merge ref would see the subject `Merge x into y` and the
+   * guard would silently never fire.
    */
   public static isBranchOffCommit(): boolean {
     const subject = execSync(`git log -1 --pretty=%s`, {

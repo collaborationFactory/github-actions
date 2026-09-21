@@ -109,5 +109,6 @@ function mockProjects() {
     .spyOn(Utils, 'getAllNxProjects')
     .mockReturnValueOnce([new NxProject('lib a', NxProjectKind.Library)]);
   jest.spyOn(Utils, 'initGithubActionsFile').mockReturnValue();
+  jest.spyOn(Utils, 'isBranchOffCommit').mockReturnValue(false);
   jest.spyOn(Utils, 'getRootDir').mockReturnValue(rootDir);
 }
