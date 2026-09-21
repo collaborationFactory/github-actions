@@ -13,6 +13,8 @@ export class Utils {
   public static readonly GITHUB_COMMENTS_FILE = 'githubCommentsForPR.txt';
   public static readonly EMPTY_GITHUB_COMMENTS =
     'No snapshots of projects have been published (probably no project is affected)';
+  // cf-devkit's branch-off marks every commit it creates with this literal prefix.
+  public static readonly BRANCH_OFF_MARKER = '[branch-off]';
 
   public static globProjectJSON(): string[] {
     const projects = execSync('ls */**/project.json').toString().trim();
@@ -229,6 +231,27 @@ export class Utils {
 
   public static getRootDir() {
     return execSync(`git rev-parse --show-toplevel`).toString().trim();
+  }
+
+  /**
+   * True if the checked out tip commit was created by cf-devkit's branch-off.
+   * Branch-off bumps versions and publishes the artifacts itself, so CI must not
+   * tag and publish the same commit a second time.
+   *
+   * Reads the subject of whatever commit the workflow checked out, so it depends
+   * on the checkout ref of the caller. Every current caller checks out a real
+   * branch head or SHA (head.ref, head.sha, inputs.GHA_REF). A caller switching
+   * to the pull request merge ref would see the subject `Merge x into y` and the
+   * guard would silently never fire.
+   */
+  public static isBranchOffCommit(): boolean {
+    const subject = execSync(`git log -1 --pretty=%s`, {
+      cwd: Utils.getRootDir(),
+    })
+      .toString()
+      .trim();
+    console.log(`The subject of the tip commit is '${subject}'`);
+    return subject.startsWith(Utils.BRANCH_OFF_MARKER);
   }
 
   public static getLibsDir() {

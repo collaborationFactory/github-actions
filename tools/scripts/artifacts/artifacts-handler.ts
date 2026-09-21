@@ -98,7 +98,20 @@ export class ArtifactsHandler {
   }
 
   async handle() {
+    // Must run before any early return: the "comment published Artifacts on PR"
+    // step of fe-pr-snapshot.yml reads the comments file unconditionally.
     Utils.initGithubActionsFile();
+    // cf-devkit's branch-off bumps versions and publishes the artifacts locally,
+    // and marks every commit it creates. Tagging and publishing such a commit
+    // from CI would re-release what branch-off already released. Deletion
+    // (fe-pr-close) stays unguarded: it neither tags nor publishes, and skipping
+    // it would leak the PR snapshot into the registry forever.
+    if (!this.onlyDeleteArtifacts && Utils.isBranchOffCommit()) {
+      console.log(
+        `Tip commit is marked with ${Utils.BRANCH_OFF_MARKER}, skipping tagging and publishing`
+      );
+      return Promise.resolve();
+    }
     if (
       this.onlyBumpVersion &&
       this.currentBranch.startsWith(ArtifactsHandler.RELEASE_BRANCH_PREFIX)

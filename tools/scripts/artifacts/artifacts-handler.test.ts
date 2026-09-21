@@ -172,6 +172,7 @@ async function exec() {
     .spyOn(Utils, 'parseScopeFromPackageJson')
     .mockReturnValueOnce('@cplace-frontend-applications');
   jest.spyOn(Utils, 'initGithubActionsFile').mockReturnValue();
+  jest.spyOn(Utils, 'isBranchOffCommit').mockReturnValue(false);
   jest
     .spyOn(Utils, 'writePublishedProjectToGithubCommentsFile')
     .mockReturnValue();
