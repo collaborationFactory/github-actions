@@ -16,8 +16,6 @@ on:
         required: true
       JFROG_USER:
         required: true
-      GIT_USER_TOKEN:
-        required: false
 
 jobs:
   snapshot:
