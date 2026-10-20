@@ -252,6 +252,19 @@ test('can bump version correctly for a release Branch with existing tag', () => 
   expect(version).toStrictEqual(new Version('22.4.13'));
 });
 
+test('can bump version from a precomputed tag list without listing the remote tags', () => {
+  const execMock = jest
+    .spyOn(child_process, 'execSync')
+    .mockReturnValue(Buffer.from(''));
+  const version = Utils.calculateNewVersion('release/22.4', [
+    new Version('22.3.7'),
+    new Version('22.4.11'),
+    new Version('22.4.12'),
+  ]);
+  expect(version).toStrictEqual(new Version('22.4.13'));
+  expect(execMock).not.toHaveBeenCalled();
+});
+
 test('can create hashed timestamp correctly formatted', () => {
   const timestamp = Utils.getHashedTimestamp();
   expect(timestamp).toEqual('lccjqzk0-20230101');

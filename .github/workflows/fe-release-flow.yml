@@ -1,0 +1,165 @@
+name: Frontend Release Flow Workflow
+
+on:
+  workflow_call:
+    inputs:
+      FORCE:
+        description: 'release/*: release even if no project is affected. Default branch: publish a snapshot of all projects. false: build and test only.'
+        type: boolean
+        required: false
+        default: false
+      RUN_E2E:
+        type: boolean
+        required: false
+        default: true
+    secrets:
+      JFROG_BASE64_TOKEN:
+        required: true
+      JFROG_URL:
+        required: true
+      JFROG_USER:
+        required: true
+      DOT_NPMRC:
+        required: true
+      GIT_USER_TOKEN:
+        required: true
+      GIT_USER:
+        required: true
+      GIT_USER_EMAIL:
+        required: true
+      PERCY_TOKEN:
+        required: false
+
+env:
+  NX_BRANCH: ${{ github.event.number }}
+  NX_RUN_GROUP: ${{ github.run_id }}
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Check dispatch ref
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          DEFAULT_REF: refs/heads/${{ github.event.repository.default_branch }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$REF" != "$DEFAULT_REF" ] && [[ "$REF" != refs/heads/release/* ]]; then
+            echo "::error::The release flow can only be dispatched on the default branch or a release/* branch, not on $REF"
+            exit 1
+          fi
+
+  install-deps:
+    needs: guard
+    permissions:
+      contents: read
+    uses: collaborationFactory/github-actions/.github/workflows/fe-install-deps.yml@master
+    with:
+      GHA_REF: ''
+    secrets:
+      DOT_NPMRC: ${{ secrets.DOT_NPMRC }}
+
+  build:
+    needs: install-deps
+    permissions:
+      contents: read
+    uses: collaborationFactory/github-actions/.github/workflows/fe-build.yml@master
+    with:
+      GHA_REF: ''
+      GHA_BASE: ${{ github.event.before }}
+
+  e2e:
+    needs: install-deps
+    if: inputs.RUN_E2E
+    permissions:
+      contents: read
+    uses: collaborationFactory/github-actions/.github/workflows/fe-e2e.yml@master
+    with:
+      GHA_REF: ''
+      GHA_BASE: ${{ github.event.before }}
+    secrets:
+      PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
+
+  release:
+    needs: [build, e2e]
+    # a skipped e2e (RUN_E2E: false) must not skip the release; a non-forced dispatch is a dry run
+    if: >-
+      !cancelled()
+      && needs.build.result == 'success'
+      && (needs.e2e.result == 'success' || needs.e2e.result == 'skipped')
+      && (github.event_name == 'push' || inputs.FORCE)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      released: ${{ steps.release.outputs.released }}
+      tag: ${{ steps.release.outputs.tag }}
+      previous_tag: ${{ steps.release.outputs.previous_tag }}
+      is_latest: ${{ steps.release.outputs.is_latest }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ''
+          fetch-depth: 0
+          token: ${{ secrets.GIT_USER_TOKEN }}
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24.20.0
+
+      - name: Cache Node Modules
+        id: npm-cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Use .npmrc
+        uses: collaborationFactory/github-actions/.github/actions/use-npmrc@master
+        with:
+          dot-npmrc: ${{ secrets.DOT_NPMRC }}
+
+      - name: Install Modules
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        run: npm ci && echo "modules were installed via npm" || yarn
+
+      - name: Configure git user
+        run: |
+          git config user.name ${{ secrets.GIT_USER }}
+          git config user.email ${{ secrets.GIT_USER_EMAIL }}
+
+      - name: Tag and Push to Jfrog NPM Registry
+        id: release
+        uses: collaborationFactory/github-actions/.github/actions/artifacts@master
+        env:
+          JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
+          JFROG_URL: ${{ secrets.JFROG_URL }}
+          JFROG_USER: ${{ secrets.JFROG_USER }}
+          RELEASE_FLOW: true
+          FORCE: ${{ inputs.FORCE }}
+
+  github-release:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.release.outputs.tag }}
+          PREVIOUS_TAG: ${{ needs.release.outputs.previous_tag }}
+          IS_LATEST: ${{ needs.release.outputs.is_latest }}
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "A GitHub release for $TAG already exists, nothing to do"
+            exit 0
+          fi
+          args=(--verify-tag --generate-notes "--latest=$IS_LATEST")
+          if [ -n "$PREVIOUS_TAG" ]; then
+            args+=(--notes-start-tag "$PREVIOUS_TAG")
+          fi
+          gh release create "$TAG" "${args[@]}"

@@ -1,53 +1,29 @@
+# Replaces the old two-file release (this file as tagger + fe-tag-pushed.yml / on_tag_pushed.yaml / tag_pushed.yml).
+# Delete BOTH old caller files in the same commit that adds this one: the release flow still pushes
+# the tag with the PAT, so a tag-push workflow left in the tree would publish a second time.
 name: 'Frontend Release CI'
 on:
   push:
     branches:
       - 'release/*'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Tag and publish (release/*) or publish a snapshot of all projects (default branch). Unticked: build and test only, nothing is tagged or published.'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
-  pull-requests: write
-  actions: read
-  checks: write
 
-env:
-  NX_BRANCH: ${{ github.event.number }}
-  NX_RUN_GROUP: ${{ github.run_id }}
+concurrency:
+  group: fe-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  install-deps:
-    uses: collaborationFactory/github-actions/.github/workflows/fe-install-deps.yml@master
+  release-flow:
+    uses: collaborationFactory/github-actions/.github/workflows/fe-release-flow.yml@master
     with:
-      GHA_REF: ''
-    secrets:
-      DOT_NPMRC: ${{ secrets.DOT_NPMRC }}
-
-  e2e-tests:
-    needs: install-deps
-    uses: collaborationFactory/github-actions/.github/workflows/fe-e2e.yml@master
-    with:
-      GHA_REF: ''
-      GHA_BASE: ${{ github.event.before }}
-    secrets:
-      PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
-
-  build:
-    needs: install-deps
-    uses: collaborationFactory/github-actions/.github/workflows/fe-build.yml@master
-    with:
-      GHA_REF: ''
-      GHA_BASE: ${{ github.event.before }}
-
-  tag:
-    needs: [build, e2e-tests]
-    uses: collaborationFactory/github-actions/.github/workflows/fe-tag.yml@master
-    with:
-      GHA_REF: ''
-      GHA_BASE: ${{ github.event.before }}
-    secrets:
-      JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
-      JFROG_URL: ${{ secrets.JFROG_URL }}
-      JFROG_USER: ${{ secrets.JFROG_USER }}
-      GIT_USER_TOKEN: ${{ secrets.GIT_USER_TOKEN }}
-      GIT_USER: ${{ secrets.GIT_USER }}
-      GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
+      FORCE: ${{ inputs.force == true }}
+      # RUN_E2E: false # only for repos that do not run e2e before a release
+    secrets: inherit

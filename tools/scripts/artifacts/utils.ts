@@ -1,3 +1,4 @@
+import * as core from '@actions/core';
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -174,11 +175,12 @@ export class Utils {
 
   public static getLatestTagForReleaseBranch(
     branch: string,
-    versionOfBranch: Version
+    versionOfBranch: Version,
+    allTags?: Version[]
   ): Version {
     let tags: Version[] = [];
     if (branch.startsWith(ArtifactsHandler.RELEASE_BRANCH_PREFIX)) {
-      tags = this.getAllVersionTagsInAscendingOrder()
+      tags = (allTags ?? this.getAllVersionTagsInAscendingOrder())
         .filter(
           (version) =>
             version.major === versionOfBranch.major &&
@@ -192,11 +194,15 @@ export class Utils {
     return new Version('');
   }
 
-  public static calculateNewVersion(branch: string): Version {
+  public static calculateNewVersion(
+    branch: string,
+    allTags?: Version[]
+  ): Version {
     const versionOfBranch: Version = Utils.getVersionFromReleaseBranch(branch);
     const latestExistingTag = Utils.getLatestTagForReleaseBranch(
       branch,
-      versionOfBranch
+      versionOfBranch,
+      allTags
     );
     if (!latestExistingTag.isValid()) {
       versionOfBranch.patch = 1;
@@ -339,6 +345,17 @@ export class Utils {
     const gitHubCommentsFile = Utils.getGitHubCommentsFile();
     if (!fs.existsSync(gitHubCommentsFile)) {
       fs.writeFileSync(gitHubCommentsFile, Utils.EMPTY_GITHUB_COMMENTS);
+    }
+  }
+
+  public static writeOutput(name: string, value: string) {
+    console.log(`Output ${name}=${value}`);
+    core.setOutput(name, value);
+  }
+
+  public static appendStepSummary(markdown: string) {
+    if (process.env.GITHUB_STEP_SUMMARY) {
+      fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${markdown}\n`);
     }
   }
 
