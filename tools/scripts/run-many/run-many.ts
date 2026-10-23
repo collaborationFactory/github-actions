@@ -1,4 +1,4 @@
-import { getAffectedProjects } from './affected-projects';
+import { getAffectedProjects, normalizeRef } from './affected-projects';
 import { execSync } from 'child_process';
 import * as core from '@actions/core';
 
@@ -60,7 +60,7 @@ function main() {
     core.info(`Using default branch ${defaultBranch} as base`);
     base = `origin/${defaultBranch}`;
   }
-  const ref = process.argv[6];
+  const ref = normalizeRef(process.argv[6]);
 
   core.info(
     `Inputs:\n target ${target},\n jobIndex: ${jobIndex},\n jobCount ${jobCount},\n base ${base},\n ref ${ref}`
