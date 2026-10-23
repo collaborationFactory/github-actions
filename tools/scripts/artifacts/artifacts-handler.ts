@@ -74,8 +74,10 @@ export class ArtifactsHandler {
       this.currentVersion = new Version(this.tag.replace('version/', ''));
       this.task = TASK.RELEASE;
     }
-    // in case of a release Branch
-    if (this.currentBranch.startsWith(ArtifactsHandler.RELEASE_BRANCH_PREFIX)) {
+    // in case of a release Branch (a given release Tag keeps its own version)
+    else if (
+      this.currentBranch.startsWith(ArtifactsHandler.RELEASE_BRANCH_PREFIX)
+    ) {
       this.currentVersion = Utils.getVersionFromReleaseBranch(
         this.currentBranch
       );
@@ -215,7 +217,6 @@ export class ArtifactsHandler {
   }
 
   private async tagAndPublishRelease() {
-    Utils.writeOutput('released', 'false');
     if (
       !this.currentBranch.startsWith(ArtifactsHandler.RELEASE_BRANCH_PREFIX)
     ) {
@@ -238,7 +239,6 @@ export class ArtifactsHandler {
     }
 
     const allTags = Utils.getAllVersionTagsInAscendingOrder();
-    // read before calculateNewVersion: it bumps the returned tag object in place
     const previous = Utils.getLatestTagForReleaseBranch(
       this.currentBranch,
       Utils.getVersionFromReleaseBranch(this.currentBranch),
@@ -277,15 +277,9 @@ export class ArtifactsHandler {
     }
 
     const gitTag = this.calculatedNewVersion.getGitTag();
-    console.log(`Tag phase: pushing ${gitTag}`);
-    console.log(execSync(`git tag ${gitTag}`).toString());
-    console.log(execSync(`git push origin ${gitTag}`).toString());
-    Utils.writeOutput('tag', gitTag);
-    Utils.writeOutput('previous_tag', previousTag);
-    Utils.writeOutput('is_latest', String(isLatest));
-    Utils.appendStepSummary(
-      `Tag phase: pushed \`${gitTag}\`. Publish phase started; if this run failed after this line, the tag is dangling: run a forced dispatch on this branch to release the next patch.`
-    );
+    // read by the workflow's cleanup step, which unpublishes this version if the run
+    // fails or is cancelled before the tag is pushed
+    Utils.writeReleaseVersionFile(gitTag);
 
     console.log(
       `Publish phase: publishing all publishable projects as ${this.calculatedNewVersion}`
@@ -294,9 +288,16 @@ export class ArtifactsHandler {
     this.onlyAffected = false;
     this.initProjects();
     await this.buildAndPublishProjects();
-    Utils.writeOutput('released', 'true');
     Utils.appendStepSummary(
       `Publish phase: published all publishable projects as \`${this.calculatedNewVersion}\``
     );
+
+    console.log(`Tag phase: pushing ${gitTag}`);
+    console.log(execSync(`git tag ${gitTag}`).toString());
+    console.log(execSync(`git push origin ${gitTag}`).toString());
+    Utils.writeOutput('tag', gitTag);
+    Utils.writeOutput('previous_tag', previousTag);
+    Utils.writeOutput('is_latest', String(isLatest));
+    Utils.appendStepSummary(`Tag phase: pushed \`${gitTag}\``);
   }
 }

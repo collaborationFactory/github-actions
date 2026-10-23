@@ -16,6 +16,7 @@ export class Utils {
     'No snapshots of projects have been published (probably no project is affected)';
   // cf-devkit's branch-off marks every commit it creates with this literal prefix.
   public static readonly BRANCH_OFF_MARKER = '[branch-off]';
+  public static readonly RELEASE_VERSION_FILE = 'fe-release-version';
 
   public static globProjectJSON(): string[] {
     const projects = execSync('ls */**/project.json').toString().trim();
@@ -208,8 +209,9 @@ export class Utils {
       versionOfBranch.patch = 1;
       return versionOfBranch;
     } else {
-      latestExistingTag.patchVersion(VERSION_BUMP.PATCH);
-      return latestExistingTag;
+      const newVersion = new Version(latestExistingTag.toString(), '');
+      newVersion.patchVersion(VERSION_BUMP.PATCH);
+      return newVersion;
     }
   }
 
@@ -351,6 +353,15 @@ export class Utils {
   public static writeOutput(name: string, value: string) {
     console.log(`Output ${name}=${value}`);
     core.setOutput(name, value);
+  }
+
+  public static writeReleaseVersionFile(gitTag: string) {
+    if (process.env.RUNNER_TEMP) {
+      fs.writeFileSync(
+        path.join(process.env.RUNNER_TEMP, Utils.RELEASE_VERSION_FILE),
+        gitTag
+      );
+    }
   }
 
   public static appendStepSummary(markdown: string) {

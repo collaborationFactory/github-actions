@@ -11,6 +11,11 @@ permissions:
   actions: read
   checks: write
 
+# a new push to the branch cancels the run of the previous one
+concurrency:
+  group: fe-main-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   NX_BRANCH: ${{ github.event.number }}
   NX_RUN_GROUP: ${{ github.run_id }}

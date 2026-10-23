@@ -1,11 +1,8 @@
 name: 'Frontend Artifacts Handler Action'
 description: 'Github Action to handle frontend artifacts'
 outputs:
-  released:
-    description: 'true if a version was tagged and published (release flow only)'
-    value: ${{ steps.handler.outputs.released }}
   tag:
-    description: 'The pushed version tag (release flow only)'
+    description: 'The pushed version tag, set only once the version is published and tagged (release flow only)'
     value: ${{ steps.handler.outputs.tag }}
   previous_tag:
     description: 'The previous tag of the same release line, empty for X.Y.1 (release flow only)'

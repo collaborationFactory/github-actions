@@ -37,7 +37,8 @@ env:
 jobs:
   guard:
     runs-on: ubuntu-latest
-    permissions: {}
+    permissions:
+      contents: read
     steps:
       - name: Check dispatch ref
         env:
@@ -47,6 +48,20 @@ jobs:
         run: |
           if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$REF" != "$DEFAULT_REF" ] && [[ "$REF" != refs/heads/release/* ]]; then
             echo "::error::The release flow can only be dispatched on the default branch or a release/* branch, not on $REF"
+            exit 1
+          fi
+
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          sparse-checkout: .github/workflows
+          persist-credentials: false
+
+      # an old tag-push caller would publish manually pushed tags and fail on the tags of this flow
+      - name: Check for old release callers
+        run: |
+          old=$(grep -lE 'github-actions/\.github/workflows/(fe-release|fe-tag)\.yml@' .github/workflows/*.y*ml 2> /dev/null || true)
+          if [ -n "$old" ]; then
+            echo "::error::Old release callers found: $(echo $old). Delete them in the same commit that adds the fe-release-flow caller (see 'FE Release Flow' in the github-actions README)."
             exit 1
           fi
 
@@ -93,7 +108,6 @@ jobs:
     permissions:
       contents: read
     outputs:
-      released: ${{ steps.release.outputs.released }}
       tag: ${{ steps.release.outputs.tag }}
       previous_tag: ${{ steps.release.outputs.previous_tag }}
       is_latest: ${{ steps.release.outputs.is_latest }}
@@ -122,14 +136,17 @@ jobs:
 
       - name: Install Modules
         if: steps.npm-cache.outputs.cache-hit != 'true'
-        run: npm ci && echo "modules were installed via npm" || yarn
+        run: npm ci
 
       - name: Configure git user
+        env:
+          GIT_USER: ${{ secrets.GIT_USER }}
+          GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
         run: |
-          git config user.name ${{ secrets.GIT_USER }}
-          git config user.email ${{ secrets.GIT_USER_EMAIL }}
+          git config user.name "$GIT_USER"
+          git config user.email "$GIT_USER_EMAIL"
 
-      - name: Tag and Push to Jfrog NPM Registry
+      - name: Publish to Jfrog NPM Registry and Tag
         id: release
         uses: collaborationFactory/github-actions/.github/actions/artifacts@master
         env:
@@ -139,9 +156,39 @@ jobs:
           RELEASE_FLOW: true
           FORCE: ${{ inputs.FORCE }}
 
+      # the release step writes the version before publishing; once the tag is pushed
+      # the release is complete and must not be unpublished
+      - name: Check for an incomplete release
+        id: incomplete
+        if: failure() || cancelled()
+        run: |
+          file="$RUNNER_TEMP/fe-release-version"
+          if [ ! -f "$file" ]; then
+            echo "Publishing did not start, nothing to clean up"
+            exit 0
+          fi
+          tag=$(cat "$file")
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
+            echo "$tag is already pushed, the release is complete: nothing to clean up"
+            exit 0
+          fi
+          echo "$tag was not pushed: unpublishing its artifacts"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Unpublish the incomplete release
+        if: (failure() || cancelled()) && steps.incomplete.outputs.tag != ''
+        uses: collaborationFactory/github-actions/.github/actions/artifacts@master
+        env:
+          JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
+          JFROG_URL: ${{ secrets.JFROG_URL }}
+          JFROG_USER: ${{ secrets.JFROG_USER }}
+          ONLY_DELETE_ARTIFACTS: true
+          TAG: ${{ steps.incomplete.outputs.tag }}
+
   github-release:
     needs: release
-    if: needs.release.outputs.released == 'true'
+    # the tag is set only once the version is published and tagged
+    if: needs.release.outputs.tag != ''
     runs-on: ubuntu-latest
     permissions:
       contents: write

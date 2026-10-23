@@ -1,6 +1,8 @@
 # Replaces the old two-file release (this file as tagger + fe-tag-pushed.yml / on_tag_pushed.yaml / tag_pushed.yml).
 # Delete BOTH old caller files in the same commit that adds this one: the release flow still pushes
-# the tag with the PAT, so a tag-push workflow left in the tree would publish a second time.
+# the tag with the PAT, so a tag-push workflow left in the tree would publish that tag again (and
+# release manually pushed tags). The release flow's guard job fails while an old caller exists.
+# PFM-ISSUE-34282 (pushing the tag with GITHUB_TOKEN) removes the tag-push trigger for good.
 name: 'Frontend Release CI'
 on:
   push:
@@ -16,6 +18,7 @@ on:
 permissions:
   contents: write
 
+# one release run per branch at a time; a running release is never cancelled
 concurrency:
   group: fe-release-${{ github.ref }}
   cancel-in-progress: false

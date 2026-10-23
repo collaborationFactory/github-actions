@@ -9,9 +9,16 @@ status: draft
 
 # Consolidate the FE 2.0 Release Flow into a Single Workflow - Design Approach
 
+> **Revisions during implementation and PR #183 review** (user decisions; details in plan.md):
+> - **Scope:** `master` only, with no upmerge to or backport onto `release/25.4` … `release/26.4`.
+> - **Guard:** the `squad-fe` skip is removed. Every push runs the flow, as in the backend repos.
+> - **Affected base:** the non-forced check uses the previous tag of the line, not `github.event.before`. Queued pushes whose runs were cancelled are not lost.
+> - **Order:** publish first, then the tag (it was tag first). If the publish or the tag push fails, or the run is cancelled before the tag is pushed, a cleanup step in the workflow unpublishes that version (`ONLY_DELETE_ARTIFACTS` + `TAG`). A re-run or the next push then releases the **same** version. Every `version/*` tag stands for a complete release. This reverses the research Q4 consequence "a re-run moves to the next version".
+> - **Constructor-ordering bug fixed:** a `TAG` on a `release/*` branch keeps its own version. This is needed so the cleanup can target the exact version.
+
 ## Overview
 
-Replace today's two chained runs per FE repo (branch push → `fe-tag`, then tag push → `fe-release`) with one reusable workflow, `fe-release-flow.yml`. Each caller invokes it with a single `uses:`. Within one run it does build + test → push the version tag → publish to JFrog → create the GitHub release. It also adds a `workflow_dispatch` path with a `force` input as the supported alternative to tagging by hand. This ticket delivers the github-actions side (workflow, tool changes, template, docs) on `master` and `release/25.4` … `release/26.4`. Consumer migration starts with the pilot PFM-ISSUE-34287.
+Replace today's two chained runs per FE repo (branch push → `fe-tag`, then tag push → `fe-release`) with one reusable workflow, `fe-release-flow.yml`. Each caller invokes it with a single `uses:`. Within one run it does build + test → publish to JFrog → push the version tag → create the GitHub release (revised; originally tag before publish). It also adds a `workflow_dispatch` path with a `force` input as the supported alternative to tagging by hand. This ticket delivers the github-actions side (workflow, tool changes, template, docs) on `master` only (revised; originally also `release/25.4` … `release/26.4`). Consumer migration starts with the pilot PFM-ISSUE-34287.
 
 ## Problem Statement
 
@@ -24,8 +31,8 @@ The split exists only because a tag pushed with `GITHUB_TOKEN` doesn't trigger w
 
 ### Requirements
 - One workflow, triggered by `push: branches: ['release/*']` and by `workflow_dispatch` with a user-selectable `force` input. Manual tag creation does not trigger a release, as far as workflow files can enforce it (a tag ruleset is deferred).
-- Order within the run: build + test → push version tag → publish to JFrog → create the GitHub release.
-- Tag-before-publish semantics: a failed tag push retries the same version, and a failed publish moves the next run to the next version.
+- Order within the run: build + test → publish to JFrog → push version tag → create the GitHub release (revised; originally tag before publish).
+- Publish-before-tag semantics (revised): a failed publish or tag push is cleaned up (the version is unpublished), and the next run retries the same version.
 - The GitHub release is created only after a successful publish.
 - Retries are deadlock-free.
 
@@ -33,7 +40,7 @@ The split exists only because a tag pushed with `GITHUB_TOKEN` doesn't trigger w
 - Works under the current auth: the tag is still pushed with the PAT (`GIT_USER_TOKEN`, actor `squad-fe`). Only the GitHub release uses `GITHUB_TOKEN`.
 - Because of the PAT push, a migrated branch's tree must not contain the old `on: push: tags` caller, or it publishes a second time.
 - The existing `fe-tag.yml` / `fe-release.yml` stay untouched for unmigrated branches and repos.
-- Every github-actions change is made per release branch (`master`, `release/25.4` … `26.4`) along the upmerge chain, with per-branch refs.
+- ~~Every github-actions change is made per release branch (`master`, `release/25.4` … `26.4`) along the upmerge chain, with per-branch refs.~~ Revised: this ticket lands on `master` only. The older release lines keep the old flow, and a backport would be a separate effort.
 - Never test on `release/*`; validation uses the prepared live test setup (2026-06-08 incident rule).
 
 ## Design Decisions Summary
@@ -48,7 +55,7 @@ The split exists only because a tag pushed with `GITHUB_TOKEN` doesn't trigger w
 3. **Tag and publish happen in one tool process (new combined release mode)**: the artifacts tool computes the version from remote tags, applies the "anything affected?" check (skipped by `force`), tags and pushes, then publishes all publishable projects at exactly that version.
    - It writes `released`, `tag`, `previous_tag` and `is_latest` to `$GITHUB_OUTPUT`.
    - The existing `ONLY_BUMP_VERSION` and TAG modes are unchanged. The constructor-ordering bug (the release-branch block resets the TAG version to `X.Y.0`) is avoided by design in the new mode.
-   - Version calculation, tag and publish sit in the same job, so "Re-run failed jobs" recomputes and moves on to the next patch.
+   - Version calculation, publish and tag sit in the same job. After the cleanup, "Re-run failed jobs" recomputes the **same** version (revised; originally the next patch).
 4. **`workflow_dispatch` with `force` (default `false`), guarded to the default branch and `release/*`**:
    - A `guard` job fails a dispatch on any other ref and skips the run's later jobs for `squad-fe` pushes.
    - On dispatch, build, storybook and e2e cover **all** projects. This needs a `run-many` fix so its existing "all projects" branch can be reached.
@@ -65,12 +72,12 @@ The split exists only because a tag pushed with `GITHUB_TOKEN` doesn't trigger w
      - removing the install-deps concurrency
      - the new caller template, replacing `fe-release.yml` and deleting `fe-tag-pushed.yml`
      - README docs for the flow, secrets and force
-   - These changes land on `master` and on `release/25.4` … `26.4`.
+   - These changes land on `master` only (revised; originally also `release/25.4` … `26.4`).
    - The consumer rollout follows the pilot (PFM-ISSUE-34287) and excludes cplace-bayer-prompt-fe and the three dormant repos.
 
 This means:
-- A release is a single, ordered run. A failed publish leaves at most a dangling tag; it never leaves a GitHub release without artifacts.
-- Recovery is simple: "Re-run failed jobs" on `release` publishes the next patch, a re-run of `github-release` alone reuses the same tag, and a forced dispatch releases even when nothing is affected.
+- A release is a single, ordered run. A failed publish is unpublished again and leaves no tag (revised; originally a dangling tag). It never leaves a GitHub release without artifacts.
+- Recovery is simple: "Re-run failed jobs" on `release` publishes the same version again (revised), a re-run of `github-release` alone reuses the same tag, and a forced dispatch releases even when nothing is affected.
 - An accidental "Run workflow" click releases nothing (default `force: false` is a dry run), and dispatch on feature branches or tags is rejected.
 - The EPIC-1963 follow-ups below become github-actions-only changes; callers don't change:
   - split JFrog secrets instead of `DOT_NPMRC`
@@ -97,7 +104,7 @@ What we're NOT doing (out of scope):
 
 Success criteria:
 - On the live test setup, one push to a `release/*` test branch produces exactly one run that tags, publishes all packages at that version, and creates a GitHub release with correct notes range and "Latest" flag. No second (tag-triggered) run starts.
-- A deliberately failed publish leaves a tag without a GitHub release, and "Re-run failed jobs" publishes and releases the next patch.
+- A deliberately failed publish leaves no tag and no artifacts of that version (the cleanup unpublished them). "Re-run failed jobs" publishes and releases the same version (revised).
 - A non-forced dispatch tags and publishes nothing. A forced dispatch on a release branch with nothing affected releases. A dispatch on a feature branch fails in `guard`.
 - Unit tests cover the new release mode, including tag/push commands, force bypass, `$GITHUB_OUTPUT` values (`released`, `tag`, `previous_tag`, `is_latest`) and the `[branch-off]` precedence over force.
 
@@ -243,7 +250,7 @@ It narrows permissions per job.
 - New reusable `fe-release-flow.yml`.
 - Consumer caller normalized to `fe-release.yml`: the migration commit deletes both old caller files and adds it.
 - The new caller template replaces `workflow-templates/fe/fe-release.yml`. `fe-tag-pushed.yml` is deleted from the templates.
-- This ticket delivers github-actions only (all items in decision 7), on `master` and `release/25.4` … `26.4`.
+- This ticket delivers github-actions only (all items in decision 7), on `master` only (revised; originally also `release/25.4` … `26.4`).
 - The consumer rollout follows the pilot PFM-ISSUE-34287 and excludes cplace-bayer-prompt-fe and the three dormant repos. The `RUN_E2E: false` repos (legacy-fe-assets, loomeo, dataciders) migrate with the input set.
 
 **Rationale:**
@@ -287,7 +294,7 @@ A thin caller per FE repo branch. It owns the triggers, concurrency, permissions
 - **GitHub git remote:** tag push via the PAT persisted by `actions/checkout`.
 - **GitHub Releases API:** via the `gh` CLI with `GITHUB_TOKEN`.
 - **cf-devkit branch-off:** copies the default-branch caller into `release/X.Y` and rewrites `@master` → `@release/X.Y`. The `[branch-off]` guard in the tool still prevents re-releasing branch-off commits.
-- **The github-actions upmerge chain:** each change lands on `release/25.4` … `26.4` and `master`, with per-branch refs.
+- ~~**The github-actions upmerge chain:** each change lands on `release/25.4` … `26.4` and `master`, with per-branch refs.~~ No longer applicable (master only). New consequence: release lines `25.4`–`26.4` keep the deprecated two-run flow until the next branch-off from master. The pilot needs a line cut after this change.
 
 ## Known Risks
 

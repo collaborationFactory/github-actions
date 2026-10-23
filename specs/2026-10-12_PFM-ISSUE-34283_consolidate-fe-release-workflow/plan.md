@@ -667,6 +667,33 @@ Run `/review:branch-merge` (or the `code-review` skill) over `origin/master..HEA
      - Consequence for recovery: "Re-run failed jobs" after a failed publish no longer releases, because nothing is affected since the dangling tag. Recovery is now a **forced dispatch**. Re-running a successful push run is harmless. The README Recovery section and the tool's step summary are updated.
   3. ~~(README) Warn that "Re-run all jobs" after a successful release cuts another patch.~~ **Resolved:** with the tag-based base, this applies only to re-running a successful **forced dispatch** (`force: true` is kept). The README warns about exactly that.
 
+**PR #183 review (Benno42, 11 inline comments): decisions**
+- **#1** (`artifacts-handler.ts`, a re-run after a failed publish ends green without publishing). Confirmed: with base = previous tag, the dangling tag became the base. **Decision:** publish before tag, plus a workflow cleanup. In detail:
+  - The tool writes the version to `$RUNNER_TEMP/fe-release-version` before publishing, publishes, then tags. The tag outputs and `released=true` are written only after the tag push.
+  - The `release` job has two new steps, both under `failure() || cancelled()`. "Check for an incomplete release" skips the cleanup if the tag is already on the remote. "Unpublish the incomplete release" runs the artifacts action with `ONLY_DELETE_ARTIFACTS` + `TAG`.
+  - The constructor-ordering bug is fixed (`else if`): a `TAG` on a `release/*` branch keeps its version.
+  - Tests: publish-before-tag order, a failed publish (no tag, version file written), a failed tag push after publish, cleanup targeting the tag's version on a release branch, and in the tag test the version kept by TAG mode.
+  - README and design.md are updated.
+  - Rejected alternatives: "last tag with a GitHub release" as base (releases can be deleted without consequence), and skip-if-exists (a partial, abandoned publish would silently ship an old package under a new tag).
+  - To validate live: JFrog delete rights for release versions, and the `release-X.Y` dist-tag after an unpublish.
+- **#2** (template, an old tag-push caller left behind and manual tags). **Decision:** all three suggestions.
+  - `guard` sparse-checks out `.github/workflows` (`contents: read`) and fails if any workflow still references `github-actions/.github/workflows/(fe-release|fe-tag).yml@`. Checked against samples: new caller, old tag-push caller, old tagger, empty directory.
+  - A `::warning::` deprecation step is added to `fe-tag.yml` and `workflows/fe-release.yml`. This revises "old reusables unchanged": the step is added, and their behavior is unchanged.
+  - PFM-ISSUE-34282 is linked in the README and the template comment.
+- **#3** (`fe-install-deps.yml`, old `fe-pr`/`fe-main` runs no longer cancelled). **Decision:** `fe-install-deps.yml` keeps no concurrency. The callers own it:
+  - The `fe-pr.yml` template gets `fe-pr-${{ github.event.pull_request.number }}` (cancelling).
+  - The `fe-main.yml` template gets `fe-main-${{ github.ref }}` (cancelling; a superseded snapshot publish may be cut short, which is harmless because snapshot versions are unique).
+  - `fe-release.yml` keeps its non-cancelling group.
+  - The README turns "Caller" into numbered **Migration steps**. Step 3 adds the concurrency block to the PR and main callers. The Concurrency section has a per-caller table.
+- **#4** (`run-many.ts`, `fe-main` pushes build all projects). **Decision:** intended (Phase 1 decision), no code change. The reply explains that the empty ref used to arrive as `undefined`, so the "all projects" branch was dead code.
+- **#5** (`fe-release-flow.yml`, the `|| yarn` fallback). **Decision:** accepted. The release job uses plain `npm ci`. The deprecated `workflows/fe-release.yml` is left as it is.
+- **#6** (`fe-release-flow.yml`, secrets inside `run:`). **Decision:** accepted. `GIT_USER` / `GIT_USER_EMAIL` are passed via `env:` and quoted. The deprecated `fe-tag.yml` is left as it is.
+- **#7** (a test for "tag pushed, then publish fails"). **Decision:** no new test. That scenario is gone with publish → tag. The remaining cases are covered by the release-flow tests "a failed publish …" and "a failed tag push …". The workflow cleanup steps are covered by the live validation (manual testing step 3, revised). The reply says so.
+- **#8** (README, only `github-release` failed). **Decision:** accepted. Recovery says to use "Re-run failed jobs", warns against "Re-run all jobs", and gives the manual `gh release create` fallback.
+- **#9** (`released` is redundant with `tag`). **Decision:** accepted. The `released` output is removed from the tool, the action and the job, and `github-release` runs on `needs.release.outputs.tag != ''`. With publish → tag, `tag` is written only after publish and tag push both succeed. The tests assert "no output at all" for every no-release and failure case.
+- **#10** (`calculateNewVersion` mutates the tag list). **Decision:** accepted. It returns a new `Version`, and the order comment in `tagAndPublishRelease()` is removed. `utils.test.ts` asserts that the list passed in is unchanged.
+- **#11** (design.md promises backports). **Decision:** accepted. design.md is aligned to master only: the Overview order, Constraints, decision 7, Scope and the upmerge-chain risk are marked as revised.
+
 #### 2. PR [OUTWARD]
 Push the branch and open the PR only after explicit user approval.
 - Base: `master`. Title: `PFM-ISSUE-34283 - Consolidate the FE 2.0 release flow into a single workflow`.
@@ -680,9 +707,9 @@ Push the branch and open the PR only after explicit user approval.
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] The PR targets `master`: `gh pr view --json baseRefName --jq .baseRefName` = `master`
-- [ ] The PR's required checks (`pr-checks.yml`) pass: `gh pr checks`
-- [ ] The full jest suite fails only in the 5 Windows baseline tests
+- [x] The PR targets `master`: `gh pr view --json baseRefName --jq .baseRefName` = `master` (PR #183)
+- [x] The PR's required checks (`pr-checks.yml`) pass: `gh pr checks`
+- [x] The full jest suite fails only in the 5 Windows baseline tests
 - [ ] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 5 complete. Summary: self-review done (findings fixed or listed), PR #<n> open against master. Please review the PR, and reply 'yes' once it is merged to close out the plan." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
 
 #### Manual Verification:
@@ -764,7 +791,7 @@ Then commit the merge with git's default message (`Merge remote-tracking branch 
    - it tags `version/99.1.1` and publishes all packages at `99.1.1` (dist-tag `release-99.1`)
    - the GitHub release has the right notes range and "Latest" flag
    - no tag-triggered run starts
-3. Make the publish fail on purpose → a tag without a GitHub release. "Re-run failed jobs" publishes and releases `99.1.2`.
+3. Make the publish fail on purpose (revised after PR review #1) → "Unpublish the incomplete release" runs; there is no tag, no GitHub release and no artifacts of that version. "Re-run failed jobs" publishes, tags and releases the **same** version. Also check that the JFrog user may unpublish release versions, and where the `release-99.1` dist-tag points after the unpublish. Cancel a run during publish: the cleanup runs too.
 4. A dispatch without force → build and test only. A dispatch with force and nothing affected → releases. A dispatch on a feature branch → fails in `guard`.
 5. Clean up: the test tags, GitHub releases and JFrog versions, and the test branches.
 

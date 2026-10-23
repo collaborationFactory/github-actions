@@ -22,25 +22,36 @@ JavaScript action runtime since June 2026).
 `.github/workflows/fe-release-flow.yml` releases a FE repo in **one run** per push to `release/*`
 (or per manual dispatch):
 
-guard → install-deps → build ∥ e2e → release (tag + publish, one job) → GitHub release
+guard → install-deps → build ∥ e2e → release (publish + tag, one job) → GitHub release
 
 The `release` job computes the next `version/X.Y.Z` and checks whether any project is affected since
-the previous tag of the release line. If so, it pushes the tag, then publishes all publishable
-projects at that version. Tag before publish: if the tag push fails, the next run retries the same
-version; if the publish fails after the tag was pushed, the version is lost and the next release is
-the next patch (see Recovery).
+the previous tag of the release line. If so, it publishes all publishable projects at that version,
+then pushes the tag. Publish before tag: a `version/*` tag always stands for a complete release. If
+the publish or the tag push fails, or the run is cancelled before the tag is pushed, the job
+unpublishes that version's artifacts again, so a re-run or the next push releases the same version.
 
-### Caller
+### Migration steps
 
-Copy `.github/workflow-templates/fe/fe-release.yml` to `.github/workflows/fe-release.yml` of the
-consumer repo, with the `@release/X.Y` (or `@master`) ref of that branch.
+Migrate a branch of a consumer repo in **one commit**:
 
-- **When migrating a branch, delete the old branch-push and tag-push caller files in the same
-  commit** (`fe-release.yml` as tagger plus `fe-tag-pushed.yml` / `on_tag_pushed.yaml` /
-  `tag_pushed.yml`). The release flow still pushes the tag with the PAT, so a tag-push workflow left
-  in the tree would publish a second time.
-- Keep the file name `fe-release.yml`. The copy on the default branch is the seed for branch-off.
-- Set `RUN_E2E: false` only for repos that do not run e2e before a release.
+1. **Add the release caller.** Copy `.github/workflow-templates/fe/fe-release.yml` to
+   `.github/workflows/fe-release.yml`, with the `@release/X.Y` (or `@master`) ref of that branch.
+   - Keep the file name `fe-release.yml`. The copy on the default branch is the seed for branch-off.
+   - Set `RUN_E2E: false` only for repos that do not run e2e before a release.
+2. **Delete the old release callers**: `fe-release.yml` as tagger, plus `fe-tag-pushed.yml` /
+   `on_tag_pushed.yaml` / `tag_pushed.yml`.
+   - The release flow still pushes the tag with the PAT, so a tag-push workflow left in the tree
+     would try to publish that tag again, and would release manually pushed tags.
+   - The `guard` job fails while any workflow of the branch still calls `workflows/fe-release.yml` or
+     `workflows/fe-tag.yml`.
+   - PFM-ISSUE-34282 (pushing the tag with `GITHUB_TOKEN`, which triggers no workflows) removes the
+     tag-push trigger for good.
+3. **Add the `concurrency` block to the PR and main callers**, as in the `fe-pr.yml` and
+   `fe-main.yml` templates. `fe-install-deps.yml` no longer cancels superseded runs; each caller
+   does that itself now.
+
+`fe-tag.yml` and `workflows/fe-release.yml` are **deprecated**: every run of them shows a warning.
+They stay functional for branches that are not migrated yet.
 
 ### Triggers and `force`
 
@@ -63,12 +74,16 @@ Passed with `secrets: inherit`: `JFROG_BASE64_TOKEN`, `JFROG_URL`, `JFROG_USER`,
 
 ### Recovery
 
-- **Publish failed after the tag was pushed** (the job summary names the phase that failed): run a
-  **forced dispatch** on the branch. It releases the next patch; the failed version stays behind as
-  a dangling tag. "Re-run failed jobs" of a push run does not help: nothing is affected since the
-  tag that run already pushed, so it releases nothing.
-- **Re-running only `github-release`** reuses the same tag and does nothing if the release already
-  exists.
+- **Publish or tag push failed**: the "Unpublish the incomplete release" step has removed the
+  version's artifacts. "Re-run failed jobs" (or the next push) publishes and tags the same version.
+- **The cleanup did not run or failed** (lost runner, JFrog error): the next publish of that version
+  fails with E403. Unpublish the packages of that version listed in the job log
+  (`npm unpublish <scope>/<package>@X.Y.Z --force`), then re-run.
+- **Only `github-release` failed**: use **"Re-run failed jobs"**. It reuses the tag of the `release`
+  job and creates the GitHub release (it does nothing if the release already exists). Do not use
+  "Re-run all jobs": the `release` job finds nothing affected since the tag it already pushed, so the
+  GitHub release is skipped. If the run can no longer be re-run, create the release by hand:
+  `gh release create version/X.Y.Z --verify-tag --generate-notes`.
 - **A forced dispatch** releases even when no project is affected.
 - **Warning: do not re-run a successful forced dispatch.** A re-run keeps `force: true`, so it cuts
   another patch with identical content. Re-running a successful push run is harmless: nothing is
@@ -76,9 +91,16 @@ Passed with `secrets: inherit`: `JFROG_BASE64_TOKEN`, `JFROG_URL`, `JFROG_USER`,
 
 ### Concurrency
 
-One run per branch at a time, non-cancelling (`fe-release-${{ github.ref }}`). GitHub keeps only the
-newest pending run. No change is lost when a pending run is cancelled: the run that executes checks
-everything since the previous tag of the line.
+Concurrency is set by the callers, not by the reusable workflows:
+
+| Caller           | Group                                           | Behavior                                                                 |
+| ---------------- | ----------------------------------------------- | ------------------------------------------------------------------------ |
+| `fe-release.yml` | `fe-release-${{ github.ref }}`                  | one run per branch, never cancelled; only the newest pending run is kept |
+| `fe-pr.yml`      | `fe-pr-${{ github.event.pull_request.number }}` | a new push to the PR cancels the previous run                            |
+| `fe-main.yml`    | `fe-main-${{ github.ref }}`                     | a new push cancels the previous run                                      |
+
+No release is lost when a pending release run is cancelled: the run that executes checks everything
+since the previous tag of the line.
 
 ### GitHub release
 
