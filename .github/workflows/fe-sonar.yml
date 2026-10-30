@@ -56,7 +56,7 @@ jobs:
       - name: Use .npmrc
         if: steps.npm-cache.outputs.cache-hit != 'true'
         id: use-npmrc
-        uses: collaborationFactory/github-actions/.github/actions/use-npmrc@master
+        uses: collaborationFactory/github-actions/.github/actions/use-npmrc@test/PFM-ISSUE-34283-release-flow
         with:
           dot-npmrc: ${{ secrets.DOT_NPMRC }}
 

@@ -30,7 +30,7 @@ jobs:
           key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
 
       - name: Use .npmrc
-        uses: collaborationFactory/github-actions/.github/actions/use-npmrc@master
+        uses: collaborationFactory/github-actions/.github/actions/use-npmrc@test/PFM-ISSUE-34283-release-flow
         with:
           dot-npmrc: ${{ secrets.DOT_NPMRC }}
 
