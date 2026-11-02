@@ -71,6 +71,55 @@ test('a push to a release branch with affected projects publishes all projects a
   expect(output).toHaveBeenCalledWith('is_latest', 'true');
 });
 
+test('a release publishes under the staging tag and moves release-X.Y between publishing and tagging', async () => {
+  process.env.RELEASE_FLOW = 'true';
+  const execMock = mockGit();
+  mockBranch('release/26.4');
+  jest
+    .spyOn(Utils, 'getAffectedNxProjects')
+    .mockReturnValue([new NxProject('lib a', NxProjectKind.Library)]);
+  const project = new NxProject('app a', NxProjectKind.Application);
+  jest.spyOn(Utils, 'getAllNxProjects').mockReturnValue([project]);
+  const publish = mockPublish();
+  const promote = jest.spyOn(project, 'promote').mockReturnValue();
+  jest.spyOn(Utils, 'writeOutput').mockReturnValue();
+
+  await new ArtifactsHandler().handle();
+
+  expect(project.stageRelease).toBe(true);
+  expect(promote).toHaveBeenCalledTimes(1);
+  expect(publish.mock.invocationCallOrder[0]).toBeLessThan(
+    promote.mock.invocationCallOrder[0]
+  );
+  expect(promote.mock.invocationCallOrder[0]).toBeLessThan(
+    tagCallOrder(execMock)
+  );
+});
+
+test('a failed promotion fails the run without tagging, leaving the version for the cleanup step', async () => {
+  process.env.RELEASE_FLOW = 'true';
+  const execMock = mockGit();
+  mockBranch('release/26.4');
+  jest
+    .spyOn(Utils, 'getAffectedNxProjects')
+    .mockReturnValue([new NxProject('lib a', NxProjectKind.Library)]);
+  const project = new NxProject('app a', NxProjectKind.Application);
+  jest.spyOn(Utils, 'getAllNxProjects').mockReturnValue([project]);
+  mockPublish();
+  jest.spyOn(project, 'promote').mockImplementation(() => {
+    throw new Error('dist-tag failed');
+  });
+  const output = jest.spyOn(Utils, 'writeOutput').mockReturnValue();
+
+  await expect(new ArtifactsHandler().handle()).rejects.toThrow(
+    'dist-tag failed'
+  );
+
+  expect(Utils.writeReleaseVersionFile).toHaveBeenCalledWith('version/26.4.3');
+  expect(gitTagOrPushCalls(execMock)).toEqual([]);
+  expect(output).not.toHaveBeenCalled();
+});
+
 test('a push to a release branch with nothing affected neither tags nor publishes', async () => {
   process.env.RELEASE_FLOW = 'true';
   const execMock = mockGit();
@@ -160,14 +209,18 @@ test('a failed publish fails the run without tagging, leaving the version for th
   jest
     .spyOn(Utils, 'getAffectedNxProjects')
     .mockReturnValue([new NxProject('lib a', NxProjectKind.Library)]);
-  jest.spyOn(Utils, 'getAllNxProjects').mockReturnValue([]);
+  const project = new NxProject('app a', NxProjectKind.Application);
+  jest.spyOn(Utils, 'getAllNxProjects').mockReturnValue([project]);
   mockPublish().mockRejectedValue(new Error('publish failed'));
+  const promote = jest.spyOn(project, 'promote').mockReturnValue();
   const output = jest.spyOn(Utils, 'writeOutput').mockReturnValue();
 
   await expect(new ArtifactsHandler().handle()).rejects.toThrow(
     'publish failed'
   );
 
+  // release-X.Y stays on the previous version
+  expect(promote).not.toHaveBeenCalled();
   expect(Utils.writeReleaseVersionFile).toHaveBeenCalledWith('version/26.4.3');
   expect(gitTagOrPushCalls(execMock)).toEqual([]);
   expect(output).not.toHaveBeenCalled();

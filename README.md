@@ -22,13 +22,24 @@ JavaScript action runtime since June 2026).
 `.github/workflows/fe-release-flow.yml` releases a FE repo in **one run** per push to `release/*`
 (or per manual dispatch):
 
-guard → install-deps → build ∥ e2e → release (publish + tag, one job) → GitHub release
+guard → install-deps → build ∥ e2e → release (publish + promote + tag, one job) → GitHub release
 
 The `release` job computes the next `version/X.Y.Z` and checks whether any project is affected since
 the previous tag of the release line. If so, it publishes all publishable projects at that version,
 then pushes the tag. Publish before tag: a `version/*` tag always stands for a complete release. If
 the publish or the tag push fails, or the run is cancelled before the tag is pushed, the job
 unpublishes that version's artifacts again, so a re-run or the next push releases the same version.
+
+The npm dist-tag `release-X.Y` moves only once the whole release is published:
+
+1. **Publish** every project under the staging tag `release-X.Y-pending`.
+2. **Promote**: `npm dist-tag add <package>@X.Y.Z release-X.Y`, then remove the staging tag.
+3. **Tag**: push `version/X.Y.Z`.
+
+Unpublishing a version also drops every dist-tag that points to it. With the staging tag, a run
+that fails while publishing leaves `release-X.Y` on the previous version of every package. (Live
+test A8 showed that publishing straight under `release-X.Y` left most packages without the tag after
+the cleanup.) The flow never sets `latest`.
 
 ### Migration steps
 
@@ -76,6 +87,12 @@ Passed with `secrets: inherit`: `JFROG_BASE64_TOKEN`, `JFROG_URL`, `JFROG_USER`,
 
 - **Publish or tag push failed**: the "Unpublish the incomplete release" step has removed the
   version's artifacts. "Re-run failed jobs" (or the next push) publishes and tags the same version.
+- **Promote failed** (a JFrog error while moving `release-X.Y`): the cleanup unpublishes the version
+  as above. The packages promoted before the error lose `release-X.Y` until "Re-run failed jobs"
+  promotes the same version again.
+- **A staging tag `release-X.Y-pending` is left on a package**: its removal failed after the
+  promotion (a warning in the log). It is harmless; remove it with
+  `npm dist-tag rm <package> release-X.Y-pending`.
 - **The cleanup did not run or failed** (lost runner, JFrog error): the next publish of that version
   fails with E403. Unpublish the packages of that version listed in the job log
   (`npm unpublish <scope>/<package>@X.Y.Z --force`), then re-run.

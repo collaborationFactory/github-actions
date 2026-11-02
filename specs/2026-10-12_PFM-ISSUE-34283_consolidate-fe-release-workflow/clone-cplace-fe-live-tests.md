@@ -89,7 +89,7 @@ clone-cplace-fe ──caller fe-release.yml──▶ github-actions@TEST_BRANCH 
 - On a `release/*` push, the tool computes `N` as the highest `version/<line>.*` patch + 1. On a line with no tags it releases the first version of the line.
 - **Affected check:** with no project affected since `PREV`, nothing is released. If any project is affected, the publish phase publishes **all publishable projects** at `N`, not only the affected ones. `FORCE` skips the affected check.
 - **Order:** publish first, then `git tag` (a lightweight tag) and `git push origin <tag>`. Then the `github-release` job runs `gh release create --verify-tag --generate-notes --latest=<is_latest> [--notes-start-tag PREV]`.
-- **npm dist-tag:** a release sets `release-<line>`, from `Version.getNpmTag()`. `latest` and `snapshot` are not touched.
+- **npm dist-tag:** a release publishes every package under the staging tag `release-<line>-pending`. After all packages are published, a promote phase moves `release-<line>` (from `Version.getNpmTag()`) to `N` and removes the staging tag. Only then is the git tag pushed. `latest` and `snapshot` are not touched by the flow. This staging was added after A8 (first run) showed that unpublishing `N` drops a `release-<line>` tag that already points to `N`.
 - A tip commit whose subject starts with `[branch-off]` is neither tagged nor published.
 - **Guard job:** a dispatch outside the default branch or `release/*` fails. Any workflow file that references `github-actions/.github/workflows/(fe-release|fe-tag).yml@` also fails it.
 - **Failure cleanup:** if the `release` job fails or is cancelled after the version file is written and before the tag exists on the remote, the "Unpublish the incomplete release" step deletes every project at `N`.
@@ -135,10 +135,14 @@ Steps 1–7 were done once. Repeat them to build a fresh environment, for exampl
 
 ```bash
 WT="$OUT/wt-clone-cplace-fe"
-git clone --filter=blob:none --branch release/26.4 https://github.com/collaborationFactory/clone-cplace-fe.git "$WT"
+git -c core.longpaths=true clone --filter=blob:none --branch release/26.4 https://github.com/collaborationFactory/clone-cplace-fe.git "$WT"
+git -C "$WT" config core.longpaths true
+git -C "$WT" status --porcelain | wc -l        # must be 0
 git -C "$WT" remote add upstream https://github.com/collaborationFactory/cplace-fe.git
 git -C "$WT" fetch --filter=blob:none upstream release/26.4
 ```
+
+On Windows, `core.longpaths` is required. Several cypress spec paths, plus a long `$OUT`, exceed the 260-character limit; without it the checkout ends with `Filename too long`, and some files are missing. **Never commit from such a working copy**: the missing files would be committed as deletions. Delete it and clone again.
 
 | Tool | Note |
 |---|---|
@@ -242,6 +246,8 @@ Write this to `$OUT/lib.sh` and source it in every shell:
 ```bash
 export MSYS_NO_PATHCONV=1 JFROG_CLI_AVOID_NEW_VERSION_WARNING=TRUE
 R=collaborationFactory/clone-cplace-fe; J="--server-id cplace.jfrog.io"; LINE=26.4; BR=release/26.4
+# a native Windows jq ends lines with CRLF; a trailing \r would end up in ids and file names
+jq() { command jq "$@" | tr -d '\r'; }
 
 # snapshot <dir>: tags, releases, npm release versions and dist-tags of @cplace-next/*
 snapshot() {
@@ -279,6 +285,10 @@ capture() {
     gh api "repos/$R/actions/jobs/$id/logs" > "$d/job-$id.log" 2>/dev/null || true
   done < "$d/jobs.tsv"
 }
+
+# job_log <capture-dir> <job name>: path of that job's log (step names do not appear in job logs,
+# so select by job name, e.g. "release-flow / release")
+job_log() { echo "$1/job-$(awk -F'\t' -v n="$2" '$1==n{print $3}' "$1/jobs.tsv").log"; }
 
 # wait_run <run-id>: block until completed, print conclusion
 wait_run() { until [ "$(gh api repos/$R/actions/runs/$1 --jq .status)" = completed ]; do sleep 30; done; gh api repos/$R/actions/runs/$1 --jq .conclusion; }
@@ -332,7 +342,7 @@ Each case states its outcome: **RELEASE(N)**, **NO-RELEASE**, **REJECTED** (guar
 | E2 Version | `N` = the highest `version/26.4.*` patch in S0 + 1 (a forced run: the same). The log says `The calculated new tag/version for branch release/26.4 is N`. | release job log |
 | E3 Tag | S1.tags = S0.tags + `refs/tags/version/N`, type `commit` (lightweight), SHA = `RUN.head_sha`. No other tag added or moved. | `tags.txt` diff |
 | E4 Publish set | The new tarballs in S1 (S1 − S0 in `npm-tgz.tsv`) are exactly `<p>-N.tgz` for every package in the log's `+ @cplace-next/<p>@N` lines. Their count equals the publishable project count. It equals the previous release's count unless the replayed commit added or removed a project (then explain). All `created` timestamps fall inside the run window. | `npm-tgz.tsv`, log |
-| E5 Dist-tags | For every published package, `release-26.4` → `N`. `latest` and `snapshot` are unchanged from S0. | `dist-tags.tsv` diff |
+| E5 Dist-tags | For every published package, `release-26.4` → `N`, and **no** `release-26.4-pending` tag is left. `latest` and `snapshot` are unchanged from S0. The release job log has `Promote phase: moving release-26.4 to N` after the last publish line and before `Tag phase`. | `dist-tags.tsv` diff, log |
 | E6 GitHub release | A release `version/N` exists, `draft=false`, `pre=false`, author `github-actions[bot]`. `latest-release.txt` = `version/N` when `is_latest` (the log/output `is_latest=true`). The body has the compare range `version/PREV...version/N`. If S0 had no release yet, the range still starts at `PREV` (`--notes-start-tag`). | `releases.txt`, `gh api repos/$R/releases/tags/version/N --jq .body` |
 | E7 Tag trigger | Phase A: exactly one canary run for `version/N` with actor `squad-fe`. Phase B: **no** run of any workflow for `version/N` (`runs_since T0`, `head_branch == version/N` → none). | `runs_since` |
 | E8 No residue | No `version/N` artifacts outside `@cplace-next/*`, and no other version of any `@cplace-next/*` package created in the window | AQL with the time window |
@@ -451,7 +461,8 @@ Version numbers in the cases assume the order above starting from S0 = {26.4.1}.
   git -C "$WT" commit --allow-empty -m "[branch-off] live test" && git -C "$WT" push origin HEAD:$BR
   ```
 - **Expected:** NO-RELEASE. The release job log contains `The subject of the tip commit is '[branch-off] live test'` and `Tip commit is marked with [branch-off], skipping tagging and publishing`.
-- **Note:** the empty commit stays on `BR`. It changes no project, so it doesn't affect later cases.
+- **Follow-up (required):** while the `[branch-off]` commit is the tip of `BR`, **every** run on `BR` is skipped, forced dispatches included (`[branch-off]` wins over force by design). Right after A7, push an empty normal commit (`git commit --allow-empty -m "live test: end of A7"`). Its run is a NO-RELEASE: nothing is affected since `PREV`. Evaluate it with N1/N2.
+- **Optional extra check (A7b):** before that follow-up commit, a forced dispatch on `BR` must also end with `Tip commit is marked with [branch-off], skipping tagging and publishing` and no state change. This was observed by accident in the first A8 attempt (run `41475222046`).
 
 ### A8: Publish fails midway; cleanup; re-run releases the same version
 
@@ -475,7 +486,10 @@ Version numbers in the cases assume the order above starting from S0 = {26.4.1}.
   - "Check for an incomplete release" logs `version/N was not pushed: unpublishing its artifacts`.
   - "Unpublish the incomplete release" runs and logs `Deleted artifact from Jfrog: …@N` for each published package and the placeholder.
   - `github-release` is skipped.
-  - S1: no `version/N` tag and no release. The AQL for `*-N.tgz` under `@cplace-next` returns **0**, and dist-tags are unchanged from S0.
+  - S1: no `version/N` tag and no release. The AQL for `*-N.tgz` under `@cplace-next` returns **0**.
+  - Dist-tags: `release-26.4` is unchanged from S0 on **every** package, still `PREV`, and no `release-26.4-pending` is left. The log has no `Promote phase` line.
+    - First run, before the staging fix (run `41480323282`): 26 of 27 packages lost `release-26.4` entirely.
+    - Placeholder side effect: `jf rt u` moves the package's `latest` to the placeholder version; Artifactory moves it to the highest remaining version after the delete. Compare `latest` of `LAST` with the snapshot taken **before** the upload, and restore it in teardown.
   - A `Deleted artifact` line missing for a published package, or a JFrog 403 on delete, is a FAIL: the JFrog user lacks delete rights. Record it.
 - **Trigger 2:** capture attempt 1, then `gh run rerun $RUN -R $R --failed`.
 - **Expected, attempt 2:** RELEASE(N), E1–E8 (E1 for attempt 2). The same `N` as attempt 1, not `N+1`.
