@@ -287,9 +287,22 @@ export class ArtifactsHandler {
     this.currentVersion = this.calculatedNewVersion;
     this.onlyAffected = false;
     this.initProjects();
+    // the cleanup step unpublishes this version on failure, which drops every dist-tag
+    // pointing to it: publish under a staging tag and move release-X.Y only after all
+    // projects are published, so a failed run leaves release-X.Y on the previous version
+    this.projects.forEach((project) => (project.stageRelease = true));
     await this.buildAndPublishProjects();
     Utils.appendStepSummary(
       `Publish phase: published all publishable projects as \`${this.calculatedNewVersion}\``
+    );
+
+    const npmTag = this.calculatedNewVersion.getNpmTag();
+    console.log(
+      `Promote phase: moving ${npmTag} to ${this.calculatedNewVersion}`
+    );
+    this.projects.forEach((project) => project.promote());
+    Utils.appendStepSummary(
+      `Promote phase: moved \`${npmTag}\` to \`${this.calculatedNewVersion}\``
     );
 
     console.log(`Tag phase: pushing ${gitTag}`);
