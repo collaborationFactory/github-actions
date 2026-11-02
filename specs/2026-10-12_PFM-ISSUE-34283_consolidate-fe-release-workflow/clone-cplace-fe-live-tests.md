@@ -74,7 +74,7 @@ clone-cplace-fe ──caller fe-release.yml──▶ github-actions@TEST_BRANCH 
 | Old callers | Deleted on `release/26.4` (`push_to_release.yaml`, `on_tag_pushed.yaml`). **Still present on `main`**, so `main` is not migrated. | contents API |
 | Version tags | `version/26.4.1` only. It is lightweight, on `58c416208`, and was released by the **old** flow: run `41081346891` "Frontend Tag Pushed CI", actor `squad-fe` (the PAT user). | refs, runs API |
 | GitHub releases | None. The old flow created none, so `releases/latest` returns 404. | releases API |
-| Registry state `26.4.1` | 28 `@cplace-next/*` tarballs, created 2026-10-30 15:39–15:44Z. Example dist-tags (`cf-frontend-sdk`): `release-26.4 → 26.4.1`, `snapshot`/`latest → 0.0.0-SNAPSHOT-mvv12a4h-20261030`. | AQL, npm metadata API |
+| Registry state `26.4.1` | 27 `@cplace-next/*` tarballs, created 2026-10-30 15:39–15:44Z. A search on `*-26.4.1.tgz` alone finds 28: the extra one is the backend package `@cplace-assets/cplace-scim2_…-26.4.1.tgz`, so always filter on the `@cplace-next` path. Older unrelated `@cplace-next` packages from 2023 (`any-other`, `cf-fe-cdn-*`, `cf-fe-code-coverage`) also exist. Example dist-tags (`cf-frontend-sdk`): `release-26.4 → 26.4.1`, `snapshot`/`latest → 0.0.0-SNAPSHOT-mvv12a4h-20261030`. | AQL, npm metadata API |
 | Secrets | `DOT_NPMRC`, `GIT_USER`, `GIT_USER_EMAIL`, `GIT_USER_TOKEN`, `GRADLE_PROPERTIES`, `JFROG_BASE64_TOKEN`, `JFROG_URL`, `JFROG_USER`. There is no `PERCY_TOKEN`, which is fine because e2e is removed. | `gh api repos/$R/actions/secrets` |
 | Default workflow token | `default_workflow_permissions: read` | `gh api repos/$R/actions/permissions/workflow` |
 | Rulesets and protection | None on `release/26.4` or `main`, `protected: false`, no repository properties | `rules/branches/*`, `properties/values` |
@@ -142,6 +142,8 @@ git -C "$WT" fetch --filter=blob:none upstream release/26.4
 
 | Tool | Note |
 |---|---|
+| Token for `gh` and git | Fine-grained PAT, resource owner `collaborationFactory`, repositories `github-actions` and `clone-cplace-fe` only. Repository permissions: **Contents** read/write (pushes, tags, releases); **Workflows** read/write (any push that changes `.github/workflows/*`: S1, S2, A6, B4); **Actions** read/write (runs, jobs, logs, dispatch, re-run, cancel); **Administration** read (P7 workflow-token setting); **Secrets** read/write only if B3 runs. Metadata read is implicit. Without Actions read, every run, job and log call returns `403 Resource not accessible by personal access token`. |
+| `cplace-fe` (upstream) | A **separate** read-only fine-grained PAT (only `cplace-fe`, Contents read). git uses it only for that URL: `git config --global credential.https://github.com/collaborationFactory/cplace-fe.git.useHttpPath true`, then store it with `git credential approve` (`path=collaborationFactory/cplace-fe.git`). Verify: `git push --dry-run` to `cplace-fe` returns `403 Write access to repository not granted`. |
 | `gh` | Version 2.29 locally. Use `gh api` rather than the newer `--json` subcommands, except `gh run view --json` and `gh run rerun`/`cancel`/`watch`, which exist. |
 | `jf` | Version 2.53, server id `cplace.jfrog.io`. Pass `$J` on every call. |
 | Git Bash on Windows | `export MSYS_NO_PATHCONV=1`, or `jf rt curl /api/...` and `git show <ref>:<path>` get their paths rewritten (seen as `curl: (3) URL rejected`). |
@@ -247,14 +249,15 @@ snapshot() {
   gh api "repos/$R/git/matching-refs/tags/version/" --jq '.[] | "\(.ref) \(.object.type) \(.object.sha)"' | sort > "$d/tags.txt"
   gh api "repos/$R/releases?per_page=100" \
     --jq '.[] | "\(.tag_name) draft=\(.draft) pre=\(.prerelease) author=\(.author.login)"' | sort > "$d/releases.txt"
-  (gh api "repos/$R/releases/latest" --jq .tag_name 2>/dev/null || echo none) > "$d/latest-release.txt"
+  # a 404 prints its JSON body to stdout, so keep only a tag name
+  (gh api "repos/$R/releases/latest" --jq .tag_name 2>/dev/null | grep -E '^version/' || echo none) > "$d/latest-release.txt"
   jf rt curl $J -s -XPOST /api/search/aql -H 'Content-Type: text/plain' -d \
     'items.find({"repo":"cplace-npm-test","path":{"$match":"@cplace-next/*/-/@cplace-next"},"name":{"$match":"*.tgz"}}).include("path","name","created")' \
     | jq -r '.results[] | "\(.path|split("/")[1])\t\(.name)\t\(.created)"' | grep -v -i snapshot | sort > "$d/npm-tgz.tsv"
   cut -f1 "$d/npm-tgz.tsv" | sort -u > "$d/npm-packages.txt"
   : > "$d/dist-tags.tsv"
   while read -r p; do
-    jf rt curl $J -s "/api/npm/cplace-npm-test/-/package/@cplace-next%2F$p/dist-tags" \
+    jf rt curl $J -s -XGET "/api/npm/cplace-npm-test/-/package/@cplace-next%2F$p/dist-tags" \
       | jq -r --arg p "$p" 'to_entries[] | "\($p)\t\(.key)\t\(.value)"' >> "$d/dist-tags.tsv"
   done < "$d/npm-packages.txt"
   sort -o "$d/dist-tags.tsv" "$d/dist-tags.tsv"
@@ -302,10 +305,10 @@ wait_run() { until [ "$(gh api repos/$R/actions/runs/$1 --jq .status)" = complet
 | ID | Check | Command (sketch) | Pass |
 |---|---|---|---|
 | P1 | Caller ref | `gh api "repos/$R/contents/.github/workflows/fe-release.yml?ref=$BR" --jq .content \| base64 -d \| grep uses:` | `…/fe-release-flow.yml@$TEST_BRANCH` |
-| P2 | Test branch refs point to itself | `git -C <github-actions> grep -nE 'collaborationFactory/github-actions/\.github/.+@' origin/$TEST_BRANCH -- .github \| grep -v "@$TEST_BRANCH"` | empty |
+| P2 | Test branch refs point to itself | `git -C <github-actions> grep -nE 'collaborationFactory/github-actions/\.github/.+@' origin/$TEST_BRANCH -- .github/workflows .github/actions \| grep -v "@$TEST_BRANCH"` | empty. `.github/workflow-templates` is excluded: the templates are copied into consumer repos and keep `@master` on purpose |
 | P3 | Test branch is current | `git diff --name-only origin/$TEST_BRANCH...origin/<feature-branch> -- . ':!specs'` (three dots: the feature branch's changes since the test branch forked) | empty. Feature-branch commits that touch only `specs/` are ignored; anything else means the test branch is stale and must be recreated (1.3 step 5) |
 | P4 | No old callers on `BR` | the guard's grep over `BR`'s `.github/workflows` | empty |
-| P5 | Registry target | the last publishing run's log (`41081346891` until a new-flow release exists): `grep -E '@cplace-next:registry='` | `https://cplace.jfrog.io/artifactory/api/npm/cplace-npm-test/` only |
+| P5 | Registry target | the last publishing run's job logs (`41081346891` until a new-flow release exists). The tool's printed `@cplace-next:registry=` line is masked (`JFROG_URL` is a secret), so check the unmasked paths: `grep -ohE 'cplace\.jfrog\.io/artifactory/api/npm/[A-Za-z0-9._-]+'` and `grep -E 'api/npm/cplace-npm([^-]\|$)'` | Publishes (`+ @cplace-next/<p>@<v>` lines) all exist in `cplace-npm-test` (AQL). Any other npm repo in the log appears **only** in `Unknown user config` warnings: that is `~/.npmrc` from `DOT_NPMRC` (install registry, `cplace-npm`), which the dist project `.npmrc` overrides for publishing |
 | P6 | Source `publishConfig` | `git -C "$WT" grep -n '"registry"' -- '*/package.json' package.json \| grep -v cplace-npm-test` | empty |
 | P7 | Repo settings | workflow permissions, `rules/branches/$BR`, branch protection | `read`, empty, `false` (as in 1.2) |
 | P8 | Canary present (after S1) | contents API for `zz-tag-push-canary.yml` on `BR` | exists |
