@@ -303,7 +303,7 @@ wait_run() { until [ "$(gh api repos/$R/actions/runs/$1 --jq .status)" = complet
 |---|---|---|---|
 | P1 | Caller ref | `gh api "repos/$R/contents/.github/workflows/fe-release.yml?ref=$BR" --jq .content \| base64 -d \| grep uses:` | `…/fe-release-flow.yml@$TEST_BRANCH` |
 | P2 | Test branch refs point to itself | `git -C <github-actions> grep -nE 'collaborationFactory/github-actions/\.github/.+@' origin/$TEST_BRANCH -- .github \| grep -v "@$TEST_BRANCH"` | empty |
-| P3 | Test branch is current | `git log --oneline origin/$TEST_BRANCH..origin/<feature-branch>` | empty (the feature branch has nothing the test branch lacks) |
+| P3 | Test branch is current | `git diff --name-only origin/$TEST_BRANCH...origin/<feature-branch> -- . ':!specs'` (three dots: the feature branch's changes since the test branch forked) | empty. Feature-branch commits that touch only `specs/` are ignored; anything else means the test branch is stale and must be recreated (1.3 step 5) |
 | P4 | No old callers on `BR` | the guard's grep over `BR`'s `.github/workflows` | empty |
 | P5 | Registry target | the last publishing run's log (`41081346891` until a new-flow release exists): `grep -E '@cplace-next:registry='` | `https://cplace.jfrog.io/artifactory/api/npm/cplace-npm-test/` only |
 | P6 | Source `publishConfig` | `git -C "$WT" grep -n '"registry"' -- '*/package.json' package.json \| grep -v cplace-npm-test` | empty |
