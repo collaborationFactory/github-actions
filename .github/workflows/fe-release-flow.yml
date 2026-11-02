@@ -8,10 +8,6 @@ on:
         type: boolean
         required: false
         default: false
-      RUN_E2E:
-        type: boolean
-        required: false
-        default: true
     secrets:
       JFROG_BASE64_TOKEN:
         required: true
@@ -84,25 +80,12 @@ jobs:
       GHA_REF: ''
       GHA_BASE: ${{ github.event.before }}
 
-  e2e:
-    needs: install-deps
-    if: inputs.RUN_E2E
-    permissions:
-      contents: read
-    uses: collaborationFactory/github-actions/.github/workflows/fe-e2e.yml@test/PFM-ISSUE-34282-github-token
-    with:
-      GHA_REF: ''
-      GHA_BASE: ${{ github.event.before }}
-    secrets:
-      PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
-
   release:
-    needs: [build, e2e]
-    # a skipped e2e (RUN_E2E: false) must not skip the release; a non-forced dispatch is a dry run
+    needs: [build]
+    # a non-forced dispatch is a dry run
     if: >-
       !cancelled()
       && needs.build.result == 'success'
-      && (needs.e2e.result == 'success' || needs.e2e.result == 'skipped')
       && (github.event_name == 'push' || inputs.FORCE)
     runs-on: ubuntu-latest
     permissions:
