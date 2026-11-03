@@ -27,8 +27,8 @@ guard → install-deps → build ∥ e2e → release (publish + promote + tag, o
 The `release` job computes the next `version/X.Y.Z` and checks whether any project is affected since
 the previous tag of the release line. If so, it publishes all publishable projects at that version,
 then pushes the tag. Publish before tag: a `version/*` tag always stands for a complete release. If
-the publish or the tag push fails, or the run is cancelled before the tag is pushed, the job
-unpublishes that version's artifacts again, so a re-run or the next push releases the same version.
+the publish or the tag push fails, the job unpublishes that version's artifacts again, so a re-run
+or the next push releases the same version. Do not cancel a running release: see Recovery.
 
 The npm dist-tag `release-X.Y` moves only once the whole release is published:
 
@@ -93,8 +93,18 @@ Passed with `secrets: inherit`: `JFROG_BASE64_TOKEN`, `JFROG_URL`, `JFROG_USER`,
 - **A staging tag `release-X.Y-pending` is left on a package**: its removal failed after the
   promotion (a warning in the log). It is harmless; remove it with
   `npm dist-tag rm <package> release-X.Y-pending`.
+- **A release run was cancelled while publishing**: not supported, the result is not consistent.
+  The cancel ends the publish step, but not the publisher process. It keeps building and publishing
+  until the job ends, also while the cleanup step runs. It can leave packages of that version behind
+  and, in the worst case, still move `release-X.Y` and push the tag. Live test A9 left 3 of 27
+  packages behind. Check the tag first: if `version/X.Y.Z` exists, the release is complete. If not,
+  use "Re-run failed jobs": the publish fails on the first leftover package, and the cleanup of that
+  attempt unpublishes all packages of the version. Re-run failed jobs again to release it. A
+  cancel before the publish step starts is safe.
 - **The cleanup did not run or failed** (lost runner, JFrog error): the next publish of that version
-  fails with E403. Unpublish the packages of that version listed in the job log
+  fails with E403. The cleanup checks every unpublish: `npm unpublish` can report success and delete
+  nothing (live test A9). A version still in the registry is unpublished once more; if it survives
+  that too, the step fails with "still in the registry after two npm unpublish attempts". Unpublish the packages of that version listed in the job log
   (`npm unpublish <scope>/<package>@X.Y.Z --force`), then re-run.
 - **Only `github-release` failed**: use **"Re-run failed jobs"**. It reuses the tag of the `release`
   job and creates the GitHub release (it does nothing if the release already exists). Do not use

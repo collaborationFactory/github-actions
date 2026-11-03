@@ -92,7 +92,7 @@ clone-cplace-fe ──caller fe-release.yml──▶ github-actions@TEST_BRANCH 
 - **npm dist-tag:** a release publishes every package under the staging tag `release-<line>-pending`. After all packages are published, a promote phase moves `release-<line>` (from `Version.getNpmTag()`) to `N` and removes the staging tag. Only then is the git tag pushed. `latest` and `snapshot` are not touched by the flow. This staging was added after A8 (first run) showed that unpublishing `N` drops a `release-<line>` tag that already points to `N`.
 - A tip commit whose subject starts with `[branch-off]` is neither tagged nor published.
 - **Guard job:** a dispatch outside the default branch or `release/*` fails. Any workflow file that references `github-actions/.github/workflows/(fe-release|fe-tag).yml@` also fails it.
-- **Failure cleanup:** if the `release` job fails or is cancelled after the version file is written and before the tag exists on the remote, the "Unpublish the incomplete release" step deletes every project at `N`.
+- **Failure cleanup:** if the `release` job fails or is cancelled after the version file is written and before the tag exists on the remote, the "Unpublish the incomplete release" step deletes every project at `N` and checks each deletion. A cancel during the publish can leave packages behind (A9, accepted limitation).
 
 ## 1.3 How the environment was built (recipe for rebuilding)
 
@@ -275,11 +275,12 @@ runs_for() { gh api "repos/$R/actions/runs?head_sha=$1&event=$2&per_page=20" --j
 # runs_since <iso-time>: every run created since (e.g. the canary on a tag)
 runs_since() { gh api "repos/$R/actions/runs?created=>=$1&per_page=50" --jq '.workflow_runs[] | "\(.id)\t\(.name)\t\(.event)\t\(.head_branch)\t\(.actor.login)\t\(.status)/\(.conclusion)"'; }
 
-# capture <run-id> <dir>: run metadata, jobs, full logs
+# capture <run-id> <dir> [attempt]: run metadata, jobs, full logs of ONE attempt (default: the latest).
+# jobs?filter=all would mix the jobs of all attempts, so every job name would appear twice after a re-run.
 capture() {
-  local run=$1 d=$2; mkdir -p "$d"
-  gh api "repos/$R/actions/runs/$run" > "$d/run.json"
-  gh api "repos/$R/actions/runs/$run/jobs?filter=all&per_page=100" > "$d/jobs.json"
+  local run=$1 d=$2 n=${3:-$(gh api "repos/$R/actions/runs/$1" --jq .run_attempt)}; mkdir -p "$d"
+  gh api "repos/$R/actions/runs/$run/attempts/$n" > "$d/run.json"
+  gh api "repos/$R/actions/runs/$run/attempts/$n/jobs?per_page=100" > "$d/jobs.json"
   jq -r '.jobs[] | "\(.name)\t\(.conclusion)\t\(.id)"' "$d/jobs.json" > "$d/jobs.tsv"
   while IFS=$'\t' read -r name _ id; do
     gh api "repos/$R/actions/jobs/$id/logs" > "$d/job-$id.log" 2>/dev/null || true
@@ -373,7 +374,7 @@ Each case states its outcome: **RELEASE(N)**, **NO-RELEASE**, **REJECTED** (guar
 | A6 | A | 34283 | push with an old caller in the tree | REJECTED (guard old-caller check) | throwaway `release/99.9` |
 | A7 | A | 34283 | push of a `[branch-off]` tip commit | NO-RELEASE (skipped) | – |
 | A8 | A | 34283 | forced release, a publish fails midway, then "Re-run failed jobs" | cleanup, then RELEASE (same N) | placeholder package |
-| A9 | A | 34283 | forced release cancelled during publish, then re-run | cleanup, then RELEASE (same N) | – |
+| A9 | A | 34283 | forced release cancelled during publish, then re-run | leftovers possible (accepted), recovery by re-runs, then RELEASE (same N) | – |
 | A10 | A | 34283 | re-run of `github-release` only (release exists, then deleted) | idempotent / recreated | a RELEASE run |
 | A11 | A | 34283 | three pushes in quick succession | 1 RELEASE + 1 cancelled pending + 1 RELEASE/NO-RELEASE | replays #2–#4 |
 | A12 | A | 34283 | push of a new older line `release/26.3` | RELEASE(26.3.1) with `latest=false` | optional |
@@ -502,12 +503,17 @@ Version numbers in the cases assume the order above starting from S0 = {26.4.1}.
   2. Poll the jobs API until step "Publish to Jfrog NPM Registry and Tag" of `release` is `in_progress`.
   3. Then poll the AQL for `*-N.tgz` until **at least 3** tarballs exist.
   4. `gh run cancel $RUN -R $R`.
+- **Known limitation (accepted, 2026-11-03):** a cancel during the publish is not supported (README, Recovery). The cancel ends the step's shell, but `npx ts-node main.ts` survives as an orphan and keeps publishing until the job ends ("Terminate orphan process" at the end of the job log), also while the cleanup runs. Nothing cancels a running release by itself: the caller has `cancel-in-progress: false` and the job no `timeout-minutes`. The case therefore checks the documented recovery, not a clean cancel.
 - **Expected after the cancel:**
-  - Run `cancelled`. The "Check for an incomplete release" and "Unpublish the incomplete release" steps ran (`cancelled()` branch).
-  - The AQL for `*-N.tgz` returns 0. No tag, no release.
-- **If the cancel lands after the tag push**, the cleanup must log `version/N is already pushed, the release is complete: nothing to clean up`. Record which case occurred, and evaluate E3–E5 instead of the zero rows. The flow is correct either way, but only the first case tests the cleanup. Repeat once if it lands after the tag.
-- **Trigger 2:** `gh run rerun $RUN -R $R --failed` (cancelled jobs count as failed).
-- **Expected:** RELEASE(N) with the same `N`.
+  - Run `cancelled`. The "Check for an incomplete release" and "Unpublish the incomplete release" steps ran (`cancelled()` branch) and deleted the packages published before the cancel.
+  - Packages published by the orphan during or after the cleanup may be left at `N`, each with `release-26.4-pending`. First run (`41504160011`): 3 of 27.
+  - No tag, no release. `release-26.4` unchanged on every package.
+- **If the cancel lands after the tag push**, the cleanup must log `version/N is already pushed, the release is complete: nothing to clean up`. Record which case occurred, and evaluate E3–E5 instead. Repeat once if it lands after the tag.
+- **Trigger 2 (recovery):** `gh run rerun $RUN -R $R --failed` (cancelled jobs count as failed).
+- **Expected, attempt 2, if packages were left:** `failure` on the first leftover package ("cannot publish over the previously published versions"). The cleanup unpublishes every package of `N`, the leftovers included: AQL `*-N.tgz` = 0, no tag, `release-26.4` unchanged.
+  - First run: `cf-devkit` survived an unpublish that npm reported as successful; a local `npm unpublish` removed it (all HTTP 200, not reproducible). Since then the cleanup checks each deletion and retries once (README, Recovery).
+- **Trigger 3:** `gh run rerun $RUN -R $R --failed` again (only if attempt 2 failed).
+- **Expected, last attempt:** RELEASE(N) with the same `N`, E1–E8 plus E5b/E5c.
 
 ### A10: `github-release` re-run (recovery path)
 
