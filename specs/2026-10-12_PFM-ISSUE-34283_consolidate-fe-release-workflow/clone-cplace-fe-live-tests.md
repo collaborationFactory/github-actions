@@ -518,13 +518,15 @@ Version numbers in the cases assume the order above starting from S0 = {26.4.1}.
 ### A10: `github-release` re-run (recovery path)
 
 - **Purpose:** check the README recovery step "Re-run failed jobs" for a failed `github-release`, and that the step is idempotent.
-- **Precondition:** a successful RELEASE run `RUN` with tag `version/N` and a release (for example A4's run).
+- **Precondition:** the **most recent** successful RELEASE run `RUN`, with tag `version/N` and a release that is the current latest. A re-run reuses the `release` job's outputs, `is_latest` included: re-running an older run would mark an older version as latest.
 - **Steps:**
-  1. Run `gh run rerun $RUN -R $R --job <github-release job id>`.
+  1. Run `gh run rerun -R $R --job <github-release job id of the latest attempt>`. `gh` 2.29 rejects a run id together with `--job`. Each re-run is a new attempt with a new job id: read it from that attempt's `jobs.json`.
      - **Expected:** `success`, log `A GitHub release for version/N already exists, nothing to do`, and `releases.txt` unchanged.
-  2. Delete only the release: `gh release delete version/N -R $R -y`. Keep the tag. Re-run the same job again.
+  2. Delete only the release: `gh api -X DELETE repos/$R/releases/<id>`, and check for a 404 afterwards (`gh release delete` panicked once in the Windows keyring and deleted nothing). Keep the tag. Re-run the job again.
      - **Expected:** `success`. The release `version/N` is recreated: author `github-actions[bot]`, same compare range as before, `latest` as before.
      - The release job is **not** re-run, so no new publish happens and E4 is unchanged.
+- **Note:** a re-run uses the reusable workflow at the SHA of the original run (job log: `Uses: …fe-release-flow.yml@refs/heads/<BR'> (<sha>)`), not the current tip of the test branch. To test a fix pushed to the test branch, start a new run.
+- **Result (2026-11-03):** PASS on A9's run `41504160011` (attempts 4 and 6). The recreated release has a new id, the same body, and is latest again.
 
 ### A11: Burst of three pushes (concurrency, affected base)
 
@@ -548,6 +550,8 @@ Version numbers in the cases assume the order above starting from S0 = {26.4.1}.
   - If cf-editor-lib-e2e or other projects are affected: RELEASE(N+1), tag on **SHA3**, and the GitHub release range `version/N...version/N+1` covers SHA2 and SHA3. Otherwise NO-RELEASE, and the log's affected list explains why.
   - No run is in progress twice in the group at any time.
 - **Evidence:** the three `run.json` files (`status`, `conclusion`, `run_started_at`, `updated_at`) and `jobs.tsv`.
+- **Note:** an e2e app counts as affected only with a `public_api.ts` (only those are published). Replay #3 changes only `cf-editor-lib-e2e` visual baselines, and that app has none, so run 3 is expected to be NO-RELEASE.
+- **Result (2026-11-03):** PASS. Run 1 `41619940413` released `26.4.6` on SHA1. Run 2 `41619995568` was cancelled while pending with 0 jobs. Run 3 `41620040207` started 2 s after run 1 completed and logged `Checking affected projects since version/26.4.6`, then NO-RELEASE. The working copy pushes the prepared SHAs (`git push origin <sha>:refs/heads/$BR`), all three cherry-picked before the first push.
 
 ### A12 (optional): Older line, not latest
 
