@@ -561,10 +561,13 @@ Version numbers in the cases assume the order above starting from S0 = {26.4.1}.
   - E6 with `is_latest=false`: `latest-release.txt` is unchanged and still the newest `26.4.x`.
   - `release-26.4` is unchanged.
 - **Caution:** run this after all 26.4 cases. It leaves a second line, and later teardown must remove it.
+- **Driver:** the pushed SHA already has push runs from earlier cases, so find the run with `created>=T0` as well as `head_sha`.
+- **Result (2026-11-03):** PASS, run `41626252350`. The release notes range is `version/26.4.6...version/26.3.1`: the first tag of a line has no `previous_tag`, so GitHub picks the previous release (the latest) itself. That is correct for real new lines, which are always newer; only this artificial older line gives a backwards range.
 
 ### A13 (optional): Forced dispatch on `main` (snapshot path)
 
-- **Precondition:** S3 has been done.
+- **Precondition:** S3 has been done. Before S3, check the other workflows on `main` (`push_main.yaml`, `deploy_storybook.yaml`, `sonar-scan.yml`, `xray-scan.yml`, `auto-pr-upmerge.yml`): the push to `main` triggers them, and any that reach an external system must be disabled in the same commit.
+- **Status (2026-11-03):** skipped by decision. The snapshot path is covered by unit tests.
 - **Trigger:** `gh workflow run fe-release.yml -R $R --ref main -f force=true`
 - **Expected:**
   - `release` runs and logs `Forced release flow on main: publishing a snapshot of all projects`.
