@@ -308,7 +308,7 @@ wait_run() { until [ "$(gh api repos/$R/actions/runs/$1 --jq .status)" = complet
 4. Wait for the canary or any tag-triggered runs to settle (poll `runs_since "$T0"` until nothing is `in_progress`/`queued` for 60 s). Then `snapshot "$OUT/<ID>/after"`.
 5. Registry metadata is recalculated **asynchronously**. If `dist-tags.tsv` lags the tarballs, re-snapshot up to 3 times, 2 minutes apart, before calling a dist-tag row failed.
 6. Evaluate every row of the case against the rules in 3.1. Write `$OUT/<ID>/verdict.md` with the comparison table (row, expected, actual, PASS/FAIL, evidence file).
-7. Append what the case created (tags, releases, npm versions, branches) to `$OUT/ledger.tsv`. Teardown (Part 4) reads it.
+7. Append what the case created (tags, releases, npm versions, branches) to `$OUT/ledger.tsv`. An optional teardown (Part 4) reads it.
 8. Append one line to `$OUT/results.md`: `| <ID> | <runs> | PASS/FAIL | <one-line note> |`.
 
 ## 2.4 Preflight (read-only, before Phase A and again after S2)
@@ -490,11 +490,11 @@ Version numbers in the cases assume the order above starting from S0 = {26.4.1}.
   - S1: no `version/N` tag and no release. The AQL for `*-N.tgz` under `@cplace-next` returns **0**.
   - Dist-tags: `release-26.4` is unchanged from S0 on **every** package, still `PREV`, and no `release-26.4-pending` is left. The log has no `Promote phase` line.
     - First run, before the staging fix (run `41480323282`): 26 of 27 packages lost `release-26.4` entirely.
-    - Placeholder side effect: `jf rt u` moves the package's `latest` to the placeholder version; Artifactory moves it to the highest remaining version after the delete. Compare `latest` of `LAST` with the snapshot taken **before** the upload, and restore it in teardown.
+    - Placeholder side effect: `jf rt u` moves the package's `latest` to the placeholder version; Artifactory moves it to the highest remaining version after the delete. Compare `latest` of `LAST` with the snapshot taken **before** the upload, and restore it in teardown (if one is run).
   - A `Deleted artifact` line missing for a published package, or a JFrog 403 on delete, is a FAIL: the JFrog user lacks delete rights. Record it.
 - **Trigger 2:** capture attempt 1, then `gh run rerun $RUN -R $R --failed`.
 - **Expected, attempt 2:** RELEASE(N), E1–E8 (E1 for attempt 2). The same `N` as attempt 1, not `N+1`.
-- **If attempt 1 leaves residue** (tarballs at `N`): stop. Teardown must delete them (4.2) before anything else.
+- **If attempt 1 leaves residue** (tarballs at `N`): stop. Delete them (4.2) before anything else.
 
 ### A9: Cancel during publish; cleanup; re-run
 
@@ -560,7 +560,7 @@ Version numbers in the cases assume the order above starting from S0 = {26.4.1}.
   - RELEASE(26.3.1): all publishable projects, dist-tag `release-26.3`.
   - E6 with `is_latest=false`: `latest-release.txt` is unchanged and still the newest `26.4.x`.
   - `release-26.4` is unchanged.
-- **Caution:** run this after all 26.4 cases. It leaves a second line, and later teardown must remove it.
+- **Caution:** run this after all 26.4 cases. It leaves a second line, which stays unless an (optional) teardown removes it.
 - **Driver:** the pushed SHA already has push runs from earlier cases, so find the run with `created>=T0` as well as `head_sha`.
 - **Result (2026-11-03):** PASS, run `41626252350`. The release notes range is `version/26.4.6...version/26.3.1`: the first tag of a line has no `previous_tag`, so GitHub picks the previous release (the latest) itself. That is correct for real new lines, which are always newer; only this artificial older line gives a backwards range.
 
@@ -671,9 +671,11 @@ Throwaway branches (`test/fe-release-dispatch`, `release/99.9`, `test/ceiling`) 
 
 Each npm version is a tarball `cplace-npm-test/@cplace-next/<p>/-/@cplace-next/<p>-<v>.tgz`. If present, it also has a metadata JSON under `cplace-npm-test/.npm/@cplace-next/<p>/`. Search both paths, as in the backend procedure's npm cleanup.
 
-## 4.3 Teardown (end of the series, stop before each step)
+## 4.3 Teardown (optional, end of the series, stop before each step)
 
-1. **Decide with the user** what stays. By default the series' versions and tags can stay, because `clone-cplace-fe` and `cplace-npm-test` are test-only. Only residue from failed cases must go.
+**Optional.** `clone-cplace-fe` and `cplace-npm-test` are test-only, so the series' tags, releases, branches and versions can stay. After the 2026-11-02/03 series nothing was torn down, by decision. Run these steps only when asked, for example to make the replay queue reusable. Residue that blocks a later case (a tarball at the next `N`) is removed inside that case (A8, A9), not here.
+
+1. **Decide with the user** what goes.
 2. **Tags and releases** in the ledger: `gh release delete <t> -R $R -y`, then `git push origin :refs/tags/<t>`.
 3. **npm versions** in the ledger: follow 4.2.
 4. **Branches.**
