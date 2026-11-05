@@ -713,7 +713,8 @@ Push the branch and open the PR only after explicit user approval.
 - [ ] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 5 complete. Summary: self-review done (findings fixed or listed), PR #<n> open against master. Please review the PR, and reply 'yes' once it is merged to close out the plan." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
 
 #### Manual Verification:
-- [ ] The live validation from "Manual Testing Steps" was done or consciously deferred before merge
+- [x] The live validation from "Manual Testing Steps" was done or consciously deferred before merge
+  (done as Phase A of [clone-cplace-fe-live-tests.md](./clone-cplace-fe-live-tests.md), 2026-11-03: A1–A12 pass, A13 skipped)
 - [ ] The PR is reviewed and merged into `master`
 
 ---
