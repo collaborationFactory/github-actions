@@ -3,7 +3,6 @@ import { expect } from '@jest/globals';
 import { CleanupSnapshots } from './cleanup-snapshots';
 import { npmSearchResult, npmViewResult } from './test-data';
 import { Utils } from './utils';
-import { NxProject } from './nx-project';
 
 beforeEach(() => {
   jest.resetAllMocks();
@@ -17,8 +16,6 @@ test('can find latest version Tag of a given branch and bump the version', async
     .spyOn(child_process, 'execSync')
     .mockReturnValueOnce(npmSearchResult)
     .mockReturnValue(npmViewResult);
-  // the deletion itself is covered in nx-project.test.ts
-  jest.spyOn(NxProject.prototype, 'deleteArtifact').mockResolvedValue();
   jest.useFakeTimers().setSystemTime(new Date('2023-05-22'));
   const cleanupSnaps = new CleanupSnapshots();
   await cleanupSnaps.deleteSuperfluousArtifacts();

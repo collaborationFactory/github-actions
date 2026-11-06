@@ -56,10 +56,12 @@ jobs:
           sparse-checkout: .github/workflows
           persist-credentials: false
 
-      # an old tag-push caller would publish manually pushed tags and fail on the tags of this flow
+      # an old tag-push caller would publish manually pushed tags and fail on the tags of this flow;
+      # an old fe-tag.yml caller (branch push) would tag in parallel. Any trigger counts, comment
+      # lines do not (a commented-out caller is not active).
       - name: Check for old release callers
         run: |
-          old=$(grep -lE 'github-actions/\.github/workflows/(fe-release|fe-tag)\.yml@' .github/workflows/*.y*ml 2> /dev/null || true)
+          old=$(grep -lE '^[^#]*github-actions/\.github/workflows/(fe-release|fe-tag)\.yml@' .github/workflows/*.y*ml 2> /dev/null || true)
           if [ -n "$old" ]; then
             echo "::error::Old release callers found: $(echo $old). Delete them in the same commit that adds the fe-release-flow caller (see 'FE Release Flow' in the github-actions README)."
             exit 1
@@ -168,9 +170,17 @@ jobs:
             exit 0
           fi
           tag=$(cat "$file")
-          if git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
+          # --exit-code: 0 = the tag exists, 2 = it does not; anything else (auth, network) is no
+          # answer, and unpublishing a release whose tag is already pushed would lose that version
+          rc=0
+          git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null || rc=$?
+          if [ "$rc" -eq 0 ]; then
             echo "$tag is already pushed, the release is complete: nothing to clean up"
             exit 0
+          fi
+          if [ "$rc" -ne 2 ]; then
+            echo "::error::Could not check whether $tag is pushed (git ls-remote exit code $rc). Nothing was unpublished. If the tag is not on the remote, unpublish $tag by hand (see Recovery in the github-actions README)."
+            exit 1
           fi
           echo "$tag was not pushed: unpublishing its artifacts"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"

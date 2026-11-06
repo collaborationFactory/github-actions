@@ -57,9 +57,12 @@ Migrate a branch of a consumer repo in **one commit**:
      `workflows/fe-tag.yml`.
    - PFM-ISSUE-34282 (pushing the tag with `GITHUB_TOKEN`, which triggers no workflows) removes the
      tag-push trigger for good.
-3. **Add the `concurrency` block to the PR and main callers**, as in the `fe-pr.yml` and
-   `fe-main.yml` templates. `fe-install-deps.yml` no longer cancels superseded runs; each caller
-   does that itself now.
+3. **Update the PR and main callers.** `fe-install-deps.yml` no longer cancels superseded runs;
+   each caller decides that itself now (see Concurrency).
+   - `fe-pr.yml`: add the `concurrency` block of the template, so a new push to the PR cancels the
+     previous run.
+   - `fe-main.yml`: remove any `concurrency` block. Every push to main runs to completion and
+     publishes its snapshot.
 
 `fe-tag.yml` and `workflows/fe-release.yml` are **deprecated**: every run of them shows a warning.
 They stay functional for branches that are not migrated yet.
@@ -75,7 +78,8 @@ They stay functional for branches that are not migrated yet.
 
 Build and e2e always cover all projects. A dispatch on any other ref fails in `guard`. Every push
 runs the flow, including upmerges, like in the backend repos. Only commits created by branch-off
-(subject prefix `[branch-off]`) are never tagged or published.
+(subject prefix `[branch-off]`) are never tagged or published, not even by a forced dispatch: that
+run ends green with the warning "FORCE is ignored".
 
 ### Required secrets
 
@@ -87,9 +91,12 @@ Passed with `secrets: inherit`: `JFROG_BASE64_TOKEN`, `JFROG_URL`, `JFROG_USER`,
 
 - **Publish or tag push failed**: the "Unpublish the incomplete release" step has removed the
   version's artifacts. "Re-run failed jobs" (or the next push) publishes and tags the same version.
-- **Promote failed** (a JFrog error while moving `release-X.Y`): the cleanup unpublishes the version
-  as above. The packages promoted before the error lose `release-X.Y` until "Re-run failed jobs"
-  promotes the same version again.
+- **Promote or tag push failed** (a JFrog error while moving `release-X.Y`, or the push of the git
+  tag): the cleanup unpublishes the version as above. The packages already promoted lose
+  `release-X.Y` until the next successful release of the line; it does not fall back to the
+  previous version. `npm ci` and installs from the lock file are unaffected; only resolving the tag
+  fresh (`npm update`, `npm install <package>@release-X.Y`) fails meanwhile. To fix it at once:
+  `npm dist-tag add <package>@<previous version> release-X.Y`.
 - **A staging tag `release-X.Y-pending` is left on a package**: its removal failed after the
   promotion (a warning in the log). It is harmless; remove it with
   `npm dist-tag rm <package> release-X.Y-pending`.
@@ -102,10 +109,10 @@ Passed with `secrets: inherit`: `JFROG_BASE64_TOKEN`, `JFROG_URL`, `JFROG_USER`,
   attempt unpublishes all packages of the version. Re-run failed jobs again to release it. A
   cancel before the publish step starts is safe.
 - **The cleanup did not run or failed** (lost runner, JFrog error): the next publish of that version
-  fails with E403. The cleanup checks every unpublish: `npm unpublish` can report success and delete
-  nothing (live test A9). A version still in the registry is unpublished once more; if it survives
-  that too, the step fails with "still in the registry after two npm unpublish attempts". Unpublish the packages of that version listed in the job log
-  (`npm unpublish <scope>/<package>@X.Y.Z --force`), then re-run.
+  fails with E403. `npm unpublish` can also report success and delete nothing (seen once, in live
+  test A9); the next re-run then fails with E403 on that package, and its cleanup unpublishes the
+  version again. If it survives that too, unpublish the packages of that version that are still in
+  the registry (`npm unpublish <scope>/<package>@X.Y.Z --force`), then re-run.
 - **Only `github-release` failed**: use **"Re-run failed jobs"**. It reuses the tag of the `release`
   job and creates the GitHub release (it does nothing if the release already exists). Do not use
   "Re-run all jobs": the `release` job finds nothing affected since the tag it already pushed, so the
@@ -124,10 +131,15 @@ Concurrency is set by the callers, not by the reusable workflows:
 | ---------------- | ----------------------------------------------- | ------------------------------------------------------------------------ |
 | `fe-release.yml` | `fe-release-${{ github.ref }}`                  | one run per branch, never cancelled; only the newest pending run is kept |
 | `fe-pr.yml`      | `fe-pr-${{ github.event.pull_request.number }}` | a new push to the PR cancels the previous run                            |
-| `fe-main.yml`    | `fe-main-${{ github.ref }}`                     | a new push cancels the previous run                                      |
+| `fe-main.yml`    | none                                            | every push runs to completion, runs may overlap                          |
 
 No release is lost when a pending release run is cancelled: the run that executes checks everything
 since the previous tag of the line.
+
+`fe-main.yml` has no group on purpose. Its snapshot covers the projects affected since
+`github.event.before`, so a cancelled run, or a pending run that a group drops when a third push
+arrives, would leave the projects affected only by that push without a snapshot. Overlapping runs
+publish distinct snapshot versions; the `snapshot` dist-tag ends up on the run that finishes last.
 
 ### GitHub release
 

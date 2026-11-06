@@ -511,7 +511,7 @@ Version numbers in the cases assume the order above starting from S0 = {26.4.1}.
 - **If the cancel lands after the tag push**, the cleanup must log `version/N is already pushed, the release is complete: nothing to clean up`. Record which case occurred, and evaluate E3–E5 instead. Repeat once if it lands after the tag.
 - **Trigger 2 (recovery):** `gh run rerun $RUN -R $R --failed` (cancelled jobs count as failed).
 - **Expected, attempt 2, if packages were left:** `failure` on the first leftover package ("cannot publish over the previously published versions"). The cleanup unpublishes every package of `N`, the leftovers included: AQL `*-N.tgz` = 0, no tag, `release-26.4` unchanged.
-  - First run: `cf-devkit` survived an unpublish that npm reported as successful; a local `npm unpublish` removed it (all HTTP 200, not reproducible). Since then the cleanup checks each deletion and retries once (README, Recovery).
+  - First run: `cf-devkit` survived an unpublish that npm reported as successful; a local `npm unpublish` removed it (all HTTP 200, not reproducible). A check with a retry was added for this and later reverted after review (PR #183): the case is part of the unsupported cancel scenario, and the next re-run's cleanup unpublishes the leftover again (README, Recovery).
 - **Trigger 3:** `gh run rerun $RUN -R $R --failed` again (only if attempt 2 failed).
 - **Expected, last attempt:** RELEASE(N) with the same `N`, E1–E8 plus E5b/E5c.
 

@@ -11,10 +11,9 @@ permissions:
   actions: read
   checks: write
 
-# a new push to the branch cancels the run of the previous one
-concurrency:
-  group: fe-main-${{ github.ref }}
-  cancel-in-progress: true
+# no concurrency group on purpose: every push must publish its snapshot. A cancelled run, or a
+# pending run dropped by a group, would lose the snapshot of the projects affected only by its
+# push, because the next run checks affected projects since its own github.event.before.
 
 env:
   NX_BRANCH: ${{ github.event.number }}

@@ -142,35 +142,19 @@ describe('NxProject.deleteArtifact', () => {
     });
   }
 
-  function npmShowLists(...versions: string[]) {
-    (execSync as jest.Mock).mockReturnValueOnce(
-      Buffer.from(JSON.stringify({ name: '@cplace-next/my-app', versions }))
-    );
-  }
-
-  function npmUnpublishReportsSuccess() {
-    (execSync as jest.Mock).mockReturnValueOnce(
-      Buffer.from('- @cplace-next/my-app@0.0.0-my-branch-46')
-    );
-  }
-
-  function commands(): string[] {
-    return (execSync as jest.Mock).mock.calls.map(([command]) => command);
-  }
-
-  const SHOW = `npm show @cplace-next/my-app --json --registry=${JFROG_REGISTRY}`;
-  const UNPUBLISH =
-    'npm unpublish @cplace-next/my-app@0.0.0-my-branch-46 --force';
-
   beforeEach(() => {
     jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-    jest.spyOn(NxProject, 'sleep').mockResolvedValue();
   });
 
   test('looks the version up in the JFrog registry, not the public one', async () => {
-    npmShowLists('0.0.0-my-branch-46');
-    npmUnpublishReportsSuccess();
-    npmShowLists();
+    (execSync as jest.Mock).mockReturnValue(
+      Buffer.from(
+        JSON.stringify({
+          name: '@cplace-next/my-app',
+          versions: ['0.0.0-my-branch-46'],
+        })
+      )
+    );
 
     await anApp().deleteArtifact(version);
 
@@ -181,80 +165,20 @@ describe('NxProject.deleteArtifact', () => {
     expect(options.cwd).toContain('dist/apps/my-app'.replace(/\//g, sep));
   });
 
-  test('unpublishes the version when the registry has it, then checks it is gone', async () => {
-    npmShowLists('0.0.0-my-branch-46');
-    npmUnpublishReportsSuccess();
-    npmShowLists('0.0.0-my-branch-45');
-
-    await anApp().deleteArtifact(version);
-
-    expect(commands()).toEqual([SHOW, UNPUBLISH, SHOW]);
-    expect(NxProject.sleep).not.toHaveBeenCalled();
-  });
-
-  test('a version still listed right after the unpublish is checked again before it counts', async () => {
-    npmShowLists('0.0.0-my-branch-46');
-    npmUnpublishReportsSuccess();
-    npmShowLists('0.0.0-my-branch-46'); // metadata not recalculated yet
-    npmShowLists();
-
-    await anApp().deleteArtifact(version);
-
-    expect(commands()).toEqual([SHOW, UNPUBLISH, SHOW, SHOW]);
-    expect(NxProject.sleep).toHaveBeenCalledWith(
-      NxProject.UNPUBLISH_RECHECK_DELAY_MS
-    );
-  });
-
-  test('an unpublish that reported success but deleted nothing is retried', async () => {
-    const exit = jest
-      .spyOn(process, 'exit')
-      .mockImplementation((() => undefined) as never);
-    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-    npmShowLists('0.0.0-my-branch-46');
-    npmUnpublishReportsSuccess();
-    npmShowLists('0.0.0-my-branch-46');
-    npmShowLists('0.0.0-my-branch-46');
-    npmUnpublishReportsSuccess();
-    npmShowLists();
-
-    await anApp().deleteArtifact(version);
-
-    expect(commands()).toEqual([SHOW, UNPUBLISH, SHOW, SHOW, UNPUBLISH, SHOW]);
-    expect(console.warn).toHaveBeenCalled();
-    expect(exit).not.toHaveBeenCalled();
-  });
-
-  test('fails the run when the version survives two unpublish attempts', async () => {
-    const exit = jest
-      .spyOn(process, 'exit')
-      .mockImplementation((() => undefined) as never);
-    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-    jest.spyOn(console, 'error').mockImplementation(() => undefined);
-    npmShowLists('0.0.0-my-branch-46');
-    npmUnpublishReportsSuccess();
-    npmShowLists('0.0.0-my-branch-46');
-    npmShowLists('0.0.0-my-branch-46');
-    npmUnpublishReportsSuccess();
-    npmShowLists('0.0.0-my-branch-46');
-    npmShowLists('0.0.0-my-branch-46');
-
-    await anApp().deleteArtifact(version);
-
-    expect(commands()).toEqual([
-      SHOW,
-      UNPUBLISH,
-      SHOW,
-      SHOW,
-      UNPUBLISH,
-      SHOW,
-      SHOW,
-    ]);
-    expect(exit).toHaveBeenCalledWith(1);
-    expect(console.error).toHaveBeenCalledWith(
-      expect.stringContaining(
-        'still in the registry after two npm unpublish attempts'
+  test('unpublishes the version when the registry has it', async () => {
+    (execSync as jest.Mock).mockReturnValue(
+      Buffer.from(
+        JSON.stringify({
+          name: '@cplace-next/my-app',
+          versions: ['0.0.0-my-branch-46'],
+        })
       )
+    );
+
+    await anApp().deleteArtifact(version);
+
+    expect((execSync as jest.Mock).mock.calls[1][0]).toBe(
+      'npm unpublish @cplace-next/my-app@0.0.0-my-branch-46 --force'
     );
   });
 
