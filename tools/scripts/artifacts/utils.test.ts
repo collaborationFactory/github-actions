@@ -272,6 +272,20 @@ test('can bump version from a precomputed tag list without listing the remote ta
   ]);
 });
 
+test('nextVersion starts a release line without a previous tag at X.Y.1', () => {
+  expect(Utils.nextVersion('release/22.4', new Version(''))).toStrictEqual(
+    new Version('22.4.1')
+  );
+});
+
+test('nextVersion bumps the patch of the previous tag without changing it', () => {
+  const previous = new Version('22.4.12');
+  expect(Utils.nextVersion('release/22.4', previous)).toStrictEqual(
+    new Version('22.4.13')
+  );
+  expect(previous.toString()).toEqual('22.4.12');
+});
+
 test('can create hashed timestamp correctly formatted', () => {
   const timestamp = Utils.getHashedTimestamp();
   expect(timestamp).toEqual('lccjqzk0-20230101');

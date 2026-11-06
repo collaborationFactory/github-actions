@@ -118,6 +118,12 @@ export class ArtifactsHandler {
       console.log(
         `Tip commit is marked with ${Utils.BRANCH_OFF_MARKER}, skipping tagging and publishing`
       );
+      // a forced dispatch would otherwise end green without saying why nothing was released
+      if (this.releaseFlow && this.force) {
+        const message = `FORCE is ignored: the tip of ${this.currentBranch} is a ${Utils.BRANCH_OFF_MARKER} commit, nothing is tagged or published`;
+        console.log(`::warning::${message}`);
+        Utils.appendStepSummary(message);
+      }
       return Promise.resolve();
     }
     if (this.releaseFlow) {
@@ -245,10 +251,7 @@ export class ArtifactsHandler {
       allTags
     );
     const previousTag = previous.isValid() ? previous.getGitTag() : '';
-    this.calculatedNewVersion = Utils.calculateNewVersion(
-      this.currentBranch,
-      allTags
-    );
+    this.calculatedNewVersion = Utils.nextVersion(this.currentBranch, previous);
     const isLatest = allTags.every(
       (tag) => !tag.isValid() || this.calculatedNewVersion.compareTo(tag) >= 0
     );

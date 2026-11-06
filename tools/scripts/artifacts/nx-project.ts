@@ -34,7 +34,6 @@ export class NxProject {
   public static readonly PACKAGEJSON = 'package.json';
   public static readonly FOSS_LIST_FILENAME = 'cplace-foss-list.json';
   public static readonly PENDING_TAG_SUFFIX = '-pending';
-  public static readonly UNPUBLISH_RECHECK_DELAY_MS = 5000;
   private _npmrcContent = '';
   private _packageJsonContent: any = {};
   public isPublishable: boolean = false;
@@ -270,25 +269,18 @@ export class NxProject {
         `Package ${scopedPackage}@${version.toString()} exists in registry`
       );
       console.log(
-        `About to delete artifact from Jfrog: ${
-          this.name
-        }@${version.toString()}`
+        `About to delete artifact from Jfrog: ${this.name}@${version.toString()}`
       );
-      this.unpublish(version);
-      if (await this.isStillPublished(scopedPackage, version)) {
-        console.warn(
-          `${scopedPackage}@${version.toString()} is still in the registry after npm unpublish reported success, retrying`
-        );
-        this.unpublish(version);
-        if (await this.isStillPublished(scopedPackage, version)) {
-          console.error(
-            `${scopedPackage}@${version.toString()} is still in the registry after two npm unpublish attempts. ` +
-              `Unpublish it by hand before the next publish of this version.`
-          );
-          process.exit(1);
-          return;
-        }
-      }
+      console.log(
+        execSync(
+          `npm unpublish ${this.scope}/${
+            this.name
+          }@${version.toString()} --force`,
+          {
+            cwd: `${this.getPathToProjectInDist()}`,
+          }
+        ).toString()
+      );
       console.log(
         `Deleted artifact from Jfrog: ${this.name}@${version.toString()}`
       );
@@ -296,38 +288,6 @@ export class NxProject {
       console.error(`An error occurred while deleting the artifact: ${error}`);
       if (error.status !== 0) process.exit(1);
     }
-  }
-
-  private unpublish(version: Version) {
-    console.log(
-      execSync(
-        `npm unpublish ${this.scope}/${
-          this.name
-        }@${version.toString()} --force`,
-        {
-          cwd: `${this.getPathToProjectInDist()}`,
-        }
-      ).toString()
-    );
-  }
-
-  /**
-   * npm unpublish can report success and delete nothing (live test A9: the
-   * version stayed in JFrog), so the deletion is checked. The registry metadata
-   * may still list a just deleted version, so a hit is checked once more after
-   * a delay before it counts.
-   */
-  private async isStillPublished(
-    scopedPackage: string,
-    version: Version
-  ): Promise<boolean> {
-    if (!this.packageExists(scopedPackage, version.toString())) return false;
-    await NxProject.sleep(NxProject.UNPUBLISH_RECHECK_DELAY_MS);
-    return this.packageExists(scopedPackage, version.toString());
-  }
-
-  public static sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   public writeNPMRCInDist(jfrogCredentials: JfrogCredentials, scope: string) {

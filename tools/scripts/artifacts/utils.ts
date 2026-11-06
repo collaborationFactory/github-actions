@@ -199,20 +199,27 @@ export class Utils {
     branch: string,
     allTags?: Version[]
   ): Version {
-    const versionOfBranch: Version = Utils.getVersionFromReleaseBranch(branch);
     const latestExistingTag = Utils.getLatestTagForReleaseBranch(
       branch,
-      versionOfBranch,
+      Utils.getVersionFromReleaseBranch(branch),
       allTags
     );
-    if (!latestExistingTag.isValid()) {
+    return Utils.nextVersion(branch, latestExistingTag);
+  }
+
+  /**
+   * The version after `previous`, the latest tag of the branch's release line: X.Y.1 when the
+   * line has no tag yet (`previous` is not valid), otherwise the next patch of `previous`.
+   */
+  public static nextVersion(branch: string, previous: Version): Version {
+    if (!previous.isValid()) {
+      const versionOfBranch = Utils.getVersionFromReleaseBranch(branch);
       versionOfBranch.patch = 1;
       return versionOfBranch;
-    } else {
-      const newVersion = new Version(latestExistingTag.toString(), '');
-      newVersion.patchVersion(VERSION_BUMP.PATCH);
-      return newVersion;
     }
+    const newVersion = new Version(previous.toString(), '');
+    newVersion.patchVersion(VERSION_BUMP.PATCH);
+    return newVersion;
   }
 
   public static getAllVersionTagsInAscendingOrder(): Version[] {

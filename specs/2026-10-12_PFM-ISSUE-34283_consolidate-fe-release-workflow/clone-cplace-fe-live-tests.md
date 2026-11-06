@@ -308,7 +308,7 @@ wait_run() { until [ "$(gh api repos/$R/actions/runs/$1 --jq .status)" = complet
 4. Wait for the canary or any tag-triggered runs to settle (poll `runs_since "$T0"` until nothing is `in_progress`/`queued` for 60 s). Then `snapshot "$OUT/<ID>/after"`.
 5. Registry metadata is recalculated **asynchronously**. If `dist-tags.tsv` lags the tarballs, re-snapshot up to 3 times, 2 minutes apart, before calling a dist-tag row failed.
 6. Evaluate every row of the case against the rules in 3.1. Write `$OUT/<ID>/verdict.md` with the comparison table (row, expected, actual, PASS/FAIL, evidence file).
-7. Append what the case created (tags, releases, npm versions, branches) to `$OUT/ledger.tsv`. Teardown (Part 4) reads it.
+7. Append what the case created (tags, releases, npm versions, branches) to `$OUT/ledger.tsv`. An optional teardown (Part 4) reads it.
 8. Append one line to `$OUT/results.md`: `| <ID> | <runs> | PASS/FAIL | <one-line note> |`.
 
 ## 2.4 Preflight (read-only, before Phase A and again after S2)
@@ -490,11 +490,11 @@ Version numbers in the cases assume the order above starting from S0 = {26.4.1}.
   - S1: no `version/N` tag and no release. The AQL for `*-N.tgz` under `@cplace-next` returns **0**.
   - Dist-tags: `release-26.4` is unchanged from S0 on **every** package, still `PREV`, and no `release-26.4-pending` is left. The log has no `Promote phase` line.
     - First run, before the staging fix (run `41480323282`): 26 of 27 packages lost `release-26.4` entirely.
-    - Placeholder side effect: `jf rt u` moves the package's `latest` to the placeholder version; Artifactory moves it to the highest remaining version after the delete. Compare `latest` of `LAST` with the snapshot taken **before** the upload, and restore it in teardown.
+    - Placeholder side effect: `jf rt u` moves the package's `latest` to the placeholder version; Artifactory moves it to the highest remaining version after the delete. Compare `latest` of `LAST` with the snapshot taken **before** the upload, and restore it in teardown (if one is run).
   - A `Deleted artifact` line missing for a published package, or a JFrog 403 on delete, is a FAIL: the JFrog user lacks delete rights. Record it.
 - **Trigger 2:** capture attempt 1, then `gh run rerun $RUN -R $R --failed`.
 - **Expected, attempt 2:** RELEASE(N), E1–E8 (E1 for attempt 2). The same `N` as attempt 1, not `N+1`.
-- **If attempt 1 leaves residue** (tarballs at `N`): stop. Teardown must delete them (4.2) before anything else.
+- **If attempt 1 leaves residue** (tarballs at `N`): stop. Delete them (4.2) before anything else.
 
 ### A9: Cancel during publish; cleanup; re-run
 
@@ -511,20 +511,22 @@ Version numbers in the cases assume the order above starting from S0 = {26.4.1}.
 - **If the cancel lands after the tag push**, the cleanup must log `version/N is already pushed, the release is complete: nothing to clean up`. Record which case occurred, and evaluate E3–E5 instead. Repeat once if it lands after the tag.
 - **Trigger 2 (recovery):** `gh run rerun $RUN -R $R --failed` (cancelled jobs count as failed).
 - **Expected, attempt 2, if packages were left:** `failure` on the first leftover package ("cannot publish over the previously published versions"). The cleanup unpublishes every package of `N`, the leftovers included: AQL `*-N.tgz` = 0, no tag, `release-26.4` unchanged.
-  - First run: `cf-devkit` survived an unpublish that npm reported as successful; a local `npm unpublish` removed it (all HTTP 200, not reproducible). Since then the cleanup checks each deletion and retries once (README, Recovery).
+  - First run: `cf-devkit` survived an unpublish that npm reported as successful; a local `npm unpublish` removed it (all HTTP 200, not reproducible). A check with a retry was added for this and later reverted after review (PR #183): the case is part of the unsupported cancel scenario, and the next re-run's cleanup unpublishes the leftover again (README, Recovery).
 - **Trigger 3:** `gh run rerun $RUN -R $R --failed` again (only if attempt 2 failed).
 - **Expected, last attempt:** RELEASE(N) with the same `N`, E1–E8 plus E5b/E5c.
 
 ### A10: `github-release` re-run (recovery path)
 
 - **Purpose:** check the README recovery step "Re-run failed jobs" for a failed `github-release`, and that the step is idempotent.
-- **Precondition:** a successful RELEASE run `RUN` with tag `version/N` and a release (for example A4's run).
+- **Precondition:** the **most recent** successful RELEASE run `RUN`, with tag `version/N` and a release that is the current latest. A re-run reuses the `release` job's outputs, `is_latest` included: re-running an older run would mark an older version as latest.
 - **Steps:**
-  1. Run `gh run rerun $RUN -R $R --job <github-release job id>`.
+  1. Run `gh run rerun -R $R --job <github-release job id of the latest attempt>`. `gh` 2.29 rejects a run id together with `--job`. Each re-run is a new attempt with a new job id: read it from that attempt's `jobs.json`.
      - **Expected:** `success`, log `A GitHub release for version/N already exists, nothing to do`, and `releases.txt` unchanged.
-  2. Delete only the release: `gh release delete version/N -R $R -y`. Keep the tag. Re-run the same job again.
+  2. Delete only the release: `gh api -X DELETE repos/$R/releases/<id>`, and check for a 404 afterwards (`gh release delete` panicked once in the Windows keyring and deleted nothing). Keep the tag. Re-run the job again.
      - **Expected:** `success`. The release `version/N` is recreated: author `github-actions[bot]`, same compare range as before, `latest` as before.
      - The release job is **not** re-run, so no new publish happens and E4 is unchanged.
+- **Note:** a re-run uses the reusable workflow at the SHA of the original run (job log: `Uses: …fe-release-flow.yml@refs/heads/<BR'> (<sha>)`), not the current tip of the test branch. To test a fix pushed to the test branch, start a new run.
+- **Result (2026-11-03):** PASS on A9's run `41504160011` (attempts 4 and 6). The recreated release has a new id, the same body, and is latest again.
 
 ### A11: Burst of three pushes (concurrency, affected base)
 
@@ -548,6 +550,8 @@ Version numbers in the cases assume the order above starting from S0 = {26.4.1}.
   - If cf-editor-lib-e2e or other projects are affected: RELEASE(N+1), tag on **SHA3**, and the GitHub release range `version/N...version/N+1` covers SHA2 and SHA3. Otherwise NO-RELEASE, and the log's affected list explains why.
   - No run is in progress twice in the group at any time.
 - **Evidence:** the three `run.json` files (`status`, `conclusion`, `run_started_at`, `updated_at`) and `jobs.tsv`.
+- **Note:** an e2e app counts as affected only with a `public_api.ts` (only those are published). Replay #3 changes only `cf-editor-lib-e2e` visual baselines, and that app has none, so run 3 is expected to be NO-RELEASE.
+- **Result (2026-11-03):** PASS. Run 1 `41619940413` released `26.4.6` on SHA1. Run 2 `41619995568` was cancelled while pending with 0 jobs. Run 3 `41620040207` started 2 s after run 1 completed and logged `Checking affected projects since version/26.4.6`, then NO-RELEASE. The working copy pushes the prepared SHAs (`git push origin <sha>:refs/heads/$BR`), all three cherry-picked before the first push.
 
 ### A12 (optional): Older line, not latest
 
@@ -556,11 +560,14 @@ Version numbers in the cases assume the order above starting from S0 = {26.4.1}.
   - RELEASE(26.3.1): all publishable projects, dist-tag `release-26.3`.
   - E6 with `is_latest=false`: `latest-release.txt` is unchanged and still the newest `26.4.x`.
   - `release-26.4` is unchanged.
-- **Caution:** run this after all 26.4 cases. It leaves a second line, and later teardown must remove it.
+- **Caution:** run this after all 26.4 cases. It leaves a second line, which stays unless an (optional) teardown removes it.
+- **Driver:** the pushed SHA already has push runs from earlier cases, so find the run with `created>=T0` as well as `head_sha`.
+- **Result (2026-11-03):** PASS, run `41626252350`. The release notes range is `version/26.4.6...version/26.3.1`: the first tag of a line has no `previous_tag`, so GitHub picks the previous release (the latest) itself. That is correct for real new lines, which are always newer; only this artificial older line gives a backwards range.
 
 ### A13 (optional): Forced dispatch on `main` (snapshot path)
 
-- **Precondition:** S3 has been done.
+- **Precondition:** S3 has been done. Before S3, check the other workflows on `main` (`push_main.yaml`, `deploy_storybook.yaml`, `sonar-scan.yml`, `xray-scan.yml`, `auto-pr-upmerge.yml`): the push to `main` triggers them, and any that reach an external system must be disabled in the same commit.
+- **Status (2026-11-03):** skipped by decision. The snapshot path is covered by unit tests.
 - **Trigger:** `gh workflow run fe-release.yml -R $R --ref main -f force=true`
 - **Expected:**
   - `release` runs and logs `Forced release flow on main: publishing a snapshot of all projects`.
@@ -664,9 +671,11 @@ Throwaway branches (`test/fe-release-dispatch`, `release/99.9`, `test/ceiling`) 
 
 Each npm version is a tarball `cplace-npm-test/@cplace-next/<p>/-/@cplace-next/<p>-<v>.tgz`. If present, it also has a metadata JSON under `cplace-npm-test/.npm/@cplace-next/<p>/`. Search both paths, as in the backend procedure's npm cleanup.
 
-## 4.3 Teardown (end of the series, stop before each step)
+## 4.3 Teardown (optional, end of the series, stop before each step)
 
-1. **Decide with the user** what stays. By default the series' versions and tags can stay, because `clone-cplace-fe` and `cplace-npm-test` are test-only. Only residue from failed cases must go.
+**Optional.** `clone-cplace-fe` and `cplace-npm-test` are test-only, so the series' tags, releases, branches and versions can stay. After the 2026-11-02/03 series nothing was torn down, by decision. Run these steps only when asked, for example to make the replay queue reusable. Residue that blocks a later case (a tarball at the next `N`) is removed inside that case (A8, A9), not here.
+
+1. **Decide with the user** what goes.
 2. **Tags and releases** in the ledger: `gh release delete <t> -R $R -y`, then `git push origin :refs/tags/<t>`.
 3. **npm versions** in the ledger: follow 4.2.
 4. **Branches.**

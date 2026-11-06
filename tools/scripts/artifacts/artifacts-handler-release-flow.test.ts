@@ -308,11 +308,36 @@ test('a [branch-off] tip commit wins over a forced release flow', async () => {
   mockBranch('release/26.4');
   jest.spyOn(Utils, 'isBranchOffCommit').mockReturnValue(true);
   const allProjects = jest.spyOn(Utils, 'getAllNxProjects');
+  const summary = jest.spyOn(Utils, 'appendStepSummary').mockReturnValue();
+  const log = jest.spyOn(console, 'log');
 
   await new ArtifactsHandler().handle();
 
   expect(gitTagOrPushCalls(execMock)).toEqual([]);
   expect(allProjects).not.toHaveBeenCalled();
+  expect(log).toHaveBeenCalledWith(
+    expect.stringMatching(
+      /^::warning::FORCE is ignored: the tip of release\/26\.4 is a/
+    )
+  );
+  expect(summary).toHaveBeenCalledWith(
+    expect.stringContaining('FORCE is ignored')
+  );
+});
+
+test('a [branch-off] tip commit without force skips without a warning', async () => {
+  process.env.RELEASE_FLOW = 'true';
+  process.env.FORCE = 'false';
+  mockGit();
+  mockBranch('release/26.4');
+  jest.spyOn(Utils, 'isBranchOffCommit').mockReturnValue(true);
+  const summary = jest.spyOn(Utils, 'appendStepSummary').mockReturnValue();
+  const log = jest.spyOn(console, 'log');
+
+  await new ArtifactsHandler().handle();
+
+  expect(log).not.toHaveBeenCalledWith(expect.stringContaining('::warning::'));
+  expect(summary).not.toHaveBeenCalled();
 });
 
 test('the cleanup deletes the artifacts of the given version tag on a release branch', async () => {
