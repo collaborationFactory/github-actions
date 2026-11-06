@@ -6,6 +6,7 @@ import { globResult, packageJsonLib1 } from './test-data';
 import { Utils } from './utils';
 import { sep } from 'node:path';
 import { Version } from './version';
+import { TASK } from './artifacts-handler';
 
 jest.mock('child_process');
 
@@ -214,5 +215,86 @@ describe('NxProject.deleteArtifact', () => {
 
     expect((execSync as jest.Mock).mock.calls).toHaveLength(1);
     expect(exit).toHaveBeenCalledWith(1);
+  });
+});
+
+describe('NxProject release dist-tags', () => {
+  const JFROG_REGISTRY = 'https://cplace.jfrog.io/artifactory/cplace-npm-local';
+  const version = new Version('26.4.3');
+
+  function aReleaseApp(): NxProject {
+    return new NxProject(
+      'my-app',
+      NxProjectKind.Application,
+      TASK.RELEASE,
+      version,
+      '@cplace-next'
+    );
+  }
+
+  test('a release publishes under release-X.Y unless it is staged', () => {
+    const project = aReleaseApp();
+    expect(project.getTag()).toBe('release-26.4');
+
+    project.stageRelease = true;
+    expect(project.getTag()).toBe('release-26.4-pending');
+  });
+
+  test('promote moves release-X.Y to the version, then removes the staging tag', () => {
+    (execSync as jest.Mock).mockReturnValue(Buffer.from(''));
+
+    aReleaseApp().promote();
+
+    const calls = (execSync as jest.Mock).mock.calls;
+    expect(calls.map(([command]) => command)).toEqual([
+      `npm dist-tag add @cplace-next/my-app@26.4.3 release-26.4 --registry=${JFROG_REGISTRY}`,
+      `npm dist-tag rm @cplace-next/my-app release-26.4-pending --registry=${JFROG_REGISTRY}`,
+    ]);
+    expect(calls[0][1].cwd).toContain('dist/apps/my-app'.replace(/\//g, sep));
+  });
+
+  test('a failed move of release-X.Y fails the run and keeps the staging tag', () => {
+    const exit = jest
+      .spyOn(process, 'exit')
+      .mockImplementation((() => undefined) as never);
+    (execSync as jest.Mock).mockImplementationOnce(() => {
+      throw Object.assign(new Error('Command failed'), { status: 1 });
+    });
+
+    aReleaseApp().promote();
+
+    expect(exit).toHaveBeenCalledWith(1);
+    expect((execSync as jest.Mock).mock.calls).toHaveLength(1);
+  });
+
+  test('a staging tag that cannot be removed does not fail the release', () => {
+    const exit = jest.spyOn(process, 'exit');
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    (execSync as jest.Mock)
+      .mockReturnValueOnce(Buffer.from(''))
+      .mockImplementationOnce(() => {
+        throw Object.assign(new Error('Command failed'), { status: 1 });
+      });
+
+    aReleaseApp().promote();
+
+    expect(exit).not.toHaveBeenCalled();
+    expect(console.warn).toHaveBeenCalled();
+  });
+
+  test('promote skips projects that are not published', () => {
+    // a library without a package.json is not publishable
+    jest.spyOn(fs, 'existsSync').mockReturnValue(false);
+    const lib = new NxProject(
+      'my-lib',
+      NxProjectKind.Library,
+      TASK.RELEASE,
+      version,
+      '@cplace-next'
+    );
+
+    lib.promote();
+
+    expect(execSync).not.toHaveBeenCalled();
   });
 });
