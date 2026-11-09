@@ -98,6 +98,8 @@ async function onMinorOrPatchTag() {
   await artifactHandler.handle();
   expect(artifactHandler.onlyAffected).toBe(false);
   expect(getProjectsMock).toBeCalledTimes(1);
+  // the release branch must not reset the tag's version to X.Y.0
+  expect(artifactHandler.currentVersion.getGitTag()).toBe(process.env.TAG);
 }
 
 function mockProjects() {

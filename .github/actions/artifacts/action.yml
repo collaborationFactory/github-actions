@@ -1,5 +1,15 @@
 name: 'Frontend Artifacts Handler Action'
 description: 'Github Action to handle frontend artifacts'
+outputs:
+  tag:
+    description: 'The pushed version tag, set only once the version is published and tagged (release flow only)'
+    value: ${{ steps.handler.outputs.tag }}
+  previous_tag:
+    description: 'The previous tag of the same release line, empty for X.Y.1 (release flow only)'
+    value: ${{ steps.handler.outputs.previous_tag }}
+  is_latest:
+    description: 'true if the pushed tag is the highest version/* tag (release flow only)'
+    value: ${{ steps.handler.outputs.is_latest }}
 runs:
   using: 'composite'
   steps:
@@ -7,5 +17,6 @@ runs:
       shell: bash
     - run: cd "$GITHUB_ACTION_PATH/../../.." && pwd && npm ci
       shell: bash
-    - run: npx ts-node "$GITHUB_ACTION_PATH/../../../tools/scripts/artifacts/main.ts"
+    - id: handler
+      run: npx ts-node "$GITHUB_ACTION_PATH/../../../tools/scripts/artifacts/main.ts"
       shell: bash
