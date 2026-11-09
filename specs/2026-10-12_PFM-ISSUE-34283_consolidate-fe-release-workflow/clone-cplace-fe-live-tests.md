@@ -454,6 +454,11 @@ Version numbers in the cases assume the order above starting from S0 = {26.4.1}.
   - `guard` fails with `Old release callers found: .github/workflows/zz-old-caller.yml`.
   - No tag `version/99.9.*` and no `*-99.9.*` tarball.
 - **Cleanup:** delete `release/99.9`. Reset `WT` to `origin/$BR`.
+- **Result (2026-11-02):** PASS, run `41470392868`.
+- **Retest after the review fixes (2026-11-06, test branch at 62410ac):** the guard now ignores comment lines. Two pushes to `release/99.9`:
+  - (a) the active caller as above: run `42245397146`, `guard` fails with `Old release callers found: .github/workflows/zz-old-caller.yml`, every other job skipped. PASS.
+  - (b) one more commit `[branch-off] live test: old caller commented out` that turns the `uses:` line into a comment: run `42245750189`, `guard` passes, build passes, the release job logs `Tip commit is marked with [branch-off], skipping tagging and publishing`. PASS.
+  - No `version/99.9.*` tag and no `*-99.9.*` tarball; `release/99.9` deleted.
 
 ### A7: `[branch-off]` tip commit
 
@@ -477,7 +482,7 @@ Version numbers in the cases assume the order above starting from S0 = {26.4.1}.
     ```bash
     d="$OUT/A8/placeholder"; mkdir -p "$d/package"
     printf '{"name":"@cplace-next/%s","version":"%s","description":"live-test placeholder A8"}\n' "$LAST" "$N" > "$d/package/package.json"
-    tar -C "$d" -czf "$d/$LAST-$N.tgz" package
+    (cd "$d" && tar -czf "$LAST-$N.tgz" package)   # tar -C/-f with a C:/ path reads "C:" as a remote host
     jf rt u $J "$d/$LAST-$N.tgz" "cplace-npm-test/@cplace-next/$LAST/-/@cplace-next/$LAST-$N.tgz"
     ```
   - Verify the placeholder is visible: `jf rt curl $J -s /api/npm/cplace-npm-test/@cplace-next%2F$LAST` lists `N`. Wait for metadata recalculation if not.
@@ -495,6 +500,11 @@ Version numbers in the cases assume the order above starting from S0 = {26.4.1}.
 - **Trigger 2:** capture attempt 1, then `gh run rerun $RUN -R $R --failed`.
 - **Expected, attempt 2:** RELEASE(N), E1–E8 (E1 for attempt 2). The same `N` as attempt 1, not `N+1`.
 - **If attempt 1 leaves residue** (tarballs at `N`): stop. Delete them (4.2) before anything else.
+- **Result (2026-11-02):** first run `41480323282` FAIL (26 of 27 packages lost `release-26.4`), fixed with the staging tag. Retest run `41488621611`: PASS, attempt 2 released the same `26.4.4`.
+- **Retest after the review fixes (2026-11-06, test branch at 62410ac):** the cleanup's tag check now uses `git ls-remote --exit-code`. `N` = `26.4.7`, `LAST` = `cf-shell`, run `42292826750`.
+  - Attempt 1: PASS. Failed on `cf-shell` ("cannot publish over the previously published versions: 26.4.7"). The check took the exit-code-2 path and logged `version/26.4.7 was not pushed: unpublishing its artifacts`; 27 `Deleted artifact` lines, placeholder included; 0 tarballs of `26.4.7` left; `release-26.4` still `26.4.6` on 27/27; no staging tag; no tag or release.
+  - Attempt 2 (`--failed`): PASS. The same `26.4.7`, E1–E8, E5b/E5c, 0 promote warnings, tag on `5d149134`, release latest with range `26.4.6...26.4.7`, one canary run as `squad-fe`.
+  - Side effect as described: `latest` of `cf-shell` went from the snapshot version to `26.4.6`; not restored (no teardown).
 
 ### A9: Cancel during publish; cleanup; re-run
 
