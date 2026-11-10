@@ -323,6 +323,6 @@ Copy the case table and the comparison into the PFM-ISSUE-34282 PR description a
 ## 7. Open points to settle before execution
 
 1. **Final permission set of `release`**: this plan assumes `contents: write` only. If `checks`/`pull-requests` are added, update T1 and check that the caller template grants them (R0 would otherwise fail at startup).
-2. **D5 identity step**: decides whether T3 and the `GIT_USER*` part of R6 apply.
+2. **D5 identity step**: decides whether rule T3 (section 3) and the `GIT_USER*` part of R6 apply.
 3. **D7 `fe-main.yml`**: if the template is narrowed in 34282, M1 is its regression test; if not, M1 is a plain regression check.
 4. **Credential style**: if the implementation switches to `persist-credentials: false` with a push-only credential, add to R1/R3: the `release` job's `.git/config` contains no `extraheader` during `npm ci` (check with a temporary `git config --get-all http.https://github.com/.extraheader || echo none` debug step on the test branch only), and the push and `ls-remote` still succeed.
