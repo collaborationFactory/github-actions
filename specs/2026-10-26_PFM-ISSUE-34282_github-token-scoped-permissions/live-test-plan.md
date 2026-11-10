@@ -28,19 +28,19 @@ The supporting cases cover the paths the token switch can break: forced release,
 
 ## 1. What 34282 is expected to change
 
-The [research](./research.md) gives the target state. There is no design or plan yet. **Before running, compare this table with the final implementation and fix the "Expected" column.** The rows marked *design* depend on an open question of the research.
+The expected state follows the ticket's requirements, applied to the PR #183 workflows. There is no design or plan yet. **Before running, compare this table with the final implementation and fix the "Expected" column.** The rows marked *design* depend on a decision that is still open (section 7).
 
-| ID | Item | PR #183 state | Expected after 34282 | Research ref |
-|---|---|---|---|---|
-| D1 | `release` job checkout | `token: ${{ secrets.GIT_USER_TOKEN }}` (`fe-release-flow.yml:121`) | no `token:` (default `github.token`), still `fetch-depth: 0` | §1, §8 |
-| D2 | `release` job permissions | `contents: read` (`:110-111`) | `contents: write` (plus only what the design adds, Q1) | §1, §3 |
-| D3 | `GIT_USER_TOKEN` in `workflow_call.secrets` | `required: true` (`:24-25`) | removed | §8 |
-| D4 | Other jobs | `guard`/`install-deps`/`build`/`e2e` `contents: read`, `github-release` `contents: write` | unchanged | §1 |
-| D5 | "Configure git user" step and `GIT_USER`/`GIT_USER_EMAIL` | present (`:143-149`, `:26-29`) | *design* (Q3): kept for 34286, or removed | §6 |
-| D6 | Caller template `fe-release.yml` | `contents: write`; header says the PAT pushes the tag | `contents: write` unchanged; header comment updated | §4, §8 |
-| D7 | `fe-main.yml` template (four-scope block) | `contents/pull-requests: write`, `actions: read`, `checks: write` | *design*: unchanged, or narrowed | §3 |
-| D8 | Deprecated `fe-tag.yml`/`fe-release.yml` (reusables) | PAT-based | unchanged (old consumers keep working) | §4 |
-| D9 | README (`:43-48`, `:71-73`) and guard message | describe the PAT tag push | updated | §8 |
+| ID | Item | PR #183 state | Expected after 34282 |
+|---|---|---|---|
+| D1 | `release` job checkout | `token: ${{ secrets.GIT_USER_TOKEN }}` (`fe-release-flow.yml:121`) | no `token:` (default `github.token`), still `fetch-depth: 0` |
+| D2 | `release` job permissions | `contents: read` (`:110-111`) | `contents: write` (plus only what the design adds, section 7) |
+| D3 | `GIT_USER_TOKEN` in `workflow_call.secrets` | `required: true` (`:24-25`) | removed |
+| D4 | Other jobs | `guard`/`install-deps`/`build`/`e2e` `contents: read`, `github-release` `contents: write` | unchanged |
+| D5 | "Configure git user" step and `GIT_USER`/`GIT_USER_EMAIL` | present (`:143-149`, `:26-29`) | *design*: kept for 34286, or removed |
+| D6 | Caller template `fe-release.yml` | `contents: write`; header says the PAT pushes the tag | `contents: write` unchanged; header comment updated |
+| D7 | `fe-main.yml` template (four-scope block) | `contents/pull-requests: write`, `actions: read`, `checks: write` | *design*: unchanged, or narrowed |
+| D8 | Deprecated `fe-tag.yml`/`fe-release.yml` (reusables) | PAT-based | unchanged (old consumers keep working) |
+| D9 | README (`:43-48`, `:71-73`) and guard message | describe the PAT tag push | updated |
 
 ---
 
@@ -322,7 +322,7 @@ Copy the case table and the comparison into the PFM-ISSUE-34282 PR description a
 
 ## 7. Open points to settle before execution
 
-1. **Final permission set of `release`** (research Q1): this plan assumes `contents: write` only. If `checks`/`pull-requests` are added, update T1 and check that the caller template grants them (R0 would otherwise fail at startup).
-2. **D5 identity step** (research Q3): decides whether T3 and the `GIT_USER*` part of R6 apply.
+1. **Final permission set of `release`**: this plan assumes `contents: write` only. If `checks`/`pull-requests` are added, update T1 and check that the caller template grants them (R0 would otherwise fail at startup).
+2. **D5 identity step**: decides whether T3 and the `GIT_USER*` part of R6 apply.
 3. **D7 `fe-main.yml`**: if the template is narrowed in 34282, M1 is its regression test; if not, M1 is a plain regression check.
-4. **Credential style** (research Q2/Q4): if the implementation switches to `persist-credentials: false` with a push-only credential, add to R1/R3: the `release` job's `.git/config` contains no `extraheader` during `npm ci` (check with a temporary `git config --get-all http.https://github.com/.extraheader || echo none` debug step on the test branch only), and the push and `ls-remote` still succeed.
+4. **Credential style**: if the implementation switches to `persist-credentials: false` with a push-only credential, add to R1/R3: the `release` job's `.git/config` contains no `extraheader` during `npm ci` (check with a temporary `git config --get-all http.https://github.com/.extraheader || echo none` debug step on the test branch only), and the push and `ls-remote` still succeed.
