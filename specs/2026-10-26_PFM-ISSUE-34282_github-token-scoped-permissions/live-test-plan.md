@@ -1,6 +1,6 @@
 ---
 date: 2026-11-10
-last_updated: 2026-11-10
+last_updated: 2026-11-11
 branch: improvement/PFM-ISSUE-34282-Use-GITHUB_TOKEN-with-scoped-permissions-for (on top of PR #183)
 topic: "Live test plan for PFM-ISSUE-34282 - GITHUB_TOKEN with scoped permissions for in-repo tag and release"
 tags: [live-test, test-plan, clone-cplace-fe, fe-release-flow, fe-main, github-token, permissions, cplace-npm-test]
@@ -28,19 +28,19 @@ The supporting cases cover the paths the token switch can break: forced release,
 
 ## 1. What 34282 is expected to change
 
-The expected state follows the ticket's requirements, applied to the PR #183 workflows. There is no design or plan yet. **Before running, compare this table with the final implementation and fix the "Expected" column.** The rows marked *design* depend on a decision that is still open (section 7).
+The expected state follows [`design.md`](./design.md) and [`plan.md`](./plan.md) in this directory, applied to the PR #183 workflows.
 
 | ID | Item | PR #183 state | Expected after 34282 |
 |---|---|---|---|
 | D1 | `release` job checkout | `token: ${{ secrets.GIT_USER_TOKEN }}` (`fe-release-flow.yml:121`) | no `token:` (default `github.token`), still `fetch-depth: 0` |
-| D2 | `release` job permissions | `contents: read` (`:110-111`) | `contents: write` (plus only what the design adds, section 7) |
+| D2 | `release` job permissions | `contents: read` (`:110-111`) | `contents: write` only |
 | D3 | `GIT_USER_TOKEN` in `workflow_call.secrets` | `required: true` (`:24-25`) | removed |
 | D4 | Other jobs | `guard`/`install-deps`/`build`/`e2e` `contents: read`, `github-release` `contents: write` | unchanged |
-| D5 | "Configure git user" step and `GIT_USER`/`GIT_USER_EMAIL` | present (`:143-149`, `:26-29`) | *design*: kept for 34286, or removed |
+| D5 | "Configure git user" step and `GIT_USER`/`GIT_USER_EMAIL` | present (`:143-149`, `:26-29`) | unchanged (kept for PFM-ISSUE-34286) |
 | D6 | Caller template `fe-release.yml` | `contents: write`; header says the PAT pushes the tag | `contents: write` unchanged; header comment updated |
-| D7 | `fe-main.yml` template (four-scope block) | `contents/pull-requests: write`, `actions: read`, `checks: write` | *design*: unchanged, or narrowed |
+| D7 | `fe-main.yml` template (four-scope block) | `contents/pull-requests: write`, `actions: read`, `checks: write` | unchanged (PFM-ISSUE-35504) |
 | D8 | Deprecated `fe-tag.yml`/`fe-release.yml` (reusables) | PAT-based | unchanged (old consumers keep working) |
-| D9 | README (`:43-48`, `:71-73`) and guard message | describe the PAT tag push | updated |
+| D9 | README (`:54-59`, `:86-88`, `:146`), guard **comment**, 34283 design Q10 note | describe the PAT tag push; no tag-ruleset note | updated; new README section "Tag rulesets"; Q10 note names the GitHub Actions bypass actor; guard **message** unchanged |
 
 ---
 
@@ -93,7 +93,7 @@ Every push to `github-actions` is a stop (LT 2.1). Pushes to `clone-cplace-fe` a
 **T3: Prepare `main`** (= LT S3, plus the main CI switch). One commit on `MB`, no other file:
 - Add `.github/workflows/fe-release.yml` from the 34282 template, `uses:` → `@$TEST_BRANCH`.
 - Delete `push_to_release.yaml` and `on_tag_pushed.yaml` (otherwise the guard fails every `main` dispatch).
-- In `push_main.yaml`, change the three `@master` refs to `@$TEST_BRANCH`. If 34282 changes `fe-main.yml` (D7), apply its `permissions:` block to `push_main.yaml` as well. Keep the fork's test-job removal.
+- In `push_main.yaml`, change the three `@master` refs to `@$TEST_BRANCH`. Keep the fork's test-job removal.
 - Check that the commit touches neither `package.json` nor `package-lock.json` (xray).
 - Its push starts the main CI: that run is case **M0**.
 
@@ -143,9 +143,8 @@ Additional rules for this ticket:
 
 | Row | Rule | Evidence |
 |---|---|---|
-| T1 | Each job log's `GITHUB_TOKEN Permissions` group lists exactly: `guard`/`install-deps`/`build (*)` → `Contents: read`, `Metadata: read`. `release` → `Contents: write`, `Metadata: read` (+ only design additions). `github-release` → `Contents: write`, `Metadata: read`. No `Checks`, `PullRequests`, `Issues`, `Actions` unless the design lists them | LT B2 extraction command |
+| T1 | Each job log's `GITHUB_TOKEN Permissions` group lists exactly: `guard`/`install-deps`/`build (*)` → `Contents: read`, `Metadata: read`. `release` → `Contents: write`, `Metadata: read`. `github-release` → `Contents: write`, `Metadata: read`. No `Checks`, `PullRequests`, `Issues`, `Actions` | LT B2 extraction command |
 | T2 | No authentication error in the `release` job log: no `Authentication failed`, `could not read Username`, `Permission to … denied`, `403`, on `git push`, `git ls-remote` or `git fetch` | `grep -inE 'authentication failed\|could not read username\|permission to .* denied\|returned error: 403' <release log>` |
-| T3 | If D5 removed the identity step: no `Please tell me who you are` / `empty ident` | release job log |
 | T4 | The run was not started with a `startup_failure` and no `Secret GIT_USER_TOKEN is required` annotation | `run.json`, annotations |
 
 **S: snapshot on `main`**
@@ -168,7 +167,7 @@ Run in this order, one at a time (LT 2.1 and 2.3). Each case computes `N` from i
 |---|---|---|---|---|---|
 | R0 | smoke | `BR` | T2 push (caller switch) | NO-RELEASE + T1, T4 | – |
 | M0 | smoke | `MB` | T3 push (main prep) | main CI `success`, S4, S5 | – |
-| **R1** | **core** | `BR` | push of replay `e2d33835d4b` | RELEASE(26.4.8) + T1–T4 | 26.4.8 |
+| **R1** | **core** | `BR` | push of replay `e2d33835d4b` | RELEASE(26.4.8) + T1, T2, T4 | 26.4.8 |
 | **M1** | **core** | `MB` | push of replay `97b45e73a1f` | main CI snapshot of the affected projects, S1–S5 | snapshot |
 | **M2** | **core** | `MB` | forced release-flow dispatch on `main` | snapshot of all projects, S1–S5, T1–T2 | snapshot |
 | R2 | support | `BR` | forced dispatch, nothing affected | RELEASE(26.4.9) | 26.4.9 |
@@ -202,7 +201,7 @@ Run in this order, one at a time (LT 2.1 and 2.3). Each case computes `N` from i
   git -C "$WT" cherry-pick e2d33835d4b && git -C "$WT" push origin HEAD:$BR
   SHA=$(git -C "$WT" rev-parse HEAD)
   ```
-- **Expected:** RELEASE(26.4.8): E1–E8 with E7 Phase B, plus T1–T4. In detail:
+- **Expected:** RELEASE(26.4.8): E1–E8 with E7 Phase B, plus T1, T2, T4. In detail:
   - **Build:** `install-deps`, `build (*)`, `release`, `github-release` `success`; the log lists cf-editor-lib among the affected projects (`Checking affected projects since version/26.4.7`).
   - **Artifacts:** `Publish phase: publishing all publishable projects as 26.4.8`, then one `+ @cplace-next/<p>@26.4.8` per publishable project, then `Promote phase: moving release-26.4 to 26.4.8`, then `Tag phase: pushing version/26.4.8`. AQL count of `*-26.4.8.tgz` under `@cplace-next` = the publishable count (27 for the last release). `release-26.4` → `26.4.8` on every package, no `release-26.4-pending` left, `snapshot`/`latest` unchanged.
   - **Tag:** `refs/tags/version/26.4.8`, type `commit` (lightweight), on `SHA`. No other tag added or moved.
@@ -212,7 +211,7 @@ Run in this order, one at a time (LT 2.1 and 2.3). Each case computes `N` from i
 
 ### M1: Push to `main` with a real change (core)
 
-- **Purpose:** the main CI still builds and publishes snapshots with the 34282 test branch, and its jobs hold no more write scope than the (possibly narrowed) caller grants.
+- **Purpose:** the main CI still builds and publishes snapshots with the 34282 test branch, and its jobs hold no more write scope than the caller grants.
 - **Trigger:**
   ```bash
   git -C "$WT" fetch origin main && git -C "$WT" switch -C main-wt origin/main
@@ -223,8 +222,7 @@ Run in this order, one at a time (LT 2.1 and 2.3). Each case computes `N` from i
   - **Build:** the build job builds the affected projects since `github.event.before` without error.
   - **Artifacts:** S2 (push): one version `0.0.0-SNAPSHOT-<id>` for the affected publishable projects, cf-frontend-sdk among them. Each `+ @cplace-next/<p>@0.0.0-SNAPSHOT-<id>` log line has a matching tarball.
   - S3, S4 (no tag, no GitHub release, no tag-triggered run), S5.
-  - **Permissions:** each job's `GITHUB_TOKEN Permissions` group matches the `push_main.yaml` grant (`Contents: read`, `Actions: write`, `Metadata: read` today; the D7 block if 34282 narrows the template). Record it next to the release flow's T1 result.
-- **If D7 changed the template:** this case is also the regression test for the narrowed main permissions. Any `403`/`Resource not accessible by integration` in a job log is a FAIL.
+  - **Permissions:** each job's `GITHUB_TOKEN Permissions` group matches the `push_main.yaml` grant (`Contents: read`, `Actions: write`, `Metadata: read`; `fe-main.yml` is unchanged by 34282, so this is a plain regression check). Record it next to the release flow's T1 result.
 
 ### M2: Forced release-flow dispatch on `main` (core)
 
@@ -243,7 +241,7 @@ Run in this order, one at a time (LT 2.1 and 2.3). Each case computes `N` from i
 
 - **Precondition:** nothing affected since `version/26.4.8` (true after R1, M cases do not touch `BR`).
 - **Trigger:** `gh workflow run fe-release.yml -R $R --ref $BR -f force=true`
-- **Expected:** RELEASE(26.4.9), E1–E8 with E7 Phase B, T1–T4. Log `Force is set: skipping the affected check`. The tag is on the `BR` tip at dispatch.
+- **Expected:** RELEASE(26.4.9), E1–E8 with E7 Phase B, T1, T2, T4. Log `Force is set: skipping the affected check`. The tag is on the `BR` tip at dispatch.
 
 ### R3: Failure cleanup with `GITHUB_TOKEN`
 
@@ -254,7 +252,7 @@ Run in this order, one at a time (LT 2.1 and 2.3). Each case computes `N` from i
   - "Check for an incomplete release" logs `version/26.4.10 was not pushed: unpublishing its artifacts`, i.e. `ls-remote` exit code 2. **Exit code 128 or the `Could not check whether` error is a FAIL** (token cannot read the remote).
   - One `Deleted artifact from Jfrog: …@26.4.10` per published package and the placeholder; AQL `*-26.4.10.tgz` = 0; `release-26.4` still `26.4.9` everywhere; no staging tag; no tag, no release; `github-release` skipped.
 - **Trigger 2:** `gh run rerun $RUN -R $R --failed`.
-- **Expected, attempt 2:** RELEASE(26.4.10), E1–E8 with E7 Phase B, T1–T4. The same `N`, not `26.4.11`.
+- **Expected, attempt 2:** RELEASE(26.4.10), E1–E8 with E7 Phase B, T1, T2, T4. The same `N`, not `26.4.11`.
 
 ### R4: `github-release` re-run
 
@@ -276,9 +274,8 @@ Run in this order, one at a time (LT 2.1 and 2.3). Each case computes `N` from i
 - **Purpose:** the strongest proof that the PAT is out of the tag and release path.
 - **Precondition:** the user agrees to delete the `GIT_USER_TOKEN` secret of `R` (Phase A of LT can no longer run without it; the value must be re-supplied to restore it).
 - **Step:** `gh secret delete GIT_USER_TOKEN -R $R`, then R2's trigger.
-- **Expected:** RELEASE(26.4.11), E1–E8 with E7 Phase B, T1–T4. `Secret GIT_USER_TOKEN is required, but not provided` is a FAIL (D3 missing).
+- **Expected:** RELEASE(26.4.11), E1–E8 with E7 Phase B, T1, T2, T4. `Secret GIT_USER_TOKEN is required, but not provided` is a FAIL (D3 missing).
 - **Also run M1's spare replay (`7e81a3a8442`) afterwards** to show the main CI does not need the secret either.
-- If D5 removed `GIT_USER`/`GIT_USER_EMAIL`, delete those as well in the same step.
 
 ---
 
@@ -320,9 +317,9 @@ Copy the case table and the comparison into the PFM-ISSUE-34282 PR description a
 
 ---
 
-## 7. Open points to settle before execution
+## 7. Settled by the design
 
-1. **Final permission set of `release`**: this plan assumes `contents: write` only. If `checks`/`pull-requests` are added, update T1 and check that the caller template grants them (R0 would otherwise fail at startup).
-2. **D5 identity step**: decides whether rule T3 (section 3) and the `GIT_USER*` part of R6 apply.
-3. **D7 `fe-main.yml`**: if the template is narrowed in 34282, M1 is its regression test; if not, M1 is a plain regression check.
-4. **Credential style**: if the implementation switches to `persist-credentials: false` with a push-only credential, add to R1/R3: the `release` job's `.git/config` contains no `extraheader` during `npm ci` (check with a temporary `git config --get-all http.https://github.com/.extraheader || echo none` debug step on the test branch only), and the push and `ls-remote` still succeed.
+1. **`release` permissions**: `contents: write` only (D2). The caller template already grants it, so R0 must not fail at startup.
+2. **Identity step**: kept for PFM-ISSUE-34286 (D5). No rule checks for a missing identity, and R6 deletes only `GIT_USER_TOKEN`.
+3. **`fe-main.yml`**: unchanged (D7, narrowing is PFM-ISSUE-35504). M1 is a plain regression check.
+4. **Credential style**: the persisted default `GITHUB_TOKEN` of the checkout (D1). No push-only credential, so no `extraheader` check.

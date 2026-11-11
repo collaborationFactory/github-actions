@@ -271,10 +271,10 @@ Commit, e.g. `PFM-ISSUE-34282 - Describe the GITHUB_TOKEN tag push in the docs`.
 - [x] `actionlint` does not apply to templates; check the template still parses: `python -c "import yaml,sys; yaml.safe_load(open('.github/workflow-templates/fe/fe-release.yml'))"`
       (or any YAML parser available) exits 0
 - [x] 34283 design carries the note: `grep -n 'bypass actor' specs/2026-10-12_PFM-ISSUE-34283_consolidate-fe-release-workflow/design.md` matches
-- [ ] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 2 complete. Summary: template header, README (migration note, secrets, new Tag rulesets section, GitHub release line) and the 34283 Q10 note now describe the GITHUB_TOKEN tag push. Please review the changes and reply 'yes' to continue to Phase 3." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
+- [x] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 2 complete. Summary: template header, README (migration note, secrets, new Tag rulesets section, GitHub release line) and the 34283 Q10 note now describe the GITHUB_TOKEN tag push. Please review the changes and reply 'yes' to continue to Phase 3." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
 
 #### Manual Verification:
-- [ ] README "FE Release Flow" reads consistently top to bottom (What it does → Migration → Secrets → Tag rulesets → Recovery)
+- [x] README "FE Release Flow" reads consistently top to bottom (What it does → Migration → Secrets → Tag rulesets → Recovery)
 
 ---
 
@@ -316,16 +316,16 @@ Commit, e.g. `PFM-ISSUE-34282 - Align the live test plan with the design`.
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] No open-decision wording left: `grep -nE 'design\*|There is no design|depend on a decision|If D5|If D7|only design additions|unless the design' specs/2026-10-26_PFM-ISSUE-34282_github-token-scoped-permissions/live-test-plan.md`
+- [x] No open-decision wording left: `grep -nE 'design\*|There is no design|depend on a decision|If D5|If D7|only design additions|unless the design' specs/2026-10-26_PFM-ISSUE-34282_github-token-scoped-permissions/live-test-plan.md`
       is empty
-- [ ] No reference to rule T3: `grep -nE '\bT3\b' …/live-test-plan.md` matches only the setup step "T3: Prepare `main`"
+- [x] No reference to rule T3: `grep -nE '\bT3\b' …/live-test-plan.md` matches only the setup step "T3: Prepare `main`"
       and its references
-- [ ] D9's README line references (PR #183 state) point at the PAT/secret text that Phase 2 replaced: check each
+- [x] D9's README line references (PR #183 state) point at the PAT/secret text that Phase 2 replaced: check each
       cited range with `git show origin/improvement/PFM-ISSUE-34283-Consolidate-the-FE-2-0-release-flow-into-a-master:README.md | sed -n '<range>p'`
 - [ ] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 3 complete. Summary: live-test-plan.md now states the settled expectations (release = contents: write only, identity kept, fe-main unchanged); rule T3 and the GIT_USER* part of R6 removed; section 7 replaced. Please review the changes and reply 'yes' to continue to Phase 4 (live tests in clone-cplace-fe)." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
 
 #### Manual Verification:
-- [ ] Section 1's Expected column matches the Phase 1 and Phase 2 diffs row by row
+- [x] Section 1's Expected column matches the Phase 1 and Phase 2 diffs row by row
 
 ---
 
