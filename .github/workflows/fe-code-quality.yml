@@ -65,7 +65,7 @@ jobs:
 
       - name: Unit Tests
         id: test
-        uses: collaborationFactory/github-actions/.github/actions/run-many@master
+        uses: collaborationFactory/github-actions/.github/actions/run-many@test/PFM-ISSUE-34282-github-token
         continue-on-error: true
         with:
           target: ${{ matrix.target }}
