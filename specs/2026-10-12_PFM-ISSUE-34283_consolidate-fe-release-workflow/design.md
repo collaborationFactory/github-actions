@@ -94,7 +94,9 @@ Major trade-offs we're accepting:
 6. Normalizing caller filenames means the Actions run history starts fresh in repos that don't use template names (cplace-fe, office-reports, workflow-fe, loomeo, legacy-fe-assets, frontend-applications).
 
 What we're NOT doing (out of scope):
-- A `version/*` tag ruleset or a tag-triggered recovery path (Q10, deferred).
+- A `version/*` tag ruleset or a tag-triggered recovery path (Q10, deferred). Since PFM-ISSUE-34282 the
+  tag is pushed with `GITHUB_TOKEN`: such a ruleset must list GitHub Actions as a bypass actor, otherwise
+  the push is rejected after publish and promote.
 - Fixing the branch-off-day `.1` collision (Q9, deferred).
 - Skip-if-exists / resumable publish (rejected in research Q4).
 - Pushing the tag with `GITHUB_TOKEN` (PFM-ISSUE-34282) or enabling immutable releases (PFM-ISSUE-34284).
