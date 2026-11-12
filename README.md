@@ -51,12 +51,11 @@ Migrate a branch of a consumer repo in **one commit**:
    - Set `RUN_E2E: false` only for repos that do not run e2e before a release.
 2. **Delete the old release callers**: `fe-release.yml` as tagger, plus `fe-tag-pushed.yml` /
    `on_tag_pushed.yaml` / `tag_pushed.yml`.
-   - The release flow still pushes the tag with the PAT, so a tag-push workflow left in the tree
-     would try to publish that tag again, and would release manually pushed tags.
+   - The release flow pushes its tag with `GITHUB_TOKEN`, which starts no workflow. A tag-push
+     workflow left in the tree would still release manually pushed `version/*` tags, and an old
+     `fe-tag.yml` caller would tag in parallel.
    - The `guard` job fails while any workflow of the branch still calls `workflows/fe-release.yml` or
      `workflows/fe-tag.yml`.
-   - PFM-ISSUE-34282 (pushing the tag with `GITHUB_TOKEN`, which triggers no workflows) removes the
-     tag-push trigger for good.
 3. **Update the PR and main callers.** `fe-install-deps.yml` no longer cancels superseded runs;
    each caller decides that itself now (see Concurrency).
    - `fe-pr.yml`: add the `concurrency` block of the template, so a new push to the PR cancels the
@@ -84,8 +83,19 @@ run ends green with the warning "FORCE is ignored".
 ### Required secrets
 
 Passed with `secrets: inherit`: `JFROG_BASE64_TOKEN`, `JFROG_URL`, `JFROG_USER`, `DOT_NPMRC`,
-`GIT_USER_TOKEN`, `GIT_USER`, `GIT_USER_EMAIL`, and optionally `PERCY_TOKEN`. The caller needs
-`permissions: contents: write`.
+`GIT_USER`, `GIT_USER_EMAIL`, and optionally `PERCY_TOKEN`. The caller needs
+`permissions: contents: write`; the flow grants it only to the `release` and `github-release` jobs.
+
+The tag is pushed with `GITHUB_TOKEN`; the flow does not use `GIT_USER_TOKEN`. The deprecated
+`fe-tag.yml` and `workflows/fe-release.yml` still need it: remove it from a repo only once none of
+its branches calls them.
+
+### Tag rulesets
+
+The tag is pushed as GitHub Actions (`GITHUB_TOKEN`), after publish and promote. A ruleset that
+restricts `version/*` tags must list GitHub Actions as a bypass actor. Otherwise the push is
+rejected, the cleanup unpublishes the version, and the promoted packages lose `release-X.Y` (see
+"Promote or tag push failed" under Recovery).
 
 ### Recovery
 
@@ -143,5 +153,5 @@ publish distinct snapshot versions; the `snapshot` dist-tag ends up on the run t
 
 ### GitHub release
 
-Created with `GITHUB_TOKEN`. The generated notes start at the previous tag of the same release line,
+Created with `GITHUB_TOKEN`, like the tag. The generated notes start at the previous tag of the same release line,
 and "Latest" is set only for the highest `version/*` tag.
