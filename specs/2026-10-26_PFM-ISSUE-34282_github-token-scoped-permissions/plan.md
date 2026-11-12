@@ -322,7 +322,7 @@ Commit, e.g. `PFM-ISSUE-34282 - Align the live test plan with the design`.
       and its references
 - [x] D9's README line references (PR #183 state) point at the PAT/secret text that Phase 2 replaced: check each
       cited range with `git show origin/improvement/PFM-ISSUE-34283-Consolidate-the-FE-2-0-release-flow-into-a-master:README.md | sed -n '<range>p'`
-- [ ] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 3 complete. Summary: live-test-plan.md now states the settled expectations (release = contents: write only, identity kept, fe-main unchanged); rule T3 and the GIT_USER* part of R6 removed; section 7 replaced. Please review the changes and reply 'yes' to continue to Phase 4 (live tests in clone-cplace-fe)." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
+- [x] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 3 complete. Summary: live-test-plan.md now states the settled expectations (release = contents: write only, identity kept, fe-main unchanged); rule T3 and the GIT_USER* part of R6 removed; section 7 replaced. Please review the changes and reply 'yes' to continue to Phase 4 (live tests in clone-cplace-fe)." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
 
 #### Manual Verification:
 - [x] Section 1's Expected column matches the Phase 1 and Phase 2 diffs row by row
@@ -362,23 +362,23 @@ the failed case (live-test-plan section 5). No teardown beyond throwaway branche
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] Preflight P12-P15 pass (static diff matches D1-D9, `GIT_USER_TOKEN` absent on the test branch flow,
+- [x] Preflight P12-P15 pass (static diff matches D1-D9, `GIT_USER_TOKEN` absent on the test branch flow,
       actionlint clean, `default_workflow_permissions: read`)
-- [ ] R0: no startup failure, no `Secret GIT_USER_TOKEN is required` annotation (T4)
-- [ ] R1/R2/R3 attempt 2: RELEASE(N) E1-E8 with E7 Phase B (no run of any workflow for `version/N`), T1
+- [x] R0: no startup failure, no `Secret GIT_USER_TOKEN is required` annotation (T4)
+- [x] R1/R2/R3 attempt 2: RELEASE(N) E1-E8 with E7 Phase B (no run of any workflow for `version/N`), T1
       (`release` = `Contents: write`, `Metadata: read` only), T2 (no auth error in the `release` log)
-- [ ] R3 attempt 1: `ls-remote` exit code 2 path taken (`was not pushed: unpublishing its artifacts`), all
+- [x] R3 attempt 1: `ls-remote` exit code 2 path taken (`was not pushed: unpublishing its artifacts`), all
       `*-N.tgz` removed
-- [ ] M1/M2: S1-S5; M2 `release` holds `Contents: write`, no `git push` in its log
-- [ ] R4: idempotent re-run, recreated release authored by `github-actions[bot]`
-- [ ] R5: rejected at startup, no job started
-- [ ] R6 (if agreed): RELEASE(N) with the secret deleted
-- [ ] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 4 complete. Summary: live series in clone-cplace-fe [list cases and verdicts, run ids]; results recorded in results.md and the PR description. Please review the results and reply 'yes' to finish." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
+- [x] M1/M2: S1-S5; M2 `release` holds `Contents: write`, no `git push` in its log
+- [x] R4: idempotent re-run, recreated release authored by `github-actions[bot]`
+- [x] R5: rejected at startup, no job started
+- [x] R6 (if agreed): RELEASE(N) with the secret deleted — skipped: the user chose not to delete the secret
+- [x] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 4 complete. Summary: live series in clone-cplace-fe [list cases and verdicts, run ids]; results recorded in results.md and the PR description. Please review the results and reply 'yes' to finish." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
 
 #### Manual Verification:
-- [ ] The R1 GitHub release and tag look right in the `clone-cplace-fe` UI (lightweight tag on the pushed SHA,
+- [x] The R1 GitHub release and tag look right in the `clone-cplace-fe` UI (lightweight tag on the pushed SHA,
       release notes range `version/26.4.7...version/26.4.8`)
-- [ ] The PR #189 description carries the case table and the PAT vs. `GITHUB_TOKEN` comparison
+- [x] The PR #189 description carries the case table and the PAT vs. `GITHUB_TOKEN` comparison
 
 ---
 
