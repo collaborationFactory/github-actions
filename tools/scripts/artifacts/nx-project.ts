@@ -33,10 +33,13 @@ export enum VERSION_BUMP {
 export class NxProject {
   public static readonly PACKAGEJSON = 'package.json';
   public static readonly FOSS_LIST_FILENAME = 'cplace-foss-list.json';
+  public static readonly PENDING_TAG_SUFFIX = '-pending';
   private _npmrcContent = '';
   private _packageJsonContent: any = {};
   public isPublishable: boolean = false;
   public hasPackageJson = false;
+  // release flow: publish under release-X.Y-pending, promote() moves release-X.Y later
+  public stageRelease = false;
   private _pathToProject = '';
 
   constructor(
@@ -352,8 +355,51 @@ export class NxProject {
 
   public getTag(): string {
     if (this.task === TASK.PR_SNAPSHOT) return 'latest-pr-snapshot';
-    if (this.task === TASK.RELEASE) return this.version.getNpmTag();
+    if (this.task === TASK.RELEASE)
+      return this.stageRelease
+        ? this.version.getNpmTag() + NxProject.PENDING_TAG_SUFFIX
+        : this.version.getNpmTag();
     return 'snapshot';
+  }
+
+  /**
+   * Moves the release dist-tag (release-X.Y) of a staged release to this version
+   * and removes the staging tag. Unpublishing a version also drops every dist-tag
+   * that points to it, so release-X.Y may only move once the whole release is
+   * published: a failed run then leaves it on the previous version.
+   */
+  public promote() {
+    if (!this.isPublishable) return;
+    const scopedPackage = `${this.scope}/${this.name}`;
+    const releaseTag = this.version.getNpmTag();
+    const options = { cwd: this.getPathToProjectInDist() };
+    try {
+      console.log(
+        execSync(
+          `npm dist-tag add ${scopedPackage}@${this.version.toString()} ${releaseTag} --registry=${getJfrogUrl()}`,
+          options
+        ).toString()
+      );
+    } catch (error: any) {
+      console.error(
+        `An error occurred while moving ${releaseTag} to ${scopedPackage}@${this.version.toString()}: ${error}`
+      );
+      if (error.status !== 0) process.exit(1);
+      return;
+    }
+    // only cosmetic once release-X.Y moved: a leftover staging tag must not fail the release
+    try {
+      execSync(
+        `npm dist-tag rm ${scopedPackage} ${releaseTag}${
+          NxProject.PENDING_TAG_SUFFIX
+        } --registry=${getJfrogUrl()}`,
+        options
+      );
+    } catch (error: any) {
+      console.warn(
+        `Could not remove the staging tag of ${scopedPackage}: ${error}`
+      );
+    }
   }
 
   public getPrettyPackageJson(): string {

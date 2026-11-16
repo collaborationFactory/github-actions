@@ -1,5 +1,9 @@
 import { Utils } from '../artifacts/utils';
 
+export function normalizeRef(ref: string | undefined): string {
+  return ref ?? '';
+}
+
 export function distributeProjectsEvenly(
   allProjects: string[],
   jobCount: number

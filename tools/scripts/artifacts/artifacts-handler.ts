@@ -30,6 +30,8 @@ export class ArtifactsHandler {
   public task: TASK = TASK.MAIN_SNAPSHOT;
   private onlyDeleteArtifacts = false;
   private onlyBumpVersion = false;
+  private releaseFlow = false;
+  private force = false;
   private prNumber = '';
   private currentBranch = '';
   private jfrogCredentials: JfrogCredentials;
@@ -47,6 +49,10 @@ export class ArtifactsHandler {
       this.onlyDeleteArtifacts = JSON.parse(process.env.ONLY_DELETE_ARTIFACTS);
     if (process.env.ONLY_BUMP_VERSION != undefined)
       this.onlyBumpVersion = JSON.parse(process.env.ONLY_BUMP_VERSION);
+    if (process.env.RELEASE_FLOW != undefined)
+      this.releaseFlow = JSON.parse(process.env.RELEASE_FLOW);
+    if (process.env.FORCE != undefined)
+      this.force = JSON.parse(process.env.FORCE);
     if (process.env.SNAPSHOT != undefined)
       this.isSnapshot = JSON.parse(process.env.SNAPSHOT);
     this.base = process.env.BASE != undefined ? process.env.BASE : 'main';
@@ -68,8 +74,10 @@ export class ArtifactsHandler {
       this.currentVersion = new Version(this.tag.replace('version/', ''));
       this.task = TASK.RELEASE;
     }
-    // in case of a release Branch
-    if (this.currentBranch.startsWith(ArtifactsHandler.RELEASE_BRANCH_PREFIX)) {
+    // in case of a release Branch (a given release Tag keeps its own version)
+    else if (
+      this.currentBranch.startsWith(ArtifactsHandler.RELEASE_BRANCH_PREFIX)
+    ) {
       this.currentVersion = Utils.getVersionFromReleaseBranch(
         this.currentBranch
       );
@@ -110,9 +118,17 @@ export class ArtifactsHandler {
       console.log(
         `Tip commit is marked with ${Utils.BRANCH_OFF_MARKER}, skipping tagging and publishing`
       );
+      // a forced dispatch would otherwise end green without saying why nothing was released
+      if (this.releaseFlow && this.force) {
+        const message = `FORCE is ignored: the tip of ${this.currentBranch} is a ${Utils.BRANCH_OFF_MARKER} commit, nothing is tagged or published`;
+        console.log(`::warning::${message}`);
+        Utils.appendStepSummary(message);
+      }
       return Promise.resolve();
     }
-    if (
+    if (this.releaseFlow) {
+      await this.tagAndPublishRelease();
+    } else if (
       this.onlyBumpVersion &&
       this.currentBranch.startsWith(ArtifactsHandler.RELEASE_BRANCH_PREFIX)
     ) {
@@ -204,5 +220,100 @@ export class ArtifactsHandler {
         'No projects are affected and no new Minor Release Branch was added therefore no new Minor/Patch version is needed'
       );
     }
+  }
+
+  private async tagAndPublishRelease() {
+    if (
+      !this.currentBranch.startsWith(ArtifactsHandler.RELEASE_BRANCH_PREFIX)
+    ) {
+      if (!this.force) {
+        console.log(
+          `Release flow on ${this.currentBranch} without force: nothing is tagged or published`
+        );
+        return;
+      }
+      console.log(
+        `Forced release flow on ${this.currentBranch}: publishing a snapshot of all projects`
+      );
+      this.onlyAffected = false;
+      this.initProjects();
+      await this.buildAndPublishProjects();
+      Utils.appendStepSummary(
+        `Published a snapshot of all projects as \`${this.currentVersion}\` (no tag, no GitHub release)`
+      );
+      return;
+    }
+
+    const allTags = Utils.getAllVersionTagsInAscendingOrder();
+    const previous = Utils.getLatestTagForReleaseBranch(
+      this.currentBranch,
+      Utils.getVersionFromReleaseBranch(this.currentBranch),
+      allTags
+    );
+    const previousTag = previous.isValid() ? previous.getGitTag() : '';
+    this.calculatedNewVersion = Utils.nextVersion(this.currentBranch, previous);
+    const isLatest = allTags.every(
+      (tag) => !tag.isValid() || this.calculatedNewVersion.compareTo(tag) >= 0
+    );
+    console.log(
+      `The calculated new tag/version for branch ${this.currentBranch} is ${this.calculatedNewVersion}`
+    );
+
+    if (this.force) {
+      console.log('Force is set: skipping the affected check');
+    } else if (previousTag === '') {
+      console.log(
+        `No tag exists yet for ${this.currentBranch}: releasing the first version of the line`
+      );
+    } else {
+      // affected since the previous release of the line, not since the pushed range:
+      // a push whose queued run was cancelled must not be missed
+      this.base = previousTag;
+      console.log(`Checking affected projects since ${previousTag}`);
+      this.initAffectedProjects();
+      if (this.projects.length === 0) {
+        console.log(
+          `No projects are affected since ${previousTag} therefore no new Patch version is needed`
+        );
+        return;
+      }
+    }
+
+    const gitTag = this.calculatedNewVersion.getGitTag();
+    // read by the workflow's cleanup step, which unpublishes this version if the run
+    // fails or is cancelled before the tag is pushed
+    Utils.writeReleaseVersionFile(gitTag);
+
+    console.log(
+      `Publish phase: publishing all publishable projects as ${this.calculatedNewVersion}`
+    );
+    this.currentVersion = this.calculatedNewVersion;
+    this.onlyAffected = false;
+    this.initProjects();
+    // the cleanup step unpublishes this version on failure, which drops every dist-tag
+    // pointing to it: publish under a staging tag and move release-X.Y only after all
+    // projects are published, so a failed run leaves release-X.Y on the previous version
+    this.projects.forEach((project) => (project.stageRelease = true));
+    await this.buildAndPublishProjects();
+    Utils.appendStepSummary(
+      `Publish phase: published all publishable projects as \`${this.calculatedNewVersion}\``
+    );
+
+    const npmTag = this.calculatedNewVersion.getNpmTag();
+    console.log(
+      `Promote phase: moving ${npmTag} to ${this.calculatedNewVersion}`
+    );
+    this.projects.forEach((project) => project.promote());
+    Utils.appendStepSummary(
+      `Promote phase: moved \`${npmTag}\` to \`${this.calculatedNewVersion}\``
+    );
+
+    console.log(`Tag phase: pushing ${gitTag}`);
+    console.log(execSync(`git tag ${gitTag}`).toString());
+    console.log(execSync(`git push origin ${gitTag}`).toString());
+    Utils.writeOutput('tag', gitTag);
+    Utils.writeOutput('previous_tag', previousTag);
+    Utils.writeOutput('is_latest', String(isLatest));
+    Utils.appendStepSummary(`Tag phase: pushed \`${gitTag}\``);
   }
 }
