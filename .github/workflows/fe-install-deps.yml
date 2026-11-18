@@ -7,7 +7,7 @@ on:
         type: string
         required: true
     secrets:
-      DOT_NPMRC:
+      DOT_NPMRC_TEST:
         required: true
 
 jobs:
@@ -32,7 +32,7 @@ jobs:
       - name: Use .npmrc
         uses: collaborationFactory/github-actions/.github/actions/use-npmrc@master
         with:
-          dot-npmrc: ${{ secrets.DOT_NPMRC }}
+          dot-npmrc: ${{ secrets.DOT_NPMRC_TEST }}
 
       - name: Install modules
         if: steps.npm-cache.outputs.cache-hit != 'true'
