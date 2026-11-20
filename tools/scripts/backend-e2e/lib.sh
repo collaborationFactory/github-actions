@@ -7,9 +7,12 @@
 # consumed_packages <package.json> <packages-json>
 #
 # Prints the names from the JSON array <packages-json> that <package.json>
-# lists in `dependencies` or `devDependencies`, one per line, sorted.
+# lists in `dependencies` or `devDependencies`, one per line, sorted. A blank
+# <packages-json> counts as `[]`, as fe-pr-snapshot.yml leaves its `packages`
+# output empty when it publishes nothing.
 consumed_packages() {
   local manifest="$1" packages="$2"
+  [[ -n "${packages// /}" ]] || packages='[]'
   jq -r --argjson published "${packages}" \
     '[(.dependencies // {}), (.devDependencies // {})] | add | keys[] | select(. as $name | $published | index($name))' \
     "${manifest}"
@@ -51,6 +54,6 @@ remote_branch_exists() {
       sleep "${delay}"
     fi
   done
-  echo "::error::Cannot reach collaborationFactory/${repo} to look up branch '${branch}'"
+  echo "::error::Cannot reach collaborationFactory/${repo} to look up branch '${branch}'" >&2
   return 2
 }

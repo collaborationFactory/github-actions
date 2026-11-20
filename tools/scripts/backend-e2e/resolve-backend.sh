@@ -55,18 +55,16 @@ branch_exists() {
   esac
 }
 
-# resolve_branch <repo> <base-branch>: sets `branch` to the branch of <repo>
-# to test with.
+# resolve_branch <repo> <base-branch>: prints the branch of <repo> to test with.
 resolve_branch() {
   local repo="$1" base="$2"
   if [[ -n "${HEAD_REF:-}" ]] && branch_exists "${repo}" "${HEAD_REF}"; then
-    branch="${HEAD_REF}"
-    return
-  fi
-  branch="${base}"
-  if [[ "${base}" == release/* ]] && ! branch_exists "${repo}" "${base}"; then
-    echo "::warning::${repo} has no branch '${base}', testing against master"
-    branch=master
+    echo "${HEAD_REF}"
+  elif [[ "${base}" == release/* ]] && ! branch_exists "${repo}" "${base}"; then
+    echo "::warning::${repo} has no branch '${base}', testing against master" >&2
+    echo master
+  else
+    echo "${base}"
   fi
 }
 
@@ -87,11 +85,9 @@ resolve_branches() {
       ;;
   esac
 
-  local branch backend_branch e2e_branch
-  resolve_branch "${BACKEND_REPO}" "${base_branch}"
-  backend_branch="${branch}"
-  resolve_branch cplace-e2e "${base_branch}"
-  e2e_branch="${branch}"
+  local backend_branch e2e_branch
+  backend_branch="$(resolve_branch "${BACKEND_REPO}" "${base_branch}")"
+  e2e_branch="$(resolve_branch cplace-e2e "${base_branch}")"
 
   {
     echo "backend_branch=${backend_branch}"

@@ -23,7 +23,6 @@ main() {
   local version="$1"
   shift
   local packages="${PACKAGES:-}"
-  [[ -n "${packages// /}" ]] || packages='[]'
 
   local pattern
   local -a dirs=()

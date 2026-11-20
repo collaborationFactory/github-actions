@@ -6,8 +6,7 @@
 # Usage: PACKAGES='["@scope/name", ...]' resolve-consumers.sh <backend-checkout> <e2e-checkout>
 #
 # Reads <backend-checkout>/*/assets/package.json and <e2e-checkout>/package.json.
-# An empty or unset PACKAGES counts as `[]`, as fe-pr-snapshot.yml leaves it
-# empty when it publishes nothing.
+# An empty or unset PACKAGES counts as `[]`.
 #
 # Writes to GITHUB_OUTPUT:
 #   backend_packages  JSON array of the published packages the backend consumes
@@ -40,7 +39,6 @@ main() {
   fi
   local backend="$1" e2e="$2"
   local packages="${PACKAGES:-}"
-  [[ -n "${packages// /}" ]] || packages='[]'
 
   local -a backend_manifests e2e_manifests=()
   shopt -s nullglob
