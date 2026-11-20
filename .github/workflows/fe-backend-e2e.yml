@@ -199,10 +199,12 @@ jobs:
             echo "::error::main/docker/e2e is missing; a backend other than cplace needs CB_INCLUDE_PARENT_REPOS=true so cplace is cloned into main/"
             exit 1
           fi
+          # All of main/docker, not only e2e/: its compose file extends
+          # ../elasticsearch/elasticsearch-base.yml.
           paths=(
             "${REPO_NAME}/build/distributions/software.zip"
             "${REPO_NAME}/.github/.build-env"
-            main/docker/e2e
+            main/docker
           )
           # Optional: the docker scripts only bind-mount it as cplace properties.
           if [[ -d main/e2eConfigurations/config1 ]]; then
