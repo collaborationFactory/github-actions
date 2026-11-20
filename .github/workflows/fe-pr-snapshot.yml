@@ -12,10 +12,10 @@ on:
         default: true
     outputs:
       version:
-        description: 'The published snapshot version'
+        description: 'The published snapshot version, empty when the job was skipped or the tip is a branch-off commit'
         value: ${{ jobs.publish-pr-snapshot.outputs.version }}
       packages:
-        description: 'JSON array of the published package names, [] when nothing was published'
+        description: 'JSON array of the published package names; [] when no project was publishable, empty when the job was skipped or the tip is a branch-off commit'
         value: ${{ jobs.publish-pr-snapshot.outputs.packages }}
     secrets:
       JFROG_BASE64_TOKEN:

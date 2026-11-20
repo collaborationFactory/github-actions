@@ -217,7 +217,7 @@ snapshot only)".
       remaining warnings are CRLF working copies and untouched files)
 - [x] Workflow syntax valid: `npx --yes actionlint@1.7.7 .github/workflows/fe-pr-snapshot.yml` (or `docker run --rm -v "$PWD":/repo
       -w /repo rhysd/actionlint:1.7.7`) (docker variant; quoting `"$GITHUB_ENV"` in the base-branch step cleared two SC2086 infos)
-- [ ] `pr-checks.yml` stays green on the github-actions PR
+- [x] `pr-checks.yml` stays green on the github-actions PR (github-actions#190: lockfile and shell-script checks pass)
 
 #### Manual Verification:
 
