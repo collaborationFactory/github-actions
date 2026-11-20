@@ -15,7 +15,13 @@ inputs:
     description: 'JSON array of the published package names, shown in the summary'
     required: false
     default: '[]'
+  nodes:
+    description: 'Number of parallel E2E nodes'
+    required: true
 outputs:
+  node_indexes:
+    description: 'JSON array [0..nodes-1] for the node matrix'
+    value: ${{ steps.nodes.outputs.node_indexes }}
   backend_repo:
     description: 'The backend repository, e.g. cplace'
     value: ${{ steps.resolve.outputs.backend_repo }}
@@ -34,6 +40,16 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    # First, so an invalid NODES fails before any branch resolution.
+    - id: nodes
+      shell: bash
+      env:
+        NODES: ${{ inputs.nodes }}
+      run: |
+        set -euo pipefail
+        node_indexes="$("$GITHUB_ACTION_PATH/../../../tools/scripts/backend-e2e/node-indexes.sh" "${NODES}")"
+        echo "node_indexes=${node_indexes}" >>"$GITHUB_OUTPUT"
+
     - id: resolve
       shell: bash
       env:

@@ -21,19 +21,8 @@ runs:
         DIRS: ${{ inputs.dirs }}
       run: |
         set -euo pipefail
-        shopt -s nullglob
-        dirs=()
-        while IFS= read -r pattern; do
-          [[ -n "${pattern}" ]] || continue
-          # Unquoted on purpose: the pattern is a glob to expand.
-          # shellcheck disable=SC2206
-          dirs+=(${pattern})
-        done <<<"${DIRS}"
-        if ((${#dirs[@]} == 0)); then
-          echo "::warning::No directory matches: ${DIRS}"
-          exit 0
-        fi
-        pins="$("$GITHUB_ACTION_PATH/../../../tools/scripts/backend-e2e/pin-snapshots.sh" "${VERSION}" "${dirs[@]}")"
+        mapfile -t patterns <<<"${DIRS}"
+        pins="$("$GITHUB_ACTION_PATH/../../../tools/scripts/backend-e2e/pin-snapshots.sh" "${VERSION}" "${patterns[@]}")"
         echo "${pins}"
         {
           echo '### Pinned snapshot packages'

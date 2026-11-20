@@ -56,7 +56,7 @@ jobs:
       backend_branch: ${{ steps.resolve.outputs.backend_branch }}
       e2e_branch: ${{ steps.resolve.outputs.e2e_branch }}
       run: ${{ steps.resolve.outputs.run }}
-      node_indexes: ${{ steps.nodes.outputs.node_indexes }}
+      node_indexes: ${{ steps.resolve.outputs.node_indexes }}
     steps:
       - name: Resolve backend and branches
         id: resolve
@@ -66,18 +66,7 @@ jobs:
           base_ref: ${{ inputs.GHA_BASE }}
           snapshot_version: ${{ inputs.SNAPSHOT_VERSION }}
           packages: ${{ inputs.SNAPSHOT_PACKAGES }}
-
-      - name: Node matrix
-        id: nodes
-        shell: bash
-        env:
-          NODES: ${{ inputs.NODES }}
-        run: |
-          set -euo pipefail
-          case "${NODES}" in
-            '' | *[!0-9]* | 0*) echo "::error::NODES must be a positive integer, got '${NODES}'"; exit 1 ;;
-          esac
-          echo "node_indexes=$(jq -cn --argjson n "${NODES}" '[range($n)]')" >>"$GITHUB_OUTPUT"
+          nodes: ${{ inputs.NODES }}
 
   build:
     name: Build backend
@@ -187,7 +176,14 @@ jobs:
       - name: Remove cplace-analytics-plugin
         shell: bash
         run: |
-          zip -d "${REPO_NAME}/build/distributions/software.zip" "software/cf.cplace.analytics/*" "software/WEB-INF/lib/cf.cplace.analytics*.jar" || true
+          set -euo pipefail
+          rc=0
+          zip -d "${REPO_NAME}/build/distributions/software.zip" "software/cf.cplace.analytics/*" "software/WEB-INF/lib/cf.cplace.analytics*.jar" || rc=$?
+          # 12 is zip's "nothing to do": the distribution has no analytics plugin.
+          if ((rc != 0 && rc != 12)); then
+            echo "::error::Removing the analytics plugin from software.zip failed with exit code ${rc}"
+            exit "${rc}"
+          fi
 
       # A tarball, not upload-artifact's multi-path mode: that strips the paths'
       # common prefix, which is `main/` for cplace and nothing for other backends.
@@ -195,6 +191,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [[ ! -d main/docker/e2e ]]; then
+            echo "::error::main/docker/e2e is missing; a backend other than cplace needs CB_INCLUDE_PARENT_REPOS=true so cplace is cloned into main/"
+            exit 1
+          fi
           paths=(
             "${REPO_NAME}/build/distributions/software.zip"
             "${REPO_NAME}/.github/.build-env"

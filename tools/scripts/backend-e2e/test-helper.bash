@@ -9,13 +9,15 @@ SCRIPTS="${BATS_TEST_DIRNAME}"
 WORK="${BATS_TEST_TMPDIR}/work"
 NPM_LOG="${BATS_TEST_TMPDIR}/npm.log"
 
-# Puts an `npm` stub first on PATH. Each call appends "<cwd>|<argv>" to NPM_LOG
-# and exits with NPM_EXIT (default 0).
+# Puts an `npm` stub first on PATH. Each call appends "<cwd>|<argv>" to NPM_LOG,
+# prints a progress line to stdout like real npm, and exits with NPM_EXIT
+# (default 0).
 stub_npm() {
   mkdir -p "${BATS_TEST_TMPDIR}/bin"
   cat >"${BATS_TEST_TMPDIR}/bin/npm" <<'STUB'
 #!/usr/bin/env bash
 echo "${PWD}|$*" >>"${NPM_LOG}"
+echo "added 1 package, and audited 2 packages in 1s"
 exit "${NPM_EXIT:-0}"
 STUB
   chmod +x "${BATS_TEST_TMPDIR}/bin/npm"

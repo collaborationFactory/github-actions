@@ -4,6 +4,8 @@
 #
 # Run with: bats tools/scripts/backend-e2e/
 
+bats_require_minimum_version 1.5.0
+
 setup() {
   load 'test-helper'
   stub_npm
@@ -77,10 +79,10 @@ setup() {
     "i @cplace-next/cf-shell@0.0.0-feat-1-42 --save-exact --legacy-peer-deps"
 }
 
-@test "prints one '<dir> <pkg>@<version>' line per pin" {
+@test "prints one '<dir> <pkg>@<version>' line per pin, and nothing else on stdout" {
   make_assets_dir plugin.a '{"dependencies":{"@cplace-next/cf-platform":"1.0.0","@cplace-next/cf-shell":"1.0.0"}}'
 
-  run env PACKAGES='["@cplace-next/cf-platform","@cplace-next/cf-shell"]' \
+  run --separate-stderr env PACKAGES='["@cplace-next/cf-platform","@cplace-next/cf-shell"]' \
     "$SCRIPTS/pin-snapshots.sh" 0.0.0-feat-1-42 "$WORK/plugin.a/assets"
 
   [ "$status" -eq 0 ]
@@ -99,6 +101,44 @@ setup() {
 
   [ "$status" -eq 0 ]
   [ "$(npm_call_count)" -eq 0 ]
+}
+
+@test "a glob matching two dirs pins in both" {
+  make_assets_dir plugin.a '{"dependencies":{"@cplace-next/cf-platform":"1.0.0"}}'
+  make_assets_dir plugin.b '{"dependencies":{"@cplace-next/cf-platform":"1.0.0"}}'
+
+  run env PACKAGES='["@cplace-next/cf-platform"]' \
+    "$SCRIPTS/pin-snapshots.sh" 0.0.0-feat-1-42 "$WORK/*/assets"
+
+  [ "$status" -eq 0 ]
+  [ "$(npm_call_count)" -eq 2 ]
+  assert_npm_called_in "$WORK/plugin.a/assets" \
+    "i @cplace-next/cf-platform@0.0.0-feat-1-42 --save-exact --legacy-peer-deps"
+  assert_npm_called_in "$WORK/plugin.b/assets" \
+    "i @cplace-next/cf-platform@0.0.0-feat-1-42 --save-exact --legacy-peer-deps"
+}
+
+@test "a glob matching nothing fails, names the glob and calls no npm" {
+  mkdir -p "$WORK"
+
+  run env PACKAGES='["@cplace-next/cf-platform"]' \
+    "$SCRIPTS/pin-snapshots.sh" 0.0.0-feat-1-42 "$WORK/*/assets"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"No directory matches: $WORK/*/assets"* ]]
+  [ "$(npm_call_count)" -eq 0 ]
+}
+
+@test "a blank glob next to a matching one is ignored" {
+  make_assets_dir plugin.a '{"dependencies":{"@cplace-next/cf-platform":"1.0.0"}}'
+
+  run env PACKAGES='["@cplace-next/cf-platform"]' \
+    "$SCRIPTS/pin-snapshots.sh" 0.0.0-feat-1-42 '' "$WORK/*/assets" ' '
+
+  [ "$status" -eq 0 ]
+  [ "$(npm_call_count)" -eq 1 ]
+  assert_npm_called_in "$WORK/plugin.a/assets" \
+    "i @cplace-next/cf-platform@0.0.0-feat-1-42 --save-exact --legacy-peer-deps"
 }
 
 @test "a missing version is a usage error" {

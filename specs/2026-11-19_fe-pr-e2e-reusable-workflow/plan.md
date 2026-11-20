@@ -765,6 +765,81 @@ backend-e2e:
 
 ---
 
+## Phase 7: Move inline workflow shell into tested scripts
+
+### Overview
+
+Two pieces of logic still live as inline shell in YAML, where the `pr-checks.yml` shellcheck and bats steps never reach them: the `NODES`
+validation in `fe-backend-e2e.yml` and the glob expansion with its no-match error in `backend-e2e-pin`. Move both into
+`tools/scripts/backend-e2e/` and cover them with bats. This phase lands on `feature/fe-backend-e2e` before Phase 6 merges github-actions;
+it changes where the logic lives, not how the workflow behaves.
+
+### Changes Required:
+
+#### 1. Glob expansion in `pin-snapshots.sh`
+
+**File**: `tools/scripts/backend-e2e/pin-snapshots.sh`
+**Changes**:
+- Usage becomes `PACKAGES='[...]' pin-snapshots.sh <version> <glob>...`. Update the header comment and the usage message.
+- Before the pin loop, expand every argument with `shopt -s nullglob`, skipping blank arguments. The expansion is unquoted on purpose and
+  keeps its `# shellcheck disable=SC2206` with the reason.
+- When the expansion yields no directory, print `No directory matches: <globs>` to stderr and exit 1.
+- A literal path expands to itself, so existing callers and the existing bats cases are unaffected.
+
+**File**: `tools/scripts/backend-e2e/pin-snapshots.bats`
+**Changes**: add cases:
+- a glob such as `"$WORK/*/assets"` matching two dirs pins in both (two npm calls);
+- a glob that matches nothing exits 1, names the glob on stderr, and calls npm zero times;
+- a blank argument next to a matching glob is ignored.
+
+#### 2. Pin action delegates to the script
+
+**File**: `.github/actions/backend-e2e-pin/action.yml`
+**Changes**: remove the `dirs` array loop, the `nullglob` and the no-match check. Read the `DIRS` input lines with
+`mapfile -t patterns <<<"${DIRS}"` and call `pin-snapshots.sh "${VERSION}" "${patterns[@]}"`. Keep the step-summary block unchanged. The
+`dirs` input description stays as is.
+
+#### 3. Node index script
+
+**File**: `tools/scripts/backend-e2e/node-indexes.sh` (new)
+**Changes**: `node-indexes.sh <n>`. It rejects `''`, any non-digit and a leading `0` with
+`NODES must be a positive integer, got '<n>'` on stderr and exit 1, and otherwise prints `jq -cn --argjson n "<n>" '[range($n)]'`.
+Same header and `set -euo pipefail` conventions as the sibling scripts.
+
+**File**: `tools/scripts/backend-e2e/node-indexes.bats` (new)
+**Changes**: `''`, `abc`, `0`, `05`, `-1` fail with exit 1 and the message; `1` prints `[0]`; `3` prints `[0,1,2]`.
+
+#### 4. Wire node indexes through the resolve action
+
+**File**: `.github/actions/backend-e2e-resolve/action.yml`
+**Changes**: add input `nodes` (required, `Number of parallel E2E nodes`) and output `node_indexes` (`JSON array [0..nodes-1] for the node
+matrix`). Add a step `id: nodes` that passes `NODES: ${{ inputs.nodes }}` through env and writes
+`node_indexes=$("$GITHUB_ACTION_PATH/../../../tools/scripts/backend-e2e/node-indexes.sh" "${NODES}")` to `$GITHUB_OUTPUT`. It runs first,
+so an invalid `NODES` fails the job before branch resolution.
+
+**File**: `.github/workflows/fe-backend-e2e.yml`
+**Changes**: pass `nodes: ${{ inputs.NODES }}` to the resolve action, delete the inline "Node matrix" step, and point the job output at
+`${{ steps.resolve.outputs.node_indexes }}`. No extra checkout is needed, since the composite action already ships the scripts.
+
+### Success Criteria:
+
+#### Automated Verification:
+
+- [x] `shellcheck tools/scripts/backend-e2e/*.sh tools/scripts/backend-e2e/test-helper.bash` (docker `koalaman/shellcheck:stable`)
+- [x] `bats tools/scripts/backend-e2e/` passes, including the new glob and node-index cases (99/99 with `tools/scripts/lockfile/`, in
+      `bats/bats:1.11.1` with jq and git, on an LF copy of the tree)
+- [x] `actionlint .github/workflows/fe-backend-e2e.yml` (docker `rhysd/actionlint:1.7.7`, with `pr-checks.yml`)
+- [x] `grep -n 'nullglob\|\[!0-9\]' .github/actions/backend-e2e-pin/action.yml .github/workflows/fe-backend-e2e.yml` returns nothing
+- [x] Review findings [2.4] marked resolved in review.md. Ticking this item means editing review.md's `- [ ] Resolved` line for [2.4] to
+      `- [x] Resolved — <one sentence saying how>`.
+
+#### Manual Verification:
+
+- [ ] On the trial PR, a run with the default `NODES` produces the same node matrix and the same pin summary as before.
+- [ ] Temporarily set `NODES: '0'` on the trial caller and confirm that `resolve` fails with the positive-integer error. Then revert.
+
+---
+
 ## Testing Strategy
 
 ### Unit Tests:
@@ -777,6 +852,8 @@ backend-e2e:
   - **Branch existence:** exact match only, retries, unreachable fails, missing falls back with a warning.
   - **Consumed detection:** `dependencies` and `devDependencies`, missing manifest, empty or blank `PACKAGES`.
   - **Pinning:** only consumed packages, one npm call per dir, npm failure propagates, summary lines.
+  - **Glob expansion:** multi-dir match, no match fails, blank patterns ignored.
+  - **Node indexes:** empty, non-digit, zero, leading zero and negative rejected; `1` and `3` produce the expected arrays.
 
 ### Integration Tests:
 
