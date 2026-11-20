@@ -403,7 +403,8 @@ umask 077
 } >> "${HOME}/.npmrc"
 ```
 
-Top-level `permissions:` is omitted, because callers grant `contents`, `pull-requests` and `checks`. Every external action is SHA-pinned in
+Top-level `permissions:` is `contents: read`, because `build` and `e2e` run lifecycle scripts of PR-built packages; only `report` adds
+`checks: write` and `pull-requests: write`, which callers already grant. Every external action is SHA-pinned in
 the `owner/repo@<sha> # vX.Y.Z` form.
 
 #### 5. Self-CI for the new scripts

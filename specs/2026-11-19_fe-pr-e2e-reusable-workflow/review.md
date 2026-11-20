@@ -337,3 +337,82 @@ For a non-cplace backend (`repo_dir` = `cplace-paw`), `main/` exists only when a
 - [README.md:204](/tools/scripts/lockfile/README.md#L204)
 
 The directory adds scripts, a sourced lib, bats tests and a helper, wired into two composite actions and a workflow. Its env and argument contracts (`PACKAGES`, `FE_REPO`, `BASE_REF`) are spread across header comments. `tools/scripts/lockfile/` documents its files, invariants and usage in a short README, and a few lines here would follow the same convention.
+
+## Iteration 4 — 2026-11-20
+
+*Reviewed two repositories against `plan.md`. github-actions: `origin/master...HEAD` (16 files); cplace-fe: `origin/main...HEAD` (3 files). cplace-paw-fe was skipped because it is on `master` and its work is in Phase 6, which has not started. The untracked `dist/` in github-actions was not reviewed. Agents: plan-conformance, correctness, craft, best-practices, test and security in github-actions; plan-conformance, correctness, craft and security in cplace-fe. best-practices found no rule index covering github-actions' paths (workflows, composite actions, bash/bats, the artifacts handler) and filed nothing. plan-conformance, best-practices and test returned nothing in github-actions, and every cplace-fe agent returned nothing. 5 findings kept, 0 dropped in verification, 0 merged.*
+
+### [4.1] 💡 Fixed artifact names collide if the workflow is called twice in one run
+
+- [x] Resolved — Declined: each caller invokes the workflow once per run by design; add a caller-supplied artifact-name suffix input when a caller needs a second invocation.
+
+**Agent(s):** correctness
+
+**Repo:** github-actions
+
+**File(s):**
+- [fe-backend-e2e.yml:212](/.github/workflows/fe-backend-e2e.yml#L212)
+- [fe-backend-e2e.yml:221](/.github/workflows/fe-backend-e2e.yml#L221)
+- [fe-backend-e2e.yml:350](/.github/workflows/fe-backend-e2e.yml#L350)
+
+`backend-e2e-bundle`, `backend-e2e-npm-logs-build` and `backend-e2e-results-<n>` contain nothing that tells one invocation from another. Artifacts are scoped to the whole caller run, so a caller that invokes the workflow twice (another spec set or backend) gets a 409 on the second upload, and the report's `backend-e2e-results-*` pattern would merge both invocations' results. Today's callers invoke it once, so this matters only if that changes; a caller-supplied suffix in the names would cover it.
+
+### [4.2] 💡 No `permissions:` block, so jobs that install PR-built packages inherit the caller's token scope
+
+- [x] Resolved — Added top-level `permissions: contents: read` to fe-backend-e2e.yml and job-level `contents: read`, `checks: write`, `pull-requests: write` on `report`, superseding plan.md's "omit top-level permissions" note; all scopes stay within what callers grant.
+
+**Agent(s):** security
+
+**Repo:** github-actions
+
+**File(s):**
+- [fe-backend-e2e.yml:11](/.github/workflows/fe-backend-e2e.yml#L11)
+- [fe-backend-e2e.yml:365](/.github/workflows/fe-backend-e2e.yml#L365)
+
+`build` and `e2e` run `npm i` on PR-published snapshot packages, whose lifecycle scripts then run with whatever `GITHUB_TOKEN` scope the caller grants. Only `report` needs `checks: write` and `pull-requests: write`. plan.md omits top-level `permissions:` on purpose; a top-level `contents: read` with the write scopes on `report` alone would cap the exposure regardless of the caller.
+
+### [4.3] 💡 Backend `.github/.build-env` is shipped inside a downloadable artifact
+
+- [x] Resolved — No code change: `.build-env` is the backend's committed file and `load-env-variables` never writes to it; secrets are interpolated only into `$GITHUB_ENV`, so the bundled copy holds the same non-secret `CB_*` settings and placeholders as the repo.
+
+**Agent(s):** security
+
+**Repo:** github-actions
+
+**File(s):**
+- [fe-backend-e2e.yml:200](/.github/workflows/fe-backend-e2e.yml#L200)
+
+`load-env-variables` receives `toJson(secrets)`, and the env file is tarred into `backend-e2e-bundle.tgz`, which anyone with repo read access can download during its 1-day retention. If the cplace-gh-workflows env handling ever writes resolved secret values into `.build-env`, the bundle exposes them. Confirm it holds only non-secret `CB_*` settings, or regenerate it on the nodes instead of shipping it.
+
+### [4.4] 💡 Required `GHA_REF` input is not read anywhere yet
+
+- [x] Resolved — No code change: plan.md fixes the input contract up front and Phase 4 §1 consumes `GHA_REF` for the `e2e-tests/` sparse checkout; declaring it now keeps callers from changing between phases.
+
+**Agent(s):** craft
+
+**Repo:** github-actions
+
+**File(s):**
+- [fe-backend-e2e.yml:14](/.github/workflows/fe-backend-e2e.yml#L14)
+
+**Reference(s):**
+- [fe-e2e.yml:32](/.github/workflows/fe-e2e.yml#L32)
+
+`GHA_REF` is `required: true` but only declared; nothing in the workflow consumes it, unlike sibling fe-* workflows that check out `ref: ${{ inputs.GHA_REF }}`. plan.md Phase 4 §1 uses it for the `e2e-tests/` sparse checkout, so it becomes live then; until that lands, every caller passes a dead value.
+
+### [4.5] 💡 `lib.sh` is a sourced library with one function and one caller
+
+- [x] Resolved — No code change: Phase 3 is committed plan work that adds `resolve-consumers.sh` as a second `consumed_packages` caller and `remote_branch_exists` to `lib.sh`, so the split stays.
+
+**Agent(s):** craft
+
+**Repo:** github-actions
+
+**File(s):**
+- [lib.sh:11](/tools/scripts/backend-e2e/lib.sh#L11)
+
+**Reference(s):**
+- [pin-snapshots.sh:47](/tools/scripts/backend-e2e/pin-snapshots.sh#L47)
+- [plan.md:486](/specs/2026-11-19_fe-pr-e2e-reusable-workflow/plan.md#L486)
+
+`consumed_packages` lives in its own sourced file but `pin-snapshots.sh` is its only caller. plan.md Phase 3 adds `resolve-consumers.sh` as a second caller, which justifies the split once Phase 3 lands; keep it if that phase is committed work.
