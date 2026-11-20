@@ -49,6 +49,11 @@ on:
 permissions:
   contents: read
 
+# One run per PR: a new push cancels the run of the previous one.
+concurrency:
+  group: fe-backend-e2e-${{ github.repository }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   resolve:
     name: Resolve backend
@@ -59,6 +64,8 @@ jobs:
       repo_dir: ${{ steps.resolve.outputs.repo_dir }}
       backend_branch: ${{ steps.resolve.outputs.backend_branch }}
       e2e_branch: ${{ steps.resolve.outputs.e2e_branch }}
+      backend_packages: ${{ steps.resolve.outputs.backend_packages }}
+      e2e_packages: ${{ steps.resolve.outputs.e2e_packages }}
       run: ${{ steps.resolve.outputs.run }}
       node_indexes: ${{ steps.resolve.outputs.node_indexes }}
     steps:
@@ -68,9 +75,12 @@ jobs:
         with:
           fe_repo: ${{ github.event.repository.name }}
           base_ref: ${{ inputs.GHA_BASE }}
+          head_ref: ${{ inputs.GHA_REF }}
           snapshot_version: ${{ inputs.SNAPSHOT_VERSION }}
           packages: ${{ inputs.SNAPSHOT_PACKAGES }}
           nodes: ${{ inputs.NODES }}
+          app_id: ${{ secrets.SVA_ACTIONS_READ_PRODUCT_ID }}
+          app_key: ${{ secrets.SVA_ACTIONS_READ_PRODUCT_KEY }}
 
   build:
     name: Build backend
@@ -297,6 +307,15 @@ jobs:
             echo "//cplace.jfrog.io/artifactory/api/npm/cplace-npm/:_authToken=${ENV_CPLACE_ARTIFACTORY_TOKEN}"
           } >>"${HOME}/.npmrc"
           chmod 600 "${HOME}/.npmrc"
+
+      # After setup-node and the registry auth, which npm needs.
+      - name: Pin the PR's snapshot packages in cplace-e2e
+        if: ${{ needs.resolve.outputs.e2e_packages != '[]' }}
+        uses: collaborationFactory/github-actions/.github/actions/backend-e2e-pin@feature/fe-backend-e2e # FIXME remove before merging
+        with:
+          version: ${{ inputs.SNAPSHOT_VERSION }}
+          packages: ${{ needs.resolve.outputs.e2e_packages }}
+          dirs: ${{ env.REPO_NAME }}/${{ env.CB_E2E_REPO_NAME }}
 
       - name: Calculate node specs
         id: calc-specs

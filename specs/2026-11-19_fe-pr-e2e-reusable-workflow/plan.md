@@ -390,6 +390,8 @@ Changed during implementation:
 - The bundle is one `backend-e2e-bundle.tgz` built with `tar`, uploaded as the `backend-e2e-bundle` artifact and unpacked on
   the nodes. `upload-artifact` with several paths strips their common prefix, which is `main/` for cplace and nothing for
   other backends, so the layout would differ per backend.
+- The bundle holds all of `main/docker` (~375 KB), not only `main/docker/e2e`: the e2e compose file `extends`
+  `../elasticsearch/elasticsearch-base.yml`, and trial run 44774066471 failed on the node without it.
 - `main/e2eConfigurations/config1` is bundled only when it exists. It is not in the cplace repository; the docker scripts
   only bind-mount it as cplace properties.
 
@@ -440,8 +442,9 @@ runs `bats tools/scripts/lockfile/ tools/scripts/backend-e2e/`.
 
 #### Manual Verification:
 
-- [ ] The build log shows the pinned `@cplace-next/cf-platform@0.0.0-<slug>-<pr>` in `cf.cplace.platform/assets/package-lock.json` after the
-      pin step, and the build succeeds with it (risks 2 and 3).
+- [x] The build log shows the pinned `@cplace-next/cf-platform@0.0.0-<slug>-<pr>` in `cf.cplace.platform/assets/package-lock.json` after the
+      pin step, and the build succeeds with it (risks 2 and 3). (run 44774066471: pin step logged
+      `main/cf.cplace.platform/assets @cplace-next/cf-platform@0.0.0-feature-fe-backend-e2e-trial-3075`; build green)
 - [ ] The bundle download plus compose boot reaches `applicationStatus.txt` 200 on the node without gradle running there.
 - [ ] The runner labels resolve for an FE repo (risk 5). Note the wall-clock of build and node.
 - [ ] Spec counts and the node time for the cplace default filter are recorded in the PR description, to set the Phase 6 `NODES` values.
@@ -516,13 +519,25 @@ when `needs.resolve.outputs.e2e_packages != '[]'`.
 **Changes**: add workflow-level `concurrency: { group: fe-backend-e2e-${{ github.repository }}-${{ github.event.pull_request.number }},
 cancel-in-progress: true }`. Confirm that every job has `timeout-minutes`.
 
+Changed during implementation:
+- `resolve-backend.sh` takes a step argument: `repo` writes `backend_repo` and `repo_dir`, `branches` (env `BACKEND_REPO`, `BASE_REF`,
+  `HEAD_REF`, `GH_TOKEN`) writes `backend_branch` and `e2e_branch`. That is the split §2 asks for, since the token is minted between the two.
+- `lib.sh` also gains `git_with_token`, used by `remote_branch_exists` and by the sparse clones. `RETRY_DELAYS` overrides the 5/10/20s
+  backoff, so bats runs without sleeping.
+- The resolve composite takes `head_ref`, `app_id` and `app_key` (composites cannot read `secrets`), and outputs `backend_packages` and
+  `e2e_packages`; the summary lists both.
+- `resolve-consumers.sh` warns when the backend checkout has no `*/assets/package.json`, since that skips the run.
+- The `cplace-e2e` pin step sits after `setup-node` and the npm auth step, not directly after the clone, because `npm i` needs both.
+
 ### Success Criteria:
 
 #### Automated Verification:
 
-- [ ] bats passes: `bats tools/scripts/backend-e2e/`
-- [ ] shellcheck passes: `shellcheck tools/scripts/backend-e2e/*.sh tools/scripts/backend-e2e/test-helper.bash`
-- [ ] `actionlint .github/workflows/fe-backend-e2e.yml`
+- [x] bats passes: `bats tools/scripts/backend-e2e/` (115/115 with `tools/scripts/lockfile/`, in `bats/bats:1.11.1` with jq and git, on
+      an LF copy of the tree)
+- [x] shellcheck passes: `shellcheck tools/scripts/backend-e2e/*.sh tools/scripts/backend-e2e/test-helper.bash` (docker
+      `koalaman/shellcheck:stable`; also the inline sparse-clone step of `backend-e2e-resolve`)
+- [x] `actionlint .github/workflows/fe-backend-e2e.yml` (docker `rhysd/actionlint:1.7.7`)
 - [ ] github-actions `pr-checks.yml` green
 
 #### Manual Verification:
