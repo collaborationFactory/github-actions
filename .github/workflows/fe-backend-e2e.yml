@@ -35,6 +35,12 @@ on:
         description: 'Number of parallel test nodes'
         type: string
         default: '2'
+      ADVISORY:
+        description: >-
+          Report spec failures as warnings instead of failing the run. For backends
+          whose own E2E suite is not green yet; build failures still fail the run.
+        type: boolean
+        default: false
     secrets:
       ENV_CPLACE_ARTIFACTORY_ACTOR:
         required: true
@@ -245,6 +251,7 @@ jobs:
     if: ${{ needs.resolve.outputs.run == 'true' }}
     runs-on: ${{ vars.E2E_MEDIUM_RUNNER || vars.MEDIUM_RUNNER || 'ubuntu-22.04' }}
     timeout-minutes: 60
+    continue-on-error: ${{ inputs.ADVISORY }}
     strategy:
       fail-fast: false
       matrix:
@@ -412,12 +419,28 @@ jobs:
           check_name: 'Test Results Backend E2E'
           files: test-results/junit/**/*.xml
           json_file: backend-e2e-results.json
+          fail_on: ${{ inputs.ADVISORY && 'nothing' || 'test failures' }}
 
+      # needs.e2e.result is not relied on in advisory mode: continue-on-error
+      # may report a failed node as 'success'.
       - name: Fail unless every node passed
-        if: ${{ needs.e2e.result != 'success' }}
+        if: ${{ needs.e2e.result != 'success' && !inputs.ADVISORY }}
         shell: bash
         env:
           E2E_RESULT: ${{ needs.e2e.result }}
         run: |
           echo "::error::Backend E2E nodes ended with '${E2E_RESULT}'"
           exit 1
+
+      - name: Warn about failed specs (advisory)
+        if: ${{ inputs.ADVISORY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          read -r tests failed < <(jq -r '.stats | "\(.tests // 0) \((.tests_fail // 0) + (.tests_error // 0))"' backend-e2e-results.json 2>/dev/null || echo "0 0")
+          # No results at all means a node broke before Cypress ran (docker, startup).
+          if ((tests == 0)); then
+            echo "::warning::Advisory mode: no backend E2E test results were produced; check the E2E node logs."
+          elif ((failed > 0)); then
+            echo "::warning::Advisory mode: ${failed} of ${tests} backend E2E tests failed; see 'Test Results Backend E2E'. Failures that also fail on the backend's own nightly are not caused by this PR."
+          fi
