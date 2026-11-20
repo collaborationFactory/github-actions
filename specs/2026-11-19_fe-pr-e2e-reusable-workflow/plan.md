@@ -221,9 +221,11 @@ snapshot only)".
 
 #### Manual Verification:
 
-- [ ] In the trial cplace-fe PR, a job calling `fe-pr-snapshot.yml@feature/fe-backend-e2e` with `REQUIRE_SNAPSHOT_LABEL: false` publishes
-      without the label. Its outputs (`version` and `packages`) are visible in a downstream `echo` job.
-- [ ] The existing label caller still skips without the label.
+- [x] In the trial cplace-fe PR, a job calling `fe-pr-snapshot.yml@feature/fe-backend-e2e` with `REQUIRE_SNAPSHOT_LABEL: false` publishes
+      without the label. Its outputs (`version` and `packages`) are visible in a downstream `echo` job. (run 44682804442:
+      `version=0.0.0-feature-fe-backend-e2e-trial-3075`, `packages=["@cplace-next/cf-platform"]`)
+- [x] The existing label caller still skips without the label. (cplace-fe#3075 at `81b6bf1`, label caller pointed at the feature
+      branch: "Frontend Pull Request Snapshot CI" concluded `skipped`)
 
 ---
 
