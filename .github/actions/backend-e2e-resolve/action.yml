@@ -1,0 +1,139 @@
+name: 'Backend E2E: resolve backend'
+description: 'Resolves the backend repository, the backend and cplace-e2e branches a frontend PR is tested against, and whether the PR published anything they consume'
+inputs:
+  fe_repo:
+    description: 'The frontend repository name, e.g. cplace-fe'
+    required: true
+  base_ref:
+    description: 'The PR base branch'
+    required: true
+  head_ref:
+    description: 'The PR head branch; used in the backend and cplace-e2e when they have a branch of that name'
+    required: true
+  snapshot_version:
+    description: 'The published snapshot version, shown in the summary'
+    required: false
+    default: ''
+  packages:
+    description: 'JSON array of the published package names'
+    required: false
+    default: '[]'
+  nodes:
+    description: 'Number of parallel E2E nodes'
+    required: true
+  app_id:
+    description: 'ID of a GitHub App that can read the backend repository and cplace-e2e'
+    required: true
+  app_key:
+    description: 'Private key of that GitHub App'
+    required: true
+outputs:
+  node_indexes:
+    description: 'JSON array [0..nodes-1] for the node matrix'
+    value: ${{ steps.nodes.outputs.node_indexes }}
+  backend_repo:
+    description: 'The backend repository, e.g. cplace'
+    value: ${{ steps.repo.outputs.backend_repo }}
+  repo_dir:
+    description: 'The checkout directory of the backend under GITHUB_WORKSPACE (main for cplace)'
+    value: ${{ steps.repo.outputs.repo_dir }}
+  backend_branch:
+    description: 'The backend branch to build'
+    value: ${{ steps.branches.outputs.backend_branch }}
+  e2e_branch:
+    description: 'The cplace-e2e branch to test with'
+    value: ${{ steps.branches.outputs.e2e_branch }}
+  backend_packages:
+    description: 'JSON array of the published packages the backend consumes'
+    value: ${{ steps.consumers.outputs.backend_packages }}
+  e2e_packages:
+    description: 'JSON array of the published packages cplace-e2e consumes'
+    value: ${{ steps.consumers.outputs.e2e_packages }}
+  run:
+    description: 'true when the backend or cplace-e2e consumes a published package'
+    value: ${{ steps.consumers.outputs.run }}
+runs:
+  using: 'composite'
+  steps:
+    # First, so an invalid NODES fails before any branch resolution.
+    - id: nodes
+      shell: bash
+      env:
+        NODES: ${{ inputs.nodes }}
+      run: |
+        set -euo pipefail
+        node_indexes="$("$GITHUB_ACTION_PATH/../../../tools/scripts/backend-e2e/node-indexes.sh" "${NODES}")"
+        echo "node_indexes=${node_indexes}" >>"$GITHUB_OUTPUT"
+
+    - id: repo
+      shell: bash
+      env:
+        FE_REPO: ${{ inputs.fe_repo }}
+      run: '"$GITHUB_ACTION_PATH/../../../tools/scripts/backend-e2e/resolve-backend.sh" repo'
+
+    - id: token
+      uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+      with:
+        app-id: ${{ inputs.app_id }}
+        private-key: ${{ inputs.app_key }}
+        owner: ${{ github.repository_owner }}
+        repositories: ${{ steps.repo.outputs.backend_repo }},cplace-e2e
+
+    - id: branches
+      shell: bash
+      env:
+        BACKEND_REPO: ${{ steps.repo.outputs.backend_repo }}
+        BASE_REF: ${{ inputs.base_ref }}
+        HEAD_REF: ${{ inputs.head_ref }}
+        GH_TOKEN: ${{ steps.token.outputs.token }}
+      run: '"$GITHUB_ACTION_PATH/../../../tools/scripts/backend-e2e/resolve-backend.sh" branches'
+
+    # Blob-less sparse clones: only the manifests that tell whether a published
+    # package is consumed.
+    - name: Fetch the backend and cplace-e2e manifests
+      shell: bash
+      env:
+        BACKEND_REPO: ${{ steps.repo.outputs.backend_repo }}
+        BACKEND_BRANCH: ${{ steps.branches.outputs.backend_branch }}
+        E2E_BRANCH: ${{ steps.branches.outputs.e2e_branch }}
+        GH_TOKEN: ${{ steps.token.outputs.token }}
+      run: '"$GITHUB_ACTION_PATH/../../../tools/scripts/backend-e2e/fetch-manifests.sh" "${RUNNER_TEMP}/backend-e2e"'
+
+    - id: consumers
+      shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+      run: >-
+        "$GITHUB_ACTION_PATH/../../../tools/scripts/backend-e2e/resolve-consumers.sh"
+        "${RUNNER_TEMP}/backend-e2e/backend" "${RUNNER_TEMP}/backend-e2e/cplace-e2e"
+
+    - name: Summary
+      shell: bash
+      env:
+        FE_REPO: ${{ inputs.fe_repo }}
+        BACKEND_REPO: ${{ steps.repo.outputs.backend_repo }}
+        BACKEND_BRANCH: ${{ steps.branches.outputs.backend_branch }}
+        E2E_BRANCH: ${{ steps.branches.outputs.e2e_branch }}
+        SNAPSHOT_VERSION: ${{ inputs.snapshot_version }}
+        PACKAGES: ${{ inputs.packages }}
+        BACKEND_PACKAGES: ${{ steps.consumers.outputs.backend_packages }}
+        E2E_PACKAGES: ${{ steps.consumers.outputs.e2e_packages }}
+        RUN: ${{ steps.consumers.outputs.run }}
+      run: |
+        {
+          echo '### Backend E2E'
+          echo
+          if [[ "${RUN}" != 'true' ]]; then
+            echo "Skipped: no package consumed by \`${BACKEND_REPO}\` or \`cplace-e2e\` was published."
+            echo
+          fi
+          echo '| | |'
+          echo '|---|---|'
+          echo "| FE repo | \`${FE_REPO}\` |"
+          echo "| Backend | \`${BACKEND_REPO}\` @ \`${BACKEND_BRANCH}\` |"
+          echo "| cplace-e2e | \`${E2E_BRANCH}\` |"
+          echo "| Snapshot version | \`${SNAPSHOT_VERSION:-none}\` |"
+          echo "| Published packages | \`${PACKAGES:-[]}\` |"
+          echo "| Consumed by the backend | \`${BACKEND_PACKAGES}\` |"
+          echo "| Consumed by cplace-e2e | \`${E2E_PACKAGES}\` |"
+        } >>"$GITHUB_STEP_SUMMARY"
