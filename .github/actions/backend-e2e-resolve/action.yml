@@ -97,19 +97,7 @@ runs:
         BACKEND_BRANCH: ${{ steps.branches.outputs.backend_branch }}
         E2E_BRANCH: ${{ steps.branches.outputs.e2e_branch }}
         GH_TOKEN: ${{ steps.token.outputs.token }}
-      run: |
-        set -euo pipefail
-        # shellcheck source=/dev/null
-        source "$GITHUB_ACTION_PATH/../../../tools/scripts/backend-e2e/lib.sh"
-        manifests() {
-          local repo="$1" branch="$2" dir="$3" pattern="$4"
-          git_with_token clone --quiet --depth 1 --filter=blob:none --no-checkout --branch "${branch}" \
-            "https://github.com/collaborationFactory/${repo}.git" "${dir}"
-          git_with_token -C "${dir}" sparse-checkout set --no-cone "${pattern}"
-          git_with_token -C "${dir}" checkout --quiet
-        }
-        manifests "${BACKEND_REPO}" "${BACKEND_BRANCH}" "${RUNNER_TEMP}/backend-e2e/backend" '/*/assets/package.json'
-        manifests cplace-e2e "${E2E_BRANCH}" "${RUNNER_TEMP}/backend-e2e/cplace-e2e" '/package.json'
+      run: '"$GITHUB_ACTION_PATH/../../../tools/scripts/backend-e2e/fetch-manifests.sh" "${RUNNER_TEMP}/backend-e2e"'
 
     - id: consumers
       shell: bash

@@ -394,6 +394,8 @@ Changed during implementation:
   `../elasticsearch/elasticsearch-base.yml`, and trial run 44774066471 failed on the node without it.
 - `main/e2eConfigurations/config1` is bundled only when it exists. It is not in the cplace repository; the docker scripts
   only bind-mount it as cplace properties.
+- After the bundle upload, an `always()` step uploads `~/.npm/_logs` as `backend-e2e-npm-logs-build`, so a failed pin
+  step's `npm i` can be diagnosed from its debug log.
 
 npm auth step (inline, `shell: bash`). The token stays in env, the file is `chmod 600`, and the token never appears in argv:
 
@@ -436,18 +438,22 @@ runs `bats tools/scripts/lockfile/ tools/scripts/backend-e2e/`.
 - [x] Workflow syntax valid: `actionlint .github/workflows/fe-backend-e2e.yml .github/workflows/pr-checks.yml` (docker
       `rhysd/actionlint:1.7.7`; also the trial `cplace-fe: .github/workflows/pull_request.yaml`)
 - [x] `pr-checks.yml` on the github-actions PR runs the new bats files and is green (github-actions#190, 93/93 bats)
-- [ ] On the trial PR, `backend-e2e / report` publishes the "Test Results Backend E2E" check with at least one executed spec
-      (blocked: run 44747811077 got `snapshot` and `resolve` green, then `build` failed at the first token step because
-      `SVA_ACTIONS_READ_PRODUCT_ID` is empty in cplace-fe. Re-run once the secrets are provisioned, see Phase 6 § 2)
+- [x] On the trial PR, `backend-e2e / report` publishes the "Test Results Backend E2E" check with at least one executed spec
+      (run 44777680475, after the secrets were provisioned: "9 fail, 542 pass in 33m 19s". The 9 failures are in 6 specs that fail
+      on all three Cypress attempts; not yet triaged against cplace master)
 
 #### Manual Verification:
 
 - [x] The build log shows the pinned `@cplace-next/cf-platform@0.0.0-<slug>-<pr>` in `cf.cplace.platform/assets/package-lock.json` after the
       pin step, and the build succeeds with it (risks 2 and 3). (run 44774066471: pin step logged
       `main/cf.cplace.platform/assets @cplace-next/cf-platform@0.0.0-feature-fe-backend-e2e-trial-3075`; build green)
-- [ ] The bundle download plus compose boot reaches `applicationStatus.txt` 200 on the node without gradle running there.
-- [ ] The runner labels resolve for an FE repo (risk 5). Note the wall-clock of build and node.
+- [x] The bundle download plus compose boot reaches `applicationStatus.txt` 200 on the node without gradle running there. (run
+      44777680475: docker step 67s, "Wait for cplace startup" green after 10s)
+- [x] The runner labels resolve for an FE repo (risk 5). Note the wall-clock of build and node. (build job 3m37s, of which
+      `build-distribution` ~4 min in the earlier run; node job 59m29s, nearly all Cypress)
 - [ ] Spec counts and the node time for the cplace default filter are recorded in the PR description, to set the Phase 6 `NODES` values.
+      (measured, not yet in the PR description: 99 specs, 602 tests, 38m34s for the first Cypress pass on one node, plus ~10 min of
+      retries for the 6 failing specs; the node job ended 31s before its 60-min timeout. `NODES: '3'` gives ~13 min per node)
 
 ---
 
@@ -538,7 +544,7 @@ Changed during implementation:
 - [x] shellcheck passes: `shellcheck tools/scripts/backend-e2e/*.sh tools/scripts/backend-e2e/test-helper.bash` (docker
       `koalaman/shellcheck:stable`; also the inline sparse-clone step of `backend-e2e-resolve`)
 - [x] `actionlint .github/workflows/fe-backend-e2e.yml` (docker `rhysd/actionlint:1.7.7`)
-- [ ] github-actions `pr-checks.yml` green
+- [x] github-actions `pr-checks.yml` green (github-actions#190: lockfile and shell-script checks pass with the new bats files)
 
 #### Manual Verification:
 
@@ -853,6 +859,64 @@ so an invalid `NODES` fails the job before branch resolution.
 
 - [ ] On the trial PR, a run with the default `NODES` produces the same node matrix and the same pin summary as before.
 - [ ] Temporarily set `NODES: '0'` on the trial caller and confirm that `resolve` fails with the positive-integer error. Then revert.
+
+---
+
+## Phase 8: Move the manifest fetch into a tested script
+
+### Overview
+
+The "Fetch the backend and cplace-e2e manifests" step in `backend-e2e-resolve` is the last inline shell with a function and branching of
+its own, so the `pr-checks.yml` shellcheck and bats steps never reach it. Move it into `tools/scripts/backend-e2e/` and cover it with bats,
+following Phase 7. It changes where the logic lives, not how the workflow behaves.
+
+### Changes Required:
+
+#### 1. Manifest fetch script
+
+**File**: `tools/scripts/backend-e2e/fetch-manifests.sh` (new)
+**Changes**: `fetch-manifests.sh <dest-root>`. It reads `BACKEND_REPO`, `BACKEND_BRANCH`, `E2E_BRANCH` and `GH_TOKEN` from env, and
+exits 1 with `<VAR> is not set` on stderr when one is empty. It sources `lib.sh` and keeps the current `manifests <repo> <branch> <dir>
+<pattern>` function as is: a `git_with_token clone --quiet --depth 1 --filter=blob:none --no-checkout --branch <branch>` of
+`https://github.com/collaborationFactory/<repo>.git`, then `sparse-checkout set --no-cone <pattern>` and `checkout --quiet`. It fetches
+`<dest-root>/backend` with `/*/assets/package.json` and `<dest-root>/cplace-e2e` with `/package.json`. Same header and
+`set -euo pipefail` conventions as the sibling scripts, so a failing git call fails the script.
+
+#### 2. git stub covers clone and checkout
+
+**File**: `tools/scripts/backend-e2e/test-helper.bash`
+**Changes**: the `git` stub keeps its `ls-remote` behaviour. For any other subcommand it logs argv to `GIT_LOG` and exits 0, or exits 128
+with a `fatal:` line on stderr when `${REMOTES}/<repo>.unreachable` exists for the cloned repo. Update the stub's header comment.
+
+**File**: `tools/scripts/backend-e2e/fetch-manifests.bats` (new)
+**Changes**: cases:
+- the backend and cplace-e2e clones use the right URL, `--branch` and sparse pattern, and their target dirs are under `<dest-root>`;
+- `GH_TOKEN`'s value appears nowhere in `GIT_LOG`;
+- each missing env var exits 1 and names it;
+- an unreachable repo makes the script exit non-zero.
+
+#### 3. Resolve action delegates to the script
+
+**File**: `.github/actions/backend-e2e-resolve/action.yml`
+**Changes**: the "Fetch the backend and cplace-e2e manifests" step keeps its env and runs
+`'"$GITHUB_ACTION_PATH/../../../tools/scripts/backend-e2e/fetch-manifests.sh" "${RUNNER_TEMP}/backend-e2e"'`. The inline `manifests()`
+function, the `source` of `lib.sh` and its `shellcheck source=/dev/null` directive go. Keep the comment above the step.
+
+### Success Criteria:
+
+#### Automated Verification:
+
+- [x] `shellcheck tools/scripts/backend-e2e/*.sh tools/scripts/backend-e2e/test-helper.bash` (docker `koalaman/shellcheck:stable`)
+- [x] `bats tools/scripts/lockfile/ tools/scripts/backend-e2e/` passes, including the new fetch-manifests cases (121/121 in
+      `bats/bats:1.11.1` with jq and git, on an LF copy of the tree; 6 new cases, including a usage check for a missing `<dest-root>`)
+- [x] `actionlint .github/workflows/fe-backend-e2e.yml .github/workflows/pr-checks.yml` (docker `rhysd/actionlint:1.7.7`)
+- [x] `grep -n 'manifests()\|sparse-checkout' .github/actions/backend-e2e-resolve/action.yml` returns nothing
+- [x] Review findings [5.3] marked resolved in review.md. Ticking this item means editing review.md's `- [ ] Resolved` line for [5.3] to
+      `- [x] Resolved — <one sentence saying how>`.
+
+#### Manual Verification:
+
+- [ ] On the trial PR, `resolve` produces the same `backend_packages`, `e2e_packages` and `run` outputs as before.
 
 ---
 

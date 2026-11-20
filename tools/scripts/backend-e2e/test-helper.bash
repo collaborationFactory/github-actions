@@ -45,11 +45,16 @@ npm_call_count() {
   wc -l <"${NPM_LOG}" | tr -d ' '
 }
 
-# Puts a `git` stub first on PATH that answers `git ... ls-remote --heads <url>
-# refs/heads/<branch>` from fixture files under REMOTES. It prints a head line
-# for every listed branch that merely contains <branch>, which is looser than
-# real git, so exact matching stays the job of the script under test. Each
-# call appends its argv to GIT_LOG.
+# Puts a `git` stub first on PATH. Each call appends its argv to GIT_LOG.
+#
+# It answers `git ... ls-remote --heads <url> refs/heads/<branch>` from fixture
+# files under REMOTES. It prints a head line for every listed branch that merely
+# contains <branch>, which is looser than real git, so exact matching stays the
+# job of the script under test.
+#
+# Any other subcommand, such as clone, sparse-checkout or checkout, exits 0
+# without touching the filesystem, or exits 128 with a `fatal:` line on stderr
+# when its argv holds the URL of a repo marked unreachable.
 stub_git() {
   REMOTES="${BATS_TEST_TMPDIR}/remotes"
   GIT_LOG="${BATS_TEST_TMPDIR}/git.log"
@@ -57,6 +62,16 @@ stub_git() {
   cat >"${BATS_TEST_TMPDIR}/bin/git" <<'STUB'
 #!/usr/bin/env bash
 echo "$*" >>"${GIT_LOG}"
+if [[ " $* " != *" ls-remote "* ]]; then
+  for arg in "$@"; do
+    repo="${arg##*/}"
+    if [[ "${arg}" == https://*.git && -f "${REMOTES}/${repo%.git}.unreachable" ]]; then
+      echo "fatal: unable to access '${arg}': Could not resolve host: github.com" >&2
+      exit 128
+    fi
+  done
+  exit 0
+fi
 url="${*: -2:1}"
 pattern="${*: -1}"
 pattern="${pattern#refs/heads/}"
@@ -85,7 +100,7 @@ remote_has() {
   printf '%s\n' "$@" >>"${REMOTES}/${repo}"
 }
 
-# remote_unreachable <repo>: every ls-remote against <repo> fails
+# remote_unreachable <repo>: every ls-remote or clone against <repo> fails
 remote_unreachable() {
   : >"${REMOTES}/$1.unreachable"
 }

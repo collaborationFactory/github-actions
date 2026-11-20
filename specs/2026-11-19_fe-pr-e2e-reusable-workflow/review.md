@@ -416,3 +416,66 @@ The directory adds scripts, a sourced lib, bats tests and a helper, wired into t
 - [plan.md:486](/specs/2026-11-19_fe-pr-e2e-reusable-workflow/plan.md#L486)
 
 `consumed_packages` lives in its own sourced file but `pin-snapshots.sh` is its only caller. plan.md Phase 3 adds `resolve-consumers.sh` as a second caller, which justifies the split once Phase 3 lands; keep it if that phase is committed work.
+
+## Iteration 5 — 2026-11-20
+
+*Reviewed `origin/master...HEAD` (18 files) in github-actions against `plan.md`. cplace-fe and cplace-paw-fe were skipped: the review covers this repository only. The uncommitted `plan.md` edit and the untracked `dist/` were not part of the diff. Agents: plan-conformance, correctness, craft, best-practices, test, security. best-practices used the sibling `cplace-best-practices` backend index (`shell-scripts.md`, `editing-general.md`) and returned nothing; correctness and security returned nothing. 4 findings kept, 2 dropped in verification, 0 merged.*
+
+Dropped:
+- test — "Retry-then-succeed path of remote_branch_exists is untested" — external did not confirm
+- craft — "`https://github.com/collaborationFactory/` is hard-coded in the shell, while the workflow uses `github.repository_owner`" — external did not confirm
+
+### [5.1] 💡 Empty-PACKAGES normalisation is copied into two scripts
+
+- [x] Resolved — Moved the blank-to-`[]` guard into `consumed_packages` in `lib.sh` and dropped it from `pin-snapshots.sh` and `resolve-consumers.sh`; the existing blank-PACKAGES bats cases in both suites cover it.
+
+**Agent(s):** craft
+
+**File(s):**
+- [pin-snapshots.sh:25](/tools/scripts/backend-e2e/pin-snapshots.sh#L25)
+- [resolve-consumers.sh:42](/tools/scripts/backend-e2e/resolve-consumers.sh#L42)
+
+**Reference(s):**
+- [lib.sh:11](/tools/scripts/backend-e2e/lib.sh#L11)
+
+Both scripts open with the same two lines that turn an empty or blank `PACKAGES` into `[]`, and both header comments restate the rule. `lib.sh` already holds `consumed_packages`, which both call right afterwards. A `normalize_packages` helper there would keep the rule, and its blank-list test, in one place.
+
+### [5.2] 💡 `resolve_branch` returns its result through a variable that its caller declares
+
+- [x] Resolved — `resolve_branch` now prints the branch and its callers capture it with `$(...)`; its `::warning::` and `remote_branch_exists`'s `::error::` moved to stderr so the capture cannot swallow them, and an unreachable remote still exits 2.
+
+**Agent(s):** craft
+
+**File(s):**
+- [resolve-backend.sh:58](/tools/scripts/backend-e2e/resolve-backend.sh#L58)
+- [resolve-backend.sh:91](/tools/scripts/backend-e2e/resolve-backend.sh#L91)
+
+`resolve_branch` writes to `branch`, which exists only because `resolve_branches` declares it as a local. That relies on bash dynamic scope, so the function breaks if it is called from anywhere else. The rest of the directory either returns a status code or prints a value for the caller to capture. Printing the branch and capturing it with `backend_branch="$(resolve_branch …)"` would remove the shared variable. The `::warning::` line would then have to go to stderr.
+
+### [5.3] 💡 Manifest-fetch shell is inline in the resolve action, while the other logic moved into tested scripts
+
+- [x] Resolved — Phase 8 moved the step into `tools/scripts/backend-e2e/fetch-manifests.sh`, covered by `fetch-manifests.bats` through the extended git stub, and the action now only calls the script.
+
+**Agent(s):** craft
+
+**File(s):**
+- [action.yml:104](/.github/actions/backend-e2e-resolve/action.yml#L104)
+
+**Reference(s):**
+- [resolve-backend.sh:1](/tools/scripts/backend-e2e/resolve-backend.sh#L1)
+
+The sparse-clone step is the only one in the action whose YAML holds a function with its own branching plus a sourced lib. `pr-checks.yml` lints and tests only `tools/scripts/backend-e2e/*`, so neither shellcheck nor bats covers this step. Phase 7 already moved inline shell into tested scripts. Moving this step into something like `fetch-manifests.sh` would follow the same convention and let the existing git stub test it.
+
+### [5.4] ❓ Build job uploads an npm-logs artifact that no phase or design decision asks for
+
+- [x] Resolved — Intended: it keeps the debug log of the pin step's `npm i`; plan.md Phase 2 "Changed during implementation" now lists the `backend-e2e-npm-logs-build` upload.
+
+**Agent(s):** plan-conformance
+
+**File(s):**
+- [fe-backend-e2e.yml:233](/.github/workflows/fe-backend-e2e.yml#L233)
+
+**Reference(s):**
+- [plan.md:359](/specs/2026-11-19_fe-pr-e2e-reusable-workflow/plan.md#L359)
+
+The `build` job ends with an `always()` upload of `~/.npm/_logs` as `backend-e2e-npm-logs-build`. The plan's build steps stop at the bundle upload (step 14), and the Phase 2 "Changed during implementation" notes do not mention this upload. It looks like a sensible debugging aid for the pin step's `npm i`. If it is intended, add a line to those notes so the plan lists everything the workflow uploads.
