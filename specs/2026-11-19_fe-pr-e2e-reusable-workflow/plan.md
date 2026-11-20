@@ -432,8 +432,10 @@ runs `bats tools/scripts/lockfile/ tools/scripts/backend-e2e/`.
 - [x] shellcheck passes: `shellcheck tools/scripts/backend-e2e/*.sh tools/scripts/backend-e2e/test-helper.bash`
 - [x] Workflow syntax valid: `actionlint .github/workflows/fe-backend-e2e.yml .github/workflows/pr-checks.yml` (docker
       `rhysd/actionlint:1.7.7`; also the trial `cplace-fe: .github/workflows/pull_request.yaml`)
-- [ ] `pr-checks.yml` on the github-actions PR runs the new bats files and is green
+- [x] `pr-checks.yml` on the github-actions PR runs the new bats files and is green (github-actions#190, 93/93 bats)
 - [ ] On the trial PR, `backend-e2e / report` publishes the "Test Results Backend E2E" check with at least one executed spec
+      (blocked: run 44747811077 got `snapshot` and `resolve` green, then `build` failed at the first token step because
+      `SVA_ACTIONS_READ_PRODUCT_ID` is empty in cplace-fe. Re-run once the secrets are provisioned, see Phase 6 § 2)
 
 #### Manual Verification:
 
