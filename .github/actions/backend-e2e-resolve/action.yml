@@ -1,0 +1,68 @@
+name: 'Backend E2E: resolve backend'
+description: 'Resolves the backend repository and the backend and cplace-e2e branches a frontend PR is tested against'
+inputs:
+  fe_repo:
+    description: 'The frontend repository name, e.g. cplace-fe'
+    required: true
+  base_ref:
+    description: 'The PR base branch'
+    required: true
+  snapshot_version:
+    description: 'The published snapshot version, shown in the summary'
+    required: false
+    default: ''
+  packages:
+    description: 'JSON array of the published package names, shown in the summary'
+    required: false
+    default: '[]'
+outputs:
+  backend_repo:
+    description: 'The backend repository, e.g. cplace'
+    value: ${{ steps.resolve.outputs.backend_repo }}
+  repo_dir:
+    description: 'The checkout directory of the backend under GITHUB_WORKSPACE (main for cplace)'
+    value: ${{ steps.resolve.outputs.repo_dir }}
+  backend_branch:
+    description: 'The backend branch to build'
+    value: ${{ steps.resolve.outputs.backend_branch }}
+  e2e_branch:
+    description: 'The cplace-e2e branch to test with'
+    value: ${{ steps.resolve.outputs.e2e_branch }}
+  run:
+    description: 'true when the backend E2E tests should run'
+    value: ${{ steps.run.outputs.run }}
+runs:
+  using: 'composite'
+  steps:
+    - id: resolve
+      shell: bash
+      env:
+        FE_REPO: ${{ inputs.fe_repo }}
+        BASE_REF: ${{ inputs.base_ref }}
+      run: '"$GITHUB_ACTION_PATH/../../../tools/scripts/backend-e2e/resolve-backend.sh"'
+
+    - id: run
+      shell: bash
+      run: echo "run=true" >>"$GITHUB_OUTPUT"
+
+    - name: Summary
+      shell: bash
+      env:
+        FE_REPO: ${{ inputs.fe_repo }}
+        BACKEND_REPO: ${{ steps.resolve.outputs.backend_repo }}
+        BACKEND_BRANCH: ${{ steps.resolve.outputs.backend_branch }}
+        E2E_BRANCH: ${{ steps.resolve.outputs.e2e_branch }}
+        SNAPSHOT_VERSION: ${{ inputs.snapshot_version }}
+        PACKAGES: ${{ inputs.packages }}
+      run: |
+        {
+          echo '### Backend E2E'
+          echo
+          echo '| | |'
+          echo '|---|---|'
+          echo "| FE repo | \`${FE_REPO}\` |"
+          echo "| Backend | \`${BACKEND_REPO}\` @ \`${BACKEND_BRANCH}\` |"
+          echo "| cplace-e2e | \`${E2E_BRANCH}\` |"
+          echo "| Snapshot version | \`${SNAPSHOT_VERSION:-none}\` |"
+          echo "| Published packages | \`${PACKAGES:-[]}\` |"
+        } >>"$GITHUB_STEP_SUMMARY"

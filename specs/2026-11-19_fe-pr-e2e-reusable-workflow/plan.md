@@ -386,6 +386,13 @@ packages.
      `json_file: backend-e2e-results.json`.
   3. A final step fails the job unless `needs.e2e.result == 'success'`.
 
+Changed during implementation:
+- The bundle is one `backend-e2e-bundle.tgz` built with `tar`, uploaded as the `backend-e2e-bundle` artifact and unpacked on
+  the nodes. `upload-artifact` with several paths strips their common prefix, which is `main/` for cplace and nothing for
+  other backends, so the layout would differ per backend.
+- `main/e2eConfigurations/config1` is bundled only when it exists. It is not in the cplace repository; the docker scripts
+  only bind-mount it as cplace properties.
+
 npm auth step (inline, `shell: bash`). The token stays in env, the file is `chmod 600`, and the token never appears in argv:
 
 ```bash
@@ -419,9 +426,12 @@ runs `bats tools/scripts/lockfile/ tools/scripts/backend-e2e/`.
 
 #### Automated Verification:
 
-- [ ] bats passes locally: `bats tools/scripts/lockfile/ tools/scripts/backend-e2e/`
-- [ ] shellcheck passes: `shellcheck tools/scripts/backend-e2e/*.sh tools/scripts/backend-e2e/test-helper.bash`
-- [ ] Workflow syntax valid: `actionlint .github/workflows/fe-backend-e2e.yml .github/workflows/pr-checks.yml`
+- [x] bats passes locally: `bats tools/scripts/lockfile/ tools/scripts/backend-e2e/`
+      (93/93 in `bats/bats:1.11.1` with jq and git added, on an LF copy of the tree; the first pin test ran red before
+      `pin-snapshots.sh` existed)
+- [x] shellcheck passes: `shellcheck tools/scripts/backend-e2e/*.sh tools/scripts/backend-e2e/test-helper.bash`
+- [x] Workflow syntax valid: `actionlint .github/workflows/fe-backend-e2e.yml .github/workflows/pr-checks.yml` (docker
+      `rhysd/actionlint:1.7.7`; also the trial `cplace-fe: .github/workflows/pull_request.yaml`)
 - [ ] `pr-checks.yml` on the github-actions PR runs the new bats files and is green
 - [ ] On the trial PR, `backend-e2e / report` publishes the "Test Results Backend E2E" check with at least one executed spec
 

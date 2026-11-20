@@ -1,0 +1,394 @@
+name: Frontend Backend E2E Workflow
+
+# Runs cplace-e2e Cypress specs against the backend a frontend PR ships into,
+# built once with the npm snapshot versions the PR published pinned into its
+# */assets. Callers pass the outputs of fe-pr-snapshot.yml.
+#
+# The backend steps reuse the cplace-gh-workflows composite actions at
+# @release/2.0, like every backend consumer. The build is shared with the test
+# nodes as one artifact, so the nodes run no gradle.
+
+on:
+  workflow_call:
+    inputs:
+      GHA_REF:
+        description: 'The PR head branch'
+        type: string
+        required: true
+      GHA_BASE:
+        description: 'The PR base branch'
+        type: string
+        required: true
+      SNAPSHOT_VERSION:
+        description: 'The snapshot version fe-pr-snapshot.yml published'
+        type: string
+        required: true
+      SNAPSHOT_PACKAGES:
+        description: 'JSON array of the package names fe-pr-snapshot.yml published'
+        type: string
+        required: true
+      E2E_SPECS:
+        description: 'Comma-separated cplace-e2e spec globs'
+        type: string
+        required: true
+      NODES:
+        description: 'Number of parallel test nodes'
+        type: string
+        default: '2'
+    secrets:
+      ENV_CPLACE_ARTIFACTORY_ACTOR:
+        required: true
+      ENV_CPLACE_ARTIFACTORY_TOKEN:
+        required: true
+      SVA_ACTIONS_READ_PRODUCT_ID:
+        required: true
+      SVA_ACTIONS_READ_PRODUCT_KEY:
+        required: true
+
+jobs:
+  resolve:
+    name: Resolve backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      backend_repo: ${{ steps.resolve.outputs.backend_repo }}
+      repo_dir: ${{ steps.resolve.outputs.repo_dir }}
+      backend_branch: ${{ steps.resolve.outputs.backend_branch }}
+      e2e_branch: ${{ steps.resolve.outputs.e2e_branch }}
+      run: ${{ steps.resolve.outputs.run }}
+      node_indexes: ${{ steps.nodes.outputs.node_indexes }}
+    steps:
+      - name: Resolve backend and branches
+        id: resolve
+        uses: collaborationFactory/github-actions/.github/actions/backend-e2e-resolve@feature/fe-backend-e2e # FIXME remove before merging
+        with:
+          fe_repo: ${{ github.event.repository.name }}
+          base_ref: ${{ inputs.GHA_BASE }}
+          snapshot_version: ${{ inputs.SNAPSHOT_VERSION }}
+          packages: ${{ inputs.SNAPSHOT_PACKAGES }}
+
+      - name: Node matrix
+        id: nodes
+        shell: bash
+        env:
+          NODES: ${{ inputs.NODES }}
+        run: |
+          set -euo pipefail
+          case "${NODES}" in
+            '' | *[!0-9]* | 0*) echo "::error::NODES must be a positive integer, got '${NODES}'"; exit 1 ;;
+          esac
+          echo "node_indexes=$(jq -cn --argjson n "${NODES}" '[range($n)]')" >>"$GITHUB_OUTPUT"
+
+  build:
+    name: Build backend
+    needs: resolve
+    if: ${{ needs.resolve.outputs.run == 'true' }}
+    runs-on: ${{ vars.E2E_MEDIUM_RUNNER || vars.MEDIUM_RUNNER || 'ubuntu-22.04' }}
+    timeout-minutes: 60
+    env:
+      CPLACE_GENERAL_ARTIFACTPARENTREPOS: ${{ vars.CPLACE_GENERAL_ARTIFACTPARENTREPOS || 'false' }}
+      ENV_CPLACE_ARTIFACTORY_ACTOR: ${{ secrets.ENV_CPLACE_ARTIFACTORY_ACTOR }}
+      ENV_CPLACE_ARTIFACTORY_TOKEN: ${{ secrets.ENV_CPLACE_ARTIFACTORY_TOKEN }}
+      REPO_NAME: ${{ needs.resolve.outputs.repo_dir }}
+      REAL_REPO_NAME: ${{ needs.resolve.outputs.backend_repo }}
+      DO_UPLOAD: 'false'
+      CREATE_INITIAL_RELEASE: 'false'
+    steps:
+      - name: Token for the backend repository
+        id: token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ secrets.SVA_ACTIONS_READ_PRODUCT_ID }}
+          private-key: ${{ secrets.SVA_ACTIONS_READ_PRODUCT_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ needs.resolve.outputs.backend_repo }}
+
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          repository: collaborationFactory/${{ needs.resolve.outputs.backend_repo }}
+          ref: ${{ needs.resolve.outputs.backend_branch }}
+          path: ${{ env.REPO_NAME }}
+          token: ${{ steps.token.outputs.token }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Load environment variables
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/load-env-variables@release/2.0
+        with:
+          secrets: ${{ toJson(secrets) }}
+          vars: ${{ toJson(vars) }}
+
+      - name: Prepare build environment
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/prepare-build-environment@release/2.0
+
+      - name: Update git config for cloning parent repos
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/prepare-git-environment@release/2.0
+        with:
+          app_id: ${{ secrets.SVA_ACTIONS_READ_PRODUCT_ID }}
+          app_key: ${{ secrets.SVA_ACTIONS_READ_PRODUCT_KEY }}
+          github_actor: ${{ github.actor }}
+
+      - name: Fetch tags
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/fetch-tags@release/2.0
+
+      - name: Prepare parent repos
+        if: ${{ env.CB_INCLUDE_PARENT_REPOS == 'true' }}
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/prepare-parent-repos@release/2.0
+
+      - name: npm registry auth
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          {
+            echo "registry=https://cplace.jfrog.io/artifactory/api/npm/cplace-npm/"
+            echo "//cplace.jfrog.io/artifactory/api/npm/cplace-npm/:_authToken=${ENV_CPLACE_ARTIFACTORY_TOKEN}"
+          } >>"${HOME}/.npmrc"
+          chmod 600 "${HOME}/.npmrc"
+
+      - name: Rewrite npm registry URLs in package-lock.json
+        if: ${{ env.CB_ENABLE_REWRITE_NPM_REGISTRY_URLS == 'true' || ( env.CB_ENABLE_REWRITE_NPM_REGISTRY_URLS != 'false' && vars.CB_ENABLE_REWRITE_NPM_REGISTRY_URLS == 'true' ) }}
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/rewrite-package-lock-json-files@release/2.0
+
+      - name: Pin the PR's snapshot packages
+        uses: collaborationFactory/github-actions/.github/actions/backend-e2e-pin@feature/fe-backend-e2e # FIXME remove before merging
+        with:
+          version: ${{ inputs.SNAPSHOT_VERSION }}
+          packages: ${{ inputs.SNAPSHOT_PACKAGES }}
+          dirs: ${{ env.REPO_NAME }}/*/assets
+
+      - name: Generate version_env file
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/patch-release-generate-version-env-file@release/2.0
+        with:
+          create-initial-release: 'false'
+          trace-log: 'false'
+          build-current-version: ${{ env.CB_BUILD_CURRENT_VERSION }}
+
+      - name: Build parent repos
+        if: ${{ env.CB_INCLUDE_PARENT_REPOS == 'true' }}
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/build-parent-repos@release/2.0
+
+      - name: Build distribution
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/build-distribution@release/2.0
+
+      - name: Build distribution file
+        working-directory: ${{ env.REPO_NAME }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          _settings_file="settings.gradle"
+          if [ -f "settings-dist.gradle" ]; then
+            _settings_file="settings-dist.gradle"
+          fi
+          ./gradlew distZip -x copyResources -x gzAssets -PnoIncludes=true -c "${_settings_file}" --stacktrace
+
+      # Same temporary workaround as cplace-gh-workflows reuseable-e2e-cypress.yml:
+      # the TestSetupHandler cannot start with the analytics plugin present.
+      - name: Remove cplace-analytics-plugin
+        shell: bash
+        run: |
+          zip -d "${REPO_NAME}/build/distributions/software.zip" "software/cf.cplace.analytics/*" "software/WEB-INF/lib/cf.cplace.analytics*.jar" || true
+
+      # A tarball, not upload-artifact's multi-path mode: that strips the paths'
+      # common prefix, which is `main/` for cplace and nothing for other backends.
+      - name: Bundle the build for the test nodes
+        shell: bash
+        run: |
+          set -euo pipefail
+          paths=(
+            "${REPO_NAME}/build/distributions/software.zip"
+            "${REPO_NAME}/.github/.build-env"
+            main/docker/e2e
+          )
+          # Optional: the docker scripts only bind-mount it as cplace properties.
+          if [[ -d main/e2eConfigurations/config1 ]]; then
+            paths+=(main/e2eConfigurations/config1)
+          fi
+          tar -czf backend-e2e-bundle.tgz "${paths[@]}"
+
+      - name: Upload the bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: backend-e2e-bundle
+          path: backend-e2e-bundle.tgz
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Upload npm-logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: backend-e2e-npm-logs-build
+          path: ~/.npm/_logs
+          retention-days: 5
+          if-no-files-found: ignore
+
+  e2e:
+    name: E2E node ${{ matrix.node_index }}
+    needs: [resolve, build]
+    if: ${{ needs.resolve.outputs.run == 'true' }}
+    runs-on: ${{ vars.E2E_MEDIUM_RUNNER || vars.MEDIUM_RUNNER || 'ubuntu-22.04' }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        node_index: ${{ fromJSON(needs.resolve.outputs.node_indexes) }}
+    env:
+      ENV_CPLACE_ARTIFACTORY_ACTOR: ${{ secrets.ENV_CPLACE_ARTIFACTORY_ACTOR }}
+      ENV_CPLACE_ARTIFACTORY_TOKEN: ${{ secrets.ENV_CPLACE_ARTIFACTORY_TOKEN }}
+      REPO_NAME: ${{ needs.resolve.outputs.repo_dir }}
+    steps:
+      - name: Prepare e2e environment
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/prepare-e2e-environment@release/2.0
+
+      - name: Download the bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: backend-e2e-bundle
+
+      - name: Unpack the bundle
+        shell: bash
+        run: tar -xzf backend-e2e-bundle.tgz && rm backend-e2e-bundle.tgz
+
+      - name: Load environment variables
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/load-env-variables@release/2.0
+        with:
+          secrets: ${{ toJson(secrets) }}
+          vars: ${{ toJson(vars) }}
+
+      - name: Token for cplace-e2e
+        id: token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ secrets.SVA_ACTIONS_READ_PRODUCT_ID }}
+          private-key: ${{ secrets.SVA_ACTIONS_READ_PRODUCT_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: cplace-e2e
+
+      - name: Update git config
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/prepare-git-environment@release/2.0
+        with:
+          github_actor: ${{ github.actor }}
+          github_token: ${{ steps.token.outputs.token }}
+
+      - name: Clone cplace-e2e
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/clone-e2e-repo@release/2.0
+        with:
+          repo_name: ${{ env.REPO_NAME }}
+          e2e_branch: ${{ needs.resolve.outputs.e2e_branch }}
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: ${{ env.REPO_NAME }}/${{ env.CB_E2E_REPO_NAME }}/package.json
+
+      - name: npm registry auth
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          {
+            echo "registry=https://cplace.jfrog.io/artifactory/api/npm/cplace-npm/"
+            echo "//cplace.jfrog.io/artifactory/api/npm/cplace-npm/:_authToken=${ENV_CPLACE_ARTIFACTORY_TOKEN}"
+          } >>"${HOME}/.npmrc"
+          chmod 600 "${HOME}/.npmrc"
+
+      - name: Calculate node specs
+        id: calc-specs
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/calculate-e2e-specs-for-node@release/2.0
+        with:
+          working_directory: ${{ env.REPO_NAME }}/${{ env.CB_E2E_REPO_NAME }}
+          node_index: ${{ matrix.node_index }}
+          nodes_total: ${{ inputs.NODES }}
+          e2e_specs: ${{ inputs.E2E_SPECS }}
+
+      - name: Create and run cplace docker image
+        if: ${{ steps.calc-specs.outputs.has_specs == 'true' }}
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/create-and-run-cplace-docker@release/2.0
+        with:
+          repo_name: ${{ env.REPO_NAME }}
+          java_version: '21'
+          cplace_port: ${{ env.CB_E2E_CPLACE_PORT }}
+          cplace_base_url: ${{ env.CB_E2E_CPLACE_BASE_URL }}
+          docker_env_variables: ${{ env.CB_E2E_DOCKER_ENV_VARIABLES }}
+
+      - name: Wait for cplace startup
+        if: ${{ steps.calc-specs.outputs.has_specs == 'true' }}
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/wait-for-cplace-startup@release/2.0
+        with:
+          repo_name: ${{ env.REPO_NAME }}
+          cplace_url: ${{ env.CB_E2E_CPLACE_BASE_URL }}
+          workflow_e2e_wait_timeout: ${{ env.CB_E2E_WORKFLOW_WAIT_TIMEOUT }}
+
+      - name: Run E2E cypress test suite
+        if: ${{ steps.calc-specs.outputs.has_specs == 'true' }}
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/run-e2e-test-suite-with-cypress@release/2.0
+        with:
+          repo_name: ${{ env.REPO_NAME }}
+          base_url: ${{ env.CB_E2E_CPLACE_BASE_URL }}
+          workflow_e2e_specs: ${{ inputs.E2E_SPECS }}
+          workflow_e2e_browser: ${{ env.CB_E2E_WORKFLOW_BROWSER }}
+          node_index: ${{ matrix.node_index }}
+          nodes_total: ${{ inputs.NODES }}
+          specs_to_run: ${{ steps.calc-specs.outputs.specs }}
+
+      - name: Copy e2e cypress results
+        if: ${{ always() && steps.calc-specs.outputs.has_specs == 'true' }}
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/copy-e2e-cypress-results@release/2.0
+        with:
+          repo_name: ${{ env.REPO_NAME }}
+
+      - name: Copy cplace logs
+        if: ${{ always() && steps.calc-specs.outputs.has_specs == 'true' }}
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/copy-cplace-logs@release/2.0
+        with:
+          repo_name: ${{ env.REPO_NAME }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: backend-e2e-results-${{ matrix.node_index }}
+          path: /tmp/test-results
+          retention-days: 5
+          include-hidden-files: true
+          if-no-files-found: ignore
+
+      - name: Upload cplace logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: backend-e2e-cplace-logs-${{ matrix.node_index }}
+          path: /tmp/cplace-logs
+          retention-days: 5
+          if-no-files-found: ignore
+
+  report:
+    name: Report
+    needs: [resolve, e2e]
+    if: ${{ always() && needs.resolve.outputs.run == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download test results
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: backend-e2e-results-*
+          merge-multiple: true
+          path: test-results
+
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action/linux@c950f6fb443cb5af20a377fd0dfaa78838901040 # v2.23.0
+        with:
+          large_files: true
+          check_name: 'Test Results Backend E2E'
+          files: test-results/junit/**/*.xml
+          json_file: backend-e2e-results.json
+
+      - name: Fail unless every node passed
+        if: ${{ needs.e2e.result != 'success' }}
+        shell: bash
+        env:
+          E2E_RESULT: ${{ needs.e2e.result }}
+        run: |
+          echo "::error::Backend E2E nodes ended with '${E2E_RESULT}'"
+          exit 1

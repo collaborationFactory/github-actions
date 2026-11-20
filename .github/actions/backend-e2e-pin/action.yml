@@ -1,0 +1,48 @@
+name: 'Backend E2E: pin snapshot packages'
+description: 'Pins the npm snapshot versions a frontend PR published into the npm projects of a backend or cplace-e2e checkout'
+inputs:
+  version:
+    description: 'The published snapshot version, e.g. 0.0.0-<branch>-<pr>'
+    required: true
+  packages:
+    description: 'JSON array of the published package names'
+    required: true
+  dirs:
+    description: 'Newline-separated globs of npm project dirs, relative to the workspace; a dir without package.json is skipped'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - name: Pin snapshot packages
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        PACKAGES: ${{ inputs.packages }}
+        DIRS: ${{ inputs.dirs }}
+      run: |
+        set -euo pipefail
+        shopt -s nullglob
+        dirs=()
+        while IFS= read -r pattern; do
+          [[ -n "${pattern}" ]] || continue
+          # Unquoted on purpose: the pattern is a glob to expand.
+          # shellcheck disable=SC2206
+          dirs+=(${pattern})
+        done <<<"${DIRS}"
+        if ((${#dirs[@]} == 0)); then
+          echo "::warning::No directory matches: ${DIRS}"
+          exit 0
+        fi
+        pins="$("$GITHUB_ACTION_PATH/../../../tools/scripts/backend-e2e/pin-snapshots.sh" "${VERSION}" "${dirs[@]}")"
+        echo "${pins}"
+        {
+          echo '### Pinned snapshot packages'
+          echo
+          if [[ -n "${pins}" ]]; then
+            echo '```'
+            echo "${pins}"
+            echo '```'
+          else
+            echo "None of \`${DIRS//$'\n'/ }\` consumes a published package."
+          fi
+        } >>"$GITHUB_STEP_SUMMARY"
