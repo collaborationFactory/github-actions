@@ -1,0 +1,250 @@
+name: 'Backend E2E: resolve backend'
+description: 'Resolves the backend repository, the backend and cplace-e2e commits a frontend PR is tested against, whether the run is worth it, and its spec filter'
+inputs:
+  fe_repo:
+    description: 'The frontend repository name, e.g. cplace-fe'
+    required: true
+  base_ref:
+    description: 'The PR base branch'
+    required: true
+  head_ref:
+    description: 'The PR head branch; used in the backend and cplace-e2e when they have a branch of that name'
+    required: true
+  pr_body:
+    description: 'The PR description; its backend-branch: and cplace-e2e-branch: lines choose the branches explicitly'
+    required: false
+    default: ''
+  in_repo_specs:
+    description: 'true when the FE repo has an e2e-tests/ folder'
+    required: false
+    default: 'false'
+  snapshot_version:
+    description: 'The published snapshot version, shown in the summary'
+    required: false
+    default: ''
+  packages:
+    description: 'JSON array of the published package names'
+    required: false
+    default: '[]'
+  e2e_specs:
+    description: 'Comma-separated cplace-e2e spec globs every run includes'
+    required: true
+  spec_map:
+    description: 'JSON object mapping a package name to the comma-separated spec globs added when it is consumed'
+    required: false
+    default: '{}'
+  nodes:
+    description: 'Number of parallel E2E nodes'
+    required: true
+  app_id:
+    description: 'ID of a GitHub App that can read the backend repository and cplace-e2e'
+    required: true
+  app_key:
+    description: 'Private key of that GitHub App'
+    required: true
+  npm_token:
+    description: 'A token for the cplace npm registry, to look up the FE base versions'
+    required: true
+  github_token:
+    description: 'A token that can list the PR files (pull-requests: read)'
+    required: true
+outputs:
+  node_indexes:
+    description: 'JSON array [0..nodes-1] for the node matrix'
+    value: ${{ steps.nodes.outputs.node_indexes }}
+  backend_repo:
+    description: 'The backend repository, e.g. cplace'
+    value: ${{ steps.repo.outputs.backend_repo }}
+  repo_dir:
+    description: 'The checkout directory of the backend under GITHUB_WORKSPACE (main for cplace)'
+    value: ${{ steps.repo.outputs.repo_dir }}
+  backend_branch:
+    description: 'The backend branch to build'
+    value: ${{ steps.branches.outputs.backend_branch }}
+  backend_sha:
+    description: 'The backend commit to build'
+    value: ${{ steps.branches.outputs.backend_sha }}
+  e2e_branch:
+    description: 'The cplace-e2e branch to test with'
+    value: ${{ steps.branches.outputs.e2e_branch }}
+  e2e_sha:
+    description: 'The cplace-e2e commit to test with'
+    value: ${{ steps.branches.outputs.e2e_sha }}
+  backend_packages:
+    description: 'JSON array of the published packages the backend consumes'
+    value: ${{ steps.consumers.outputs.backend_packages }}
+  e2e_packages:
+    description: 'JSON array of the published packages cplace-e2e consumes'
+    value: ${{ steps.consumers.outputs.e2e_packages }}
+  run:
+    description: 'true when the backend or cplace-e2e consumes a published package, or the PR changed e2e-tests/'
+    value: ${{ steps.consumers.outputs.run }}
+  specs:
+    description: 'The comma-separated spec filter of the run'
+    value: ${{ steps.specs.outputs.specs }}
+  in_repo_specs:
+    description: 'true when the FE repo has an e2e-tests/ folder'
+    value: ${{ steps.specs.outputs.in_repo_specs }}
+runs:
+  using: 'composite'
+  steps:
+    # First, so an invalid NODES fails before any branch resolution.
+    - id: nodes
+      shell: bash
+      env:
+        NODES: ${{ inputs.nodes }}
+      run: |
+        set -euo pipefail
+        node_indexes="$("$GITHUB_ACTION_PATH/../../../tools/scripts/backend-e2e/node-indexes.sh" "${NODES}")"
+        echo "node_indexes=${node_indexes}" >>"$GITHUB_OUTPUT"
+
+    - id: repo
+      shell: bash
+      env:
+        FE_REPO: ${{ inputs.fe_repo }}
+      run: '"$GITHUB_ACTION_PATH/../../../tools/scripts/backend-e2e/resolve-backend.sh" repo'
+
+    # The PR body is untrusted: it only ever reaches a script through env.
+    - id: directives
+      shell: bash
+      env:
+        PR_BODY: ${{ inputs.pr_body }}
+      run: '"$GITHUB_ACTION_PATH/../../../tools/scripts/backend-e2e/pr-directives.sh" >>"$GITHUB_OUTPUT"'
+
+    - id: token
+      uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+      with:
+        app-id: ${{ inputs.app_id }}
+        private-key: ${{ inputs.app_key }}
+        owner: ${{ github.repository_owner }}
+        repositories: ${{ steps.repo.outputs.backend_repo }},cplace-e2e
+
+    - id: branches
+      shell: bash
+      env:
+        BACKEND_REPO: ${{ steps.repo.outputs.backend_repo }}
+        BASE_REF: ${{ inputs.base_ref }}
+        HEAD_REF: ${{ inputs.head_ref }}
+        BACKEND_BRANCH_OVERRIDE: ${{ steps.directives.outputs.BACKEND_BRANCH_OVERRIDE }}
+        E2E_BRANCH_OVERRIDE: ${{ steps.directives.outputs.E2E_BRANCH_OVERRIDE }}
+        GH_TOKEN: ${{ steps.token.outputs.token }}
+      run: '"$GITHUB_ACTION_PATH/../../../tools/scripts/backend-e2e/resolve-backend.sh" branches'
+
+    # Blob-less sparse checkouts: only the files that tell whether, and how, a
+    # published package is consumed.
+    - name: Fetch the backend and cplace-e2e manifests
+      shell: bash
+      env:
+        BACKEND_REPO: ${{ steps.repo.outputs.backend_repo }}
+        BACKEND_SHA: ${{ steps.branches.outputs.backend_sha }}
+        E2E_SHA: ${{ steps.branches.outputs.e2e_sha }}
+        GH_TOKEN: ${{ steps.token.outputs.token }}
+      run: '"$GITHUB_ACTION_PATH/../../../tools/scripts/backend-e2e/fetch-manifests.sh" "${RUNNER_TEMP}/backend-e2e"'
+
+    # A failure to list the files fails the job, so a run never skips silently.
+    - id: changed
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+        REPOSITORY: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+      run: |
+        set -euo pipefail
+        files="$(gh api --paginate "repos/${REPOSITORY}/pulls/${PR_NUMBER}/files" --jq '.[].filename')"
+        if grep -q '^e2e-tests/' <<<"${files}"; then
+          echo "specs_changed=true" >>"$GITHUB_OUTPUT"
+        else
+          echo "specs_changed=false" >>"$GITHUB_OUTPUT"
+        fi
+
+    - id: consumers
+      shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+        SPECS_CHANGED: ${{ steps.changed.outputs.specs_changed }}
+      run: >-
+        "$GITHUB_ACTION_PATH/../../../tools/scripts/backend-e2e/resolve-consumers.sh"
+        "${RUNNER_TEMP}/backend-e2e/backend" "${RUNNER_TEMP}/backend-e2e/cplace-e2e"
+
+    - id: specs
+      shell: bash
+      env:
+        E2E_SPECS: ${{ inputs.e2e_specs }}
+        SPEC_MAP: ${{ inputs.spec_map }}
+        BACKEND_PACKAGES: ${{ steps.consumers.outputs.backend_packages }}
+        E2E_PACKAGES: ${{ steps.consumers.outputs.e2e_packages }}
+        IN_REPO_SPECS: ${{ inputs.in_repo_specs }}
+        FE_REPO: ${{ inputs.fe_repo }}
+      run: |
+        set -euo pipefail
+        CONSUMED="$(jq -cn --argjson backend "${BACKEND_PACKAGES}" --argjson e2e "${E2E_PACKAGES}" '$backend + $e2e | unique')"
+        export CONSUMED
+        "$GITHUB_ACTION_PATH/../../../tools/scripts/backend-e2e/resolve-specs.sh"
+        echo "in_repo_specs=${IN_REPO_SPECS}" >>"$GITHUB_OUTPUT"
+
+    - name: npm registry auth
+      shell: bash
+      env:
+        NPM_TOKEN: ${{ inputs.npm_token }}
+      run: |
+        set -euo pipefail
+        umask 077
+        {
+          echo "registry=https://cplace.jfrog.io/artifactory/api/npm/cplace-npm/"
+          echo "//cplace.jfrog.io/artifactory/api/npm/cplace-npm/:_authToken=${NPM_TOKEN}"
+        } >>"${HOME}/.npmrc"
+        chmod 600 "${HOME}/.npmrc"
+
+    - name: Summary
+      shell: bash
+      env:
+        FE_REPO: ${{ inputs.fe_repo }}
+        BACKEND_REPO: ${{ steps.repo.outputs.backend_repo }}
+        BACKEND_BRANCH: ${{ steps.branches.outputs.backend_branch }}
+        BACKEND_SHA: ${{ steps.branches.outputs.backend_sha }}
+        E2E_BRANCH: ${{ steps.branches.outputs.e2e_branch }}
+        E2E_SHA: ${{ steps.branches.outputs.e2e_sha }}
+        BACKEND_BRANCH_OVERRIDE: ${{ steps.directives.outputs.BACKEND_BRANCH_OVERRIDE }}
+        E2E_BRANCH_OVERRIDE: ${{ steps.directives.outputs.E2E_BRANCH_OVERRIDE }}
+        SNAPSHOT_VERSION: ${{ inputs.snapshot_version }}
+        PACKAGES: ${{ inputs.packages }}
+        BACKEND_PACKAGES: ${{ steps.consumers.outputs.backend_packages }}
+        E2E_PACKAGES: ${{ steps.consumers.outputs.e2e_packages }}
+        RUN: ${{ steps.consumers.outputs.run }}
+        SPECS_CHANGED: ${{ steps.changed.outputs.specs_changed }}
+        IN_REPO_SPECS: ${{ inputs.in_repo_specs }}
+        SPECS: ${{ steps.specs.outputs.specs }}
+      run: |
+        {
+          echo '### Backend E2E'
+          echo
+          if [[ "${RUN}" != 'true' ]]; then
+            echo "Skipped: no package consumed by \`${BACKEND_REPO}\` or \`cplace-e2e\` was published, and \`e2e-tests/\` did not change."
+            echo
+          fi
+          echo '| | |'
+          echo '|---|---|'
+          echo "| FE repo | \`${FE_REPO}\` |"
+          echo "| Backend | \`${BACKEND_REPO}\` @ \`${BACKEND_BRANCH}\` \`${BACKEND_SHA}\`${BACKEND_BRANCH_OVERRIDE:+ (PR body)} |"
+          echo "| cplace-e2e | \`${E2E_BRANCH}\` \`${E2E_SHA}\`${E2E_BRANCH_OVERRIDE:+ (PR body)} |"
+          echo "| Snapshot version | \`${SNAPSHOT_VERSION:-none}\` |"
+          echo "| Published packages | \`${PACKAGES:-[]}\` |"
+          echo "| Consumed by the backend | \`${BACKEND_PACKAGES}\` |"
+          echo "| Consumed by cplace-e2e | \`${E2E_PACKAGES}\` |"
+          if [[ "${IN_REPO_SPECS}" == 'true' ]]; then
+            echo "| In-repo specs | \`e2e-tests/\` → \`cypress/e2e/${FE_REPO}/\`$([[ "${SPECS_CHANGED}" == true ]] && echo ', changed by this PR') |"
+          else
+            echo '| In-repo specs | none |'
+          fi
+          echo "| Spec filter | \`${SPECS}\` |"
+          echo
+        } >>"$GITHUB_STEP_SUMMARY"
+
+    # Report only: drift never blocks the run.
+    - name: FE version drift
+      continue-on-error: true
+      shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+        FE_BASE: ${{ steps.branches.outputs.base_branch }}
+      run: '"$GITHUB_ACTION_PATH/../../../tools/scripts/backend-e2e/report-drift.sh" "${RUNNER_TEMP}/backend-e2e/backend"'

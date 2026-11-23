@@ -1,0 +1,261 @@
+{
+  "stats": {
+    "tests": 25,
+    "tests_succ": 0,
+    "tests_skip": 0,
+    "tests_fail": 25,
+    "tests_error": 0
+  },
+  "cases": [
+    {
+      "test_name": "TC0",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "TC1",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "TC2",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "TC3",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "TC4",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "TC5",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "TC6",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "TC7",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "TC8",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "TC9",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "TC10",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "TC11",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "TC12",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "TC13",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "TC14",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "TC15",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "TC16",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "TC17",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "TC18",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "TC19",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "TC20",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "TC21",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "TC22",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "TC23",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    },
+    {
+      "test_name": "TC24",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/many.spec.ts"
+          }
+        ]
+      }
+    }
+  ]
+}

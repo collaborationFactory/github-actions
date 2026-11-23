@@ -138,8 +138,32 @@ export class ArtifactsHandler {
       console.log(`About to build and release projects`);
       this.initProjects();
       await this.buildAndPublishProjects();
+      this.writePrSnapshotOutputs();
     }
     return Promise.resolve();
+  }
+
+  // a failed publish exits the process, so every publishable project left here was published
+  private writePrSnapshotOutputs() {
+    // fe-pr-close deletes the PR snapshot through the same path: nothing was published there
+    if (this.task !== TASK.PR_SNAPSHOT || this.onlyDeleteArtifacts) {
+      return;
+    }
+    const published = this.projects.filter((project) => project.isPublishable);
+    const packages = published.map(
+      (project) => `${project.scope}/${project.name}`
+    );
+    const integrities = Object.fromEntries(
+      published
+        .filter((project) => project.publishedIntegrity !== '')
+        .map((project) => [
+          `${project.scope}/${project.name}`,
+          project.publishedIntegrity,
+        ])
+    );
+    Utils.writeOutput('version', this.currentVersion.toString());
+    Utils.writeOutput('packages', JSON.stringify(packages));
+    Utils.writeOutput('integrities', JSON.stringify(integrities));
   }
 
   private async buildAndPublishProjects() {

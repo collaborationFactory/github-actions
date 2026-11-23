@@ -55,7 +55,10 @@ jobs:
           sudo apt-get install -y bats shellcheck
 
       - name: shellcheck
-        run: shellcheck tools/scripts/lockfile/*.sh tools/scripts/lockfile/test-helper.bash
+        run: >-
+          shellcheck
+          tools/scripts/lockfile/*.sh tools/scripts/lockfile/test-helper.bash
+          tools/scripts/backend-e2e/*.sh tools/scripts/backend-e2e/test-helper.bash
 
       - name: bats
-        run: bats tools/scripts/lockfile/
+        run: bats tools/scripts/lockfile/ tools/scripts/backend-e2e/

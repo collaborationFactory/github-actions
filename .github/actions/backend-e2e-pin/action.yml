@@ -1,0 +1,42 @@
+name: 'Backend E2E: pin snapshot packages'
+description: 'Pins the npm snapshot versions a frontend PR published into the npm projects of a backend or cplace-e2e checkout'
+inputs:
+  version:
+    description: 'The published snapshot version, e.g. 0.0.0-<branch>-<pr>'
+    required: true
+  packages:
+    description: 'JSON array of the published package names'
+    required: true
+  dirs:
+    description: 'Newline-separated globs of npm project dirs, relative to the workspace; a dir without package.json is skipped'
+    required: true
+  integrities:
+    description: 'JSON object mapping each published package name to the npm integrity its snapshot job published; a listed package whose installed integrity differs fails the pin'
+    required: false
+    default: '{}'
+runs:
+  using: 'composite'
+  steps:
+    - name: Pin snapshot packages
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        PACKAGES: ${{ inputs.packages }}
+        DIRS: ${{ inputs.dirs }}
+        INTEGRITIES: ${{ inputs.integrities }}
+      run: |
+        set -euo pipefail
+        mapfile -t patterns <<<"${DIRS}"
+        pins="$("$GITHUB_ACTION_PATH/../../../tools/scripts/backend-e2e/pin-snapshots.sh" "${VERSION}" "${patterns[@]}")"
+        echo "${pins}"
+        {
+          echo '### Pinned snapshot packages'
+          echo
+          if [[ -n "${pins}" ]]; then
+            echo '```'
+            echo "${pins}"
+            echo '```'
+          else
+            echo "None of \`${DIRS//$'\n'/ }\` consumes a published package."
+          fi
+        } >>"$GITHUB_STEP_SUMMARY"

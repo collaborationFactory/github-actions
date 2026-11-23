@@ -10,6 +10,15 @@ outputs:
   is_latest:
     description: 'true if the pushed tag is the highest version/* tag (release flow only)'
     value: ${{ steps.handler.outputs.is_latest }}
+  version:
+    description: 'The published snapshot version, e.g. 0.0.0-<branch>-<pr> (PR snapshot only)'
+    value: ${{ steps.handler.outputs.version }}
+  packages:
+    description: 'JSON array of the published package names, [] when nothing was published (PR snapshot only)'
+    value: ${{ steps.handler.outputs.packages }}
+  integrities:
+    description: 'JSON object mapping each published package name to its npm integrity, {} when nothing was published (PR snapshot only)'
+    value: ${{ steps.handler.outputs.integrities }}
 runs:
   using: 'composite'
   steps:

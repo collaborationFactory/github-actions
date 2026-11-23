@@ -1,0 +1,21 @@
+{
+  "stats": {
+    "tests": 1,
+    "tests_succ": 0,
+    "tests_skip": 0,
+    "tests_fail": 1,
+    "tests_error": 0
+  },
+  "cases": [
+    {
+      "test_name": "Evil `title`\nwith @someone and [x](y) aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "states": {
+        "failure": [
+          {
+            "test_file": "cypress/e2e/evil`.spec.ts"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,564 @@
+name: Frontend Backend E2E Workflow
+
+# Runs cplace-e2e Cypress specs against the backend a frontend PR ships into,
+# built once with the npm snapshot versions the PR published pinned into its
+# */assets. Callers pass the outputs of fe-pr-snapshot.yml.
+#
+# The backend steps reuse the cplace-gh-workflows composite actions, pinned to a
+# release/2.0 commit (see the README to bump it); the refs inside those actions
+# stay at @release/2.0. The build is shared with the test nodes as one
+# artifact, so the nodes run no gradle.
+
+on:
+  workflow_call:
+    inputs:
+      GHA_REF:
+        description: 'The PR head branch'
+        type: string
+        required: true
+      GHA_BASE:
+        description: 'The PR base branch'
+        type: string
+        required: true
+      SNAPSHOT_VERSION:
+        description: 'The snapshot version fe-pr-snapshot.yml published'
+        type: string
+        required: true
+      SNAPSHOT_PACKAGES:
+        description: 'JSON array of the package names fe-pr-snapshot.yml published'
+        type: string
+        required: true
+      SNAPSHOT_INTEGRITIES:
+        description: >-
+          JSON object mapping each published package name to its npm integrity
+          (fe-pr-snapshot.yml's integrities output). A pinned package whose
+          installed integrity differs fails the run; an unlisted one is pinned
+          unchecked.
+        type: string
+        default: '{}'
+      E2E_SPECS:
+        description: 'Comma-separated cplace-e2e spec globs every run includes'
+        type: string
+        required: true
+      SPEC_MAP:
+        description: >-
+          JSON object {"@scope/pkg": "glob,glob"}: spec globs added to E2E_SPECS
+          when the backend or cplace-e2e consumes the published package.
+        type: string
+        default: '{}'
+      NODES:
+        description: 'Number of parallel test nodes'
+        type: string
+        default: '2'
+      ADVISORY:
+        description: >-
+          Report test and infrastructure failures as warnings instead of failing
+          the run. For backends whose own E2E suite is not green yet; build
+          failures still fail the run.
+        type: boolean
+        default: false
+    secrets:
+      ENV_CPLACE_ARTIFACTORY_ACTOR:
+        required: true
+      ENV_CPLACE_ARTIFACTORY_TOKEN:
+        required: true
+      SVA_ACTIONS_READ_PRODUCT_ID:
+        required: true
+      SVA_ACTIONS_READ_PRODUCT_KEY:
+        required: true
+
+# build and e2e run lifecycle scripts of PR-built packages; only report writes.
+permissions:
+  contents: read
+
+# One run per PR: a new push cancels the run of the previous one.
+concurrency:
+  group: fe-backend-e2e-${{ github.repository }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  resolve:
+    name: Resolve backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      backend_repo: ${{ steps.resolve.outputs.backend_repo }}
+      repo_dir: ${{ steps.resolve.outputs.repo_dir }}
+      backend_branch: ${{ steps.resolve.outputs.backend_branch }}
+      backend_sha: ${{ steps.resolve.outputs.backend_sha }}
+      e2e_branch: ${{ steps.resolve.outputs.e2e_branch }}
+      e2e_sha: ${{ steps.resolve.outputs.e2e_sha }}
+      backend_packages: ${{ steps.resolve.outputs.backend_packages }}
+      e2e_packages: ${{ steps.resolve.outputs.e2e_packages }}
+      run: ${{ steps.resolve.outputs.run }}
+      node_indexes: ${{ steps.resolve.outputs.node_indexes }}
+      specs: ${{ steps.resolve.outputs.specs }}
+      in_repo_specs: ${{ steps.resolve.outputs.in_repo_specs }}
+    steps:
+      - name: Check out the FE repo's in-repo specs
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ inputs.GHA_REF }}
+          path: fe-repo
+          sparse-checkout: e2e-tests
+          persist-credentials: false
+
+      - name: Resolve backend and branches
+        id: resolve
+        uses: collaborationFactory/github-actions/.github/actions/backend-e2e-resolve@feature/fe-backend-e2e # FIXME remove before merging
+        with:
+          fe_repo: ${{ github.event.repository.name }}
+          in_repo_specs: ${{ hashFiles('fe-repo/e2e-tests/**') != '' }}
+          base_ref: ${{ inputs.GHA_BASE }}
+          head_ref: ${{ inputs.GHA_REF }}
+          pr_body: ${{ github.event.pull_request.body }}
+          snapshot_version: ${{ inputs.SNAPSHOT_VERSION }}
+          packages: ${{ inputs.SNAPSHOT_PACKAGES }}
+          e2e_specs: ${{ inputs.E2E_SPECS }}
+          spec_map: ${{ inputs.SPEC_MAP }}
+          nodes: ${{ inputs.NODES }}
+          app_id: ${{ secrets.SVA_ACTIONS_READ_PRODUCT_ID }}
+          app_key: ${{ secrets.SVA_ACTIONS_READ_PRODUCT_KEY }}
+          npm_token: ${{ secrets.ENV_CPLACE_ARTIFACTORY_TOKEN }}
+          github_token: ${{ github.token }}
+
+  build:
+    name: Build backend
+    needs: resolve
+    if: ${{ needs.resolve.outputs.run == 'true' }}
+    runs-on: ${{ vars.E2E_MEDIUM_RUNNER || vars.MEDIUM_RUNNER || 'ubuntu-22.04' }}
+    timeout-minutes: 60
+    env:
+      CPLACE_GENERAL_ARTIFACTPARENTREPOS: ${{ vars.CPLACE_GENERAL_ARTIFACTPARENTREPOS || 'false' }}
+      ENV_CPLACE_ARTIFACTORY_ACTOR: ${{ secrets.ENV_CPLACE_ARTIFACTORY_ACTOR }}
+      ENV_CPLACE_ARTIFACTORY_TOKEN: ${{ secrets.ENV_CPLACE_ARTIFACTORY_TOKEN }}
+      REPO_NAME: ${{ needs.resolve.outputs.repo_dir }}
+      REAL_REPO_NAME: ${{ needs.resolve.outputs.backend_repo }}
+      DO_UPLOAD: 'false'
+      CREATE_INITIAL_RELEASE: 'false'
+    steps:
+      - name: Token for the backend repository
+        id: token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ secrets.SVA_ACTIONS_READ_PRODUCT_ID }}
+          private-key: ${{ secrets.SVA_ACTIONS_READ_PRODUCT_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ needs.resolve.outputs.backend_repo }}
+
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          repository: collaborationFactory/${{ needs.resolve.outputs.backend_repo }}
+          ref: ${{ needs.resolve.outputs.backend_sha }}
+          path: ${{ env.REPO_NAME }}
+          token: ${{ steps.token.outputs.token }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Load environment variables
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/load-env-variables@f621b75326b963a5c4ffda6ff66b8ceba86259f6 # release/2.0
+        with:
+          secrets: ${{ toJson(secrets) }}
+          vars: ${{ toJson(vars) }}
+
+      - name: Prepare build environment
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/prepare-build-environment@f621b75326b963a5c4ffda6ff66b8ceba86259f6 # release/2.0
+
+      - name: Update git config for cloning parent repos
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/prepare-git-environment@f621b75326b963a5c4ffda6ff66b8ceba86259f6 # release/2.0
+        with:
+          app_id: ${{ secrets.SVA_ACTIONS_READ_PRODUCT_ID }}
+          app_key: ${{ secrets.SVA_ACTIONS_READ_PRODUCT_KEY }}
+          github_actor: ${{ github.actor }}
+
+      - name: Fetch tags
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/fetch-tags@f621b75326b963a5c4ffda6ff66b8ceba86259f6 # release/2.0
+
+      - name: Prepare parent repos
+        if: ${{ env.CB_INCLUDE_PARENT_REPOS == 'true' }}
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/prepare-parent-repos@f621b75326b963a5c4ffda6ff66b8ceba86259f6 # release/2.0
+
+      - name: npm registry auth
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          {
+            echo "registry=https://cplace.jfrog.io/artifactory/api/npm/cplace-npm/"
+            echo "//cplace.jfrog.io/artifactory/api/npm/cplace-npm/:_authToken=${ENV_CPLACE_ARTIFACTORY_TOKEN}"
+          } >>"${HOME}/.npmrc"
+          chmod 600 "${HOME}/.npmrc"
+
+      - name: Rewrite npm registry URLs in package-lock.json
+        if: ${{ env.CB_ENABLE_REWRITE_NPM_REGISTRY_URLS == 'true' || ( env.CB_ENABLE_REWRITE_NPM_REGISTRY_URLS != 'false' && vars.CB_ENABLE_REWRITE_NPM_REGISTRY_URLS == 'true' ) }}
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/rewrite-package-lock-json-files@f621b75326b963a5c4ffda6ff66b8ceba86259f6 # release/2.0
+
+      # A run for changed e2e-tests/ only builds the backend's own pins.
+      - name: Pin the PR's snapshot packages
+        if: ${{ needs.resolve.outputs.backend_packages != '[]' }}
+        uses: collaborationFactory/github-actions/.github/actions/backend-e2e-pin@feature/fe-backend-e2e # FIXME remove before merging
+        with:
+          version: ${{ inputs.SNAPSHOT_VERSION }}
+          packages: ${{ needs.resolve.outputs.backend_packages }}
+          integrities: ${{ inputs.SNAPSHOT_INTEGRITIES }}
+          dirs: ${{ env.REPO_NAME }}/*/assets
+
+      - name: Generate version_env file
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/patch-release-generate-version-env-file@f621b75326b963a5c4ffda6ff66b8ceba86259f6 # release/2.0
+        with:
+          create-initial-release: 'false'
+          trace-log: 'false'
+          build-current-version: ${{ env.CB_BUILD_CURRENT_VERSION }}
+
+      - name: Build parent repos
+        if: ${{ env.CB_INCLUDE_PARENT_REPOS == 'true' }}
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/build-parent-repos@f621b75326b963a5c4ffda6ff66b8ceba86259f6 # release/2.0
+
+      - name: Build distribution
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/build-distribution@f621b75326b963a5c4ffda6ff66b8ceba86259f6 # release/2.0
+
+      - name: Build distribution file
+        working-directory: ${{ env.REPO_NAME }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          _settings_file="settings.gradle"
+          if [ -f "settings-dist.gradle" ]; then
+            _settings_file="settings-dist.gradle"
+          fi
+          ./gradlew distZip -x copyResources -x gzAssets -PnoIncludes=true -c "${_settings_file}" --stacktrace
+
+      # Same temporary workaround as cplace-gh-workflows reuseable-e2e-cypress.yml:
+      # the TestSetupHandler cannot start with the analytics plugin present.
+      - name: Remove cplace-analytics-plugin
+        shell: bash
+        run: |
+          set -euo pipefail
+          rc=0
+          zip -d "${REPO_NAME}/build/distributions/software.zip" "software/cf.cplace.analytics/*" "software/WEB-INF/lib/cf.cplace.analytics*.jar" || rc=$?
+          # 12 is zip's "nothing to do": the distribution has no analytics plugin.
+          if ((rc != 0 && rc != 12)); then
+            echo "::error::Removing the analytics plugin from software.zip failed with exit code ${rc}"
+            exit "${rc}"
+          fi
+
+      # A tarball, not upload-artifact's multi-path mode: that strips the paths'
+      # common prefix, which is `main/` for cplace and nothing for other backends.
+      - name: Bundle the build for the test nodes
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -d main/docker/e2e ]]; then
+            echo "::error::main/docker/e2e is missing; a backend other than cplace needs CB_INCLUDE_PARENT_REPOS=true so cplace is cloned into main/"
+            exit 1
+          fi
+          # All of main/docker, not only e2e/: its compose file extends
+          # ../elasticsearch/elasticsearch-base.yml.
+          paths=(
+            "${REPO_NAME}/build/distributions/software.zip"
+            "${REPO_NAME}/.github/.build-env"
+            main/docker
+          )
+          # Optional: the docker scripts only bind-mount it as cplace properties.
+          if [[ -d main/e2eConfigurations/config1 ]]; then
+            paths+=(main/e2eConfigurations/config1)
+          fi
+          tar -czf backend-e2e-bundle.tgz "${paths[@]}"
+
+      - name: Upload the bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: backend-e2e-bundle
+          path: backend-e2e-bundle.tgz
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Upload npm-logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: backend-e2e-npm-logs-build
+          path: ~/.npm/_logs
+          retention-days: 5
+          if-no-files-found: ignore
+
+  e2e:
+    name: E2E node ${{ matrix.node_index }}
+    needs: [resolve, build]
+    if: ${{ needs.resolve.outputs.run == 'true' }}
+    runs-on: ${{ vars.E2E_MEDIUM_RUNNER || vars.MEDIUM_RUNNER || 'ubuntu-22.04' }}
+    timeout-minutes: 60
+    continue-on-error: ${{ inputs.ADVISORY }}
+    strategy:
+      fail-fast: false
+      matrix:
+        node_index: ${{ fromJSON(needs.resolve.outputs.node_indexes) }}
+    env:
+      ENV_CPLACE_ARTIFACTORY_ACTOR: ${{ secrets.ENV_CPLACE_ARTIFACTORY_ACTOR }}
+      ENV_CPLACE_ARTIFACTORY_TOKEN: ${{ secrets.ENV_CPLACE_ARTIFACTORY_TOKEN }}
+      REPO_NAME: ${{ needs.resolve.outputs.repo_dir }}
+    steps:
+      - name: Prepare e2e environment
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/prepare-e2e-environment@f621b75326b963a5c4ffda6ff66b8ceba86259f6 # release/2.0
+
+      - name: Download the bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: backend-e2e-bundle
+
+      - name: Unpack the bundle
+        shell: bash
+        run: tar -xzf backend-e2e-bundle.tgz && rm backend-e2e-bundle.tgz
+
+      - name: Load environment variables
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/load-env-variables@f621b75326b963a5c4ffda6ff66b8ceba86259f6 # release/2.0
+        with:
+          secrets: ${{ toJson(secrets) }}
+          vars: ${{ toJson(vars) }}
+
+      - name: Token for cplace-e2e
+        id: token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ secrets.SVA_ACTIONS_READ_PRODUCT_ID }}
+          private-key: ${{ secrets.SVA_ACTIONS_READ_PRODUCT_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: cplace-e2e
+
+      - name: Update git config
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/prepare-git-environment@f621b75326b963a5c4ffda6ff66b8ceba86259f6 # release/2.0
+        with:
+          github_actor: ${{ github.actor }}
+          github_token: ${{ steps.token.outputs.token }}
+
+      - name: Clone cplace-e2e
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/clone-e2e-repo@f621b75326b963a5c4ffda6ff66b8ceba86259f6 # release/2.0
+        with:
+          repo_name: ${{ env.REPO_NAME }}
+          e2e_branch: ${{ needs.resolve.outputs.e2e_branch }}
+
+      - name: Check out the resolved cplace-e2e commit
+        uses: collaborationFactory/github-actions/.github/actions/backend-e2e-checkout-commit@feature/fe-backend-e2e # FIXME remove before merging
+        with:
+          dir: ${{ env.REPO_NAME }}/${{ env.CB_E2E_REPO_NAME }}
+          sha: ${{ needs.resolve.outputs.e2e_sha }}
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: ${{ env.REPO_NAME }}/${{ env.CB_E2E_REPO_NAME }}/package.json
+
+      - name: npm registry auth
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          {
+            echo "registry=https://cplace.jfrog.io/artifactory/api/npm/cplace-npm/"
+            echo "//cplace.jfrog.io/artifactory/api/npm/cplace-npm/:_authToken=${ENV_CPLACE_ARTIFACTORY_TOKEN}"
+          } >>"${HOME}/.npmrc"
+          chmod 600 "${HOME}/.npmrc"
+
+      # After setup-node and the registry auth, which npm needs.
+      - name: Pin the PR's snapshot packages in cplace-e2e
+        if: ${{ needs.resolve.outputs.e2e_packages != '[]' }}
+        uses: collaborationFactory/github-actions/.github/actions/backend-e2e-pin@feature/fe-backend-e2e # FIXME remove before merging
+        with:
+          version: ${{ inputs.SNAPSHOT_VERSION }}
+          packages: ${{ needs.resolve.outputs.e2e_packages }}
+          integrities: ${{ inputs.SNAPSHOT_INTEGRITIES }}
+          dirs: ${{ env.REPO_NAME }}/${{ env.CB_E2E_REPO_NAME }}
+
+      - name: Check out the FE repo's in-repo specs
+        if: ${{ needs.resolve.outputs.in_repo_specs == 'true' }}
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ inputs.GHA_REF }}
+          path: fe-repo
+          sparse-checkout: e2e-tests
+          persist-credentials: false
+
+      # The FE repo's e2e-tests/ run inside cplace-e2e, under cypress/e2e/<fe-repo>/;
+      # resolve already added that folder to the spec filter.
+      - name: Add the in-repo specs
+        if: ${{ needs.resolve.outputs.in_repo_specs == 'true' }}
+        shell: bash
+        env:
+          FE_REPO: ${{ github.event.repository.name }}
+        run: |
+          set -euo pipefail
+          target="${REPO_NAME}/${CB_E2E_REPO_NAME}/cypress/e2e/${FE_REPO}"
+          mkdir -p "${target}"
+          cp -R fe-repo/e2e-tests/. "${target}/"
+
+      - name: Calculate node specs
+        id: calc-specs
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/calculate-e2e-specs-for-node@f621b75326b963a5c4ffda6ff66b8ceba86259f6 # release/2.0
+        with:
+          working_directory: ${{ env.REPO_NAME }}/${{ env.CB_E2E_REPO_NAME }}
+          node_index: ${{ matrix.node_index }}
+          nodes_total: ${{ inputs.NODES }}
+          e2e_specs: ${{ needs.resolve.outputs.specs }}
+
+      # Uploads a results artifact for a node without specs, so report does not
+      # count it as a node that crashed.
+      - name: Mark a node without specs
+        if: ${{ steps.calc-specs.outputs.has_specs != 'true' }}
+        shell: bash
+        run: mkdir -p /tmp/test-results && touch /tmp/test-results/no-specs
+
+      - name: Create and run cplace docker image
+        if: ${{ steps.calc-specs.outputs.has_specs == 'true' }}
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/create-and-run-cplace-docker@f621b75326b963a5c4ffda6ff66b8ceba86259f6 # release/2.0
+        with:
+          repo_name: ${{ env.REPO_NAME }}
+          java_version: '21'
+          cplace_port: ${{ env.CB_E2E_CPLACE_PORT }}
+          cplace_base_url: ${{ env.CB_E2E_CPLACE_BASE_URL }}
+          docker_env_variables: ${{ env.CB_E2E_DOCKER_ENV_VARIABLES }}
+
+      - name: Wait for cplace startup
+        if: ${{ steps.calc-specs.outputs.has_specs == 'true' }}
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/wait-for-cplace-startup@f621b75326b963a5c4ffda6ff66b8ceba86259f6 # release/2.0
+        with:
+          repo_name: ${{ env.REPO_NAME }}
+          cplace_url: ${{ env.CB_E2E_CPLACE_BASE_URL }}
+          workflow_e2e_wait_timeout: ${{ env.CB_E2E_WORKFLOW_WAIT_TIMEOUT }}
+
+      - name: Run E2E cypress test suite
+        if: ${{ steps.calc-specs.outputs.has_specs == 'true' }}
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/run-e2e-test-suite-with-cypress@f621b75326b963a5c4ffda6ff66b8ceba86259f6 # release/2.0
+        with:
+          repo_name: ${{ env.REPO_NAME }}
+          base_url: ${{ env.CB_E2E_CPLACE_BASE_URL }}
+          workflow_e2e_specs: ${{ needs.resolve.outputs.specs }}
+          workflow_e2e_browser: ${{ env.CB_E2E_WORKFLOW_BROWSER }}
+          node_index: ${{ matrix.node_index }}
+          nodes_total: ${{ inputs.NODES }}
+          specs_to_run: ${{ steps.calc-specs.outputs.specs }}
+
+      - name: Copy e2e cypress results
+        if: ${{ always() && steps.calc-specs.outputs.has_specs == 'true' }}
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/copy-e2e-cypress-results@f621b75326b963a5c4ffda6ff66b8ceba86259f6 # release/2.0
+        with:
+          repo_name: ${{ env.REPO_NAME }}
+
+      - name: Copy cplace logs
+        if: ${{ always() && steps.calc-specs.outputs.has_specs == 'true' }}
+        uses: collaborationFactory/cplace-gh-workflows/.github/actions/copy-cplace-logs@f621b75326b963a5c4ffda6ff66b8ceba86259f6 # release/2.0
+        with:
+          repo_name: ${{ env.REPO_NAME }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: backend-e2e-results-${{ matrix.node_index }}
+          path: /tmp/test-results
+          retention-days: 5
+          include-hidden-files: true
+          if-no-files-found: ignore
+
+      - name: Upload cplace logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: backend-e2e-cplace-logs-${{ matrix.node_index }}
+          path: /tmp/cplace-logs
+          retention-days: 5
+          if-no-files-found: ignore
+
+  report:
+    name: Report
+    needs: [resolve, build, e2e]
+    if: ${{ always() && needs.resolve.outputs.run == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+    steps:
+      # One subdir per node that uploaded results; the report counts them.
+      - name: Download test results
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: backend-e2e-results-*
+          path: test-results
+
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action/linux@c950f6fb443cb5af20a377fd0dfaa78838901040 # v2.23.0
+        with:
+          large_files: true
+          check_name: 'Test Results Backend E2E'
+          files: test-results/*/junit/**/*.xml
+          json_file: backend-e2e-results.json
+          json_test_case_results: true
+          fail_on: ${{ inputs.ADVISORY && 'nothing' || 'test failures' }}
+
+      - name: Build the report
+        id: report
+        if: ${{ always() }}
+        uses: collaborationFactory/github-actions/.github/actions/backend-e2e-report@feature/fe-backend-e2e # FIXME remove before merging
+        with:
+          results_json: backend-e2e-results.json
+          body_file: backend-e2e-comment.md
+          results_dir: test-results
+          nodes: ${{ inputs.NODES }}
+          advisory: ${{ inputs.ADVISORY }}
+          build_result: ${{ needs.build.result }}
+          e2e_result: ${{ needs.e2e.result }}
+          backend_repo: ${{ needs.resolve.outputs.backend_repo }}
+          backend_branch: ${{ needs.resolve.outputs.backend_branch }}
+          backend_sha: ${{ needs.resolve.outputs.backend_sha }}
+          e2e_branch: ${{ needs.resolve.outputs.e2e_branch }}
+          e2e_sha: ${{ needs.resolve.outputs.e2e_sha }}
+          snapshot_version: ${{ inputs.SNAPSHOT_VERSION }}
+          backend_packages: ${{ needs.resolve.outputs.backend_packages }}
+          e2e_packages: ${{ needs.resolve.outputs.e2e_packages }}
+
+      # One comment per run; earlier ones from this workflow are minimized as outdated.
+      - name: Comment on the PR
+        if: ${{ always() && steps.report.outcome == 'success' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require('fs');
+            const MARKER = '<!-- fe-backend-e2e -->';
+            const body = fs.readFileSync('backend-e2e-comment.md', 'utf8');
+
+            const issue = { owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number };
+            const { data: created } = await github.rest.issues.createComment({ ...issue, body });
+
+            const comments = await github.paginate(github.rest.issues.listComments, { ...issue, per_page: 100 });
+            const outdated = comments.filter(
+              (comment) => comment.id !== created.id && comment.user?.login === 'github-actions[bot]' && comment.body?.startsWith(MARKER),
+            );
+            for (const comment of outdated) {
+              await github.graphql('mutation($id: ID!) { minimizeComment(input: {subjectId: $id, classifier: OUTDATED}) { clientMutationId } }', {
+                id: comment.node_id,
+              });
+            }
+
+      # needs.e2e.result is not relied on: in advisory mode continue-on-error may
+      # report a failed node as 'success'. The outcome counts results and nodes.
+      - name: Fail unless the run passed
+        if: ${{ always() && !inputs.ADVISORY && steps.report.outputs.outcome != 'passed' }}
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.report.outputs.outcome }}
+          MESSAGE: ${{ steps.report.outputs.message }}
+        run: |
+          echo "::error::Backend E2E ${OUTCOME:-report failed}: ${MESSAGE:-the report could not be built, see its step}"
+          exit 1
+
+      - name: Warn about the outcome (advisory)
+        if: ${{ always() && inputs.ADVISORY && steps.report.outputs.outcome != 'passed' }}
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.report.outputs.outcome }}
+          MESSAGE: ${{ steps.report.outputs.message }}
+        run: |
+          echo "::warning::Advisory mode, backend E2E ${OUTCOME:-report failed}: ${MESSAGE:-the report could not be built, see its step} Failures that also fail on the backend's own nightly are not caused by this PR."
