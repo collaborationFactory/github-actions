@@ -50,6 +50,22 @@ consumers() {
   [ "$(output_of run)" = false ]
 }
 
+@test "changed in-repo specs run even when nothing consumed was published" {
+  run env PACKAGES='[]' SPECS_CHANGED=true "$SCRIPTS/resolve-consumers.sh" "${WORK}" "${WORK}/e2e"
+
+  [ "$status" -eq 0 ]
+  [ "$(output_of backend_packages)" = '[]' ]
+  [ "$(output_of e2e_packages)" = '[]' ]
+  [ "$(output_of run)" = true ]
+}
+
+@test "unchanged in-repo specs do not run on their own" {
+  run env PACKAGES='["@cplace-next/unused"]' SPECS_CHANGED=false "$SCRIPTS/resolve-consumers.sh" "${WORK}" "${WORK}/e2e"
+
+  [ "$status" -eq 0 ]
+  [ "$(output_of run)" = false ]
+}
+
 @test "an empty package list skips" {
   consumers '[]'
 

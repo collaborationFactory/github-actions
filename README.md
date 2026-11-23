@@ -155,3 +155,35 @@ publish distinct snapshot versions; the `snapshot` dist-tag ends up on the run t
 
 Created with `GITHUB_TOKEN`, like the tag. The generated notes start at the previous tag of the same release line,
 and "Latest" is set only for the highest `version/*` tag.
+
+## Backend E2E for FE PRs
+
+`.github/workflows/fe-backend-e2e.yml` builds the backend a frontend PR ships into, with the PR's npm snapshots pinned,
+and runs `cplace-e2e` specs against it. Callers pass the outputs of `fe-pr-snapshot.yml` (`version`, `packages`,
+`integrities`).
+
+### Choosing the backend and cplace-e2e branch
+
+By default the run uses a backend or `cplace-e2e` branch named like the PR head, and otherwise the counterpart of the
+PR base. A line of its own in the PR description chooses a branch explicitly:
+
+```text
+backend-branch: feature/PFM-ISSUE-12345-my-change
+cplace-e2e-branch: feature/PFM-ISSUE-12345-my-specs
+```
+
+A named branch that does not exist fails the run. Editing the description does not start a run: push, or re-run the
+workflow. Each branch is resolved to a commit once, and every job of the run uses that commit.
+
+### cplace-gh-workflows pin
+
+The backend steps use the `cplace-gh-workflows` composite actions at a `release/2.0` commit, not at the branch. To
+bump it, replace the SHA on every `collaborationFactory/cplace-gh-workflows/.github/actions/*@<sha> # release/2.0`
+line of `fe-backend-e2e.yml` with the output of:
+
+```bash
+gh api repos/collaborationFactory/cplace-gh-workflows/commits/release/2.0 --jq .sha
+```
+
+The actions call each other at `@release/2.0`, so those nested refs stay mutable: a breaking change there can still
+show up as a `backend-e2e` failure in FE PRs.

@@ -4,7 +4,8 @@
 #
 # Usage:
 #   resolve-backend.sh repo      writes backend_repo, repo_dir
-#   resolve-backend.sh branches  writes backend_branch, e2e_branch
+#   resolve-backend.sh branches  writes base_branch, backend_branch, backend_sha,
+#                                e2e_branch, e2e_sha
 #
 # The two steps are separate because the token that `branches` needs is minted
 # for the repository that `repo` resolves.
@@ -14,15 +15,17 @@
 #   BACKEND_REPO   (branches) the backend repository, as `repo` resolved it
 #   BASE_REF       (branches) the PR's base branch
 #   HEAD_REF       (branches) the PR's head branch; optional
+#   BACKEND_BRANCH_OVERRIDE, E2E_BRANCH_OVERRIDE
+#                  (branches) explicit branches from the PR body; optional
 #   GH_TOKEN       (branches) a token that can read BACKEND_REPO and cplace-e2e
 #   GITHUB_OUTPUT  receives the outputs
 #
 # The backend's checkout directory (repo_dir) is `main` for cplace, because the
 # cplace-gh-workflows actions expect the platform there.
 #
-# The backend and cplace-e2e each get HEAD_REF when they have that branch, and
-# the base's counterpart otherwise. A release counterpart the target does not
-# have falls back to master. An unreachable remote fails with exit code 2.
+# Each branch is resolved to the commit it points to now, so every job of the
+# run builds and tests the same commits. See resolve_branch for the order of
+# preference. An unreachable remote fails with exit code 2.
 
 set -euo pipefail
 
@@ -43,28 +46,63 @@ resolve_repo() {
   } >>"${GITHUB_OUTPUT}"
 }
 
-# branch_exists <repo> <branch>: like remote_branch_exists, but exits the
-# script when the remote is unreachable.
-branch_exists() {
+# lookup <repo> <branch>: sets LOOKUP_SHA to the commit of <branch> in <repo>.
+# Returns 1 when the branch does not exist, and exits the script when the
+# remote is unreachable.
+lookup() {
   local rc=0
-  remote_branch_exists "$1" "$2" || rc=$?
-  case "${rc}" in
-    0) return 0 ;;
-    1) return 1 ;;
-    *) exit 2 ;;
-  esac
+  LOOKUP_SHA="$(remote_branch_sha "$1" "$2")" || rc=$?
+  if ((rc == 2)); then
+    exit 2
+  fi
+  return "${rc}"
 }
 
-# resolve_branch <repo> <base-branch>: prints the branch of <repo> to test with.
+# valid_branch_name <name>: a name git accepts as a branch, not an option
+valid_branch_name() {
+  [[ "$1" != -* ]] && git check-ref-format --branch "$1" >/dev/null 2>&1
+}
+
+# resolve_branch <repo> <base-branch> <override>: prints "<branch> <sha>", the
+# branch of <repo> to test with and its commit, in this order of preference:
+#   1. <override>, an explicit branch from the PR body; a missing or invalid
+#      one fails, as an explicit choice must not be silently replaced.
+#   2. HEAD_REF when <repo> has it, unless it is main, master or release/*:
+#      an upmerge or backport head is never a backend line of its own.
+#   3. <base-branch>; a release line <repo> does not have falls back to master.
 resolve_branch() {
-  local repo="$1" base="$2"
-  if [[ -n "${HEAD_REF:-}" ]] && branch_exists "${repo}" "${HEAD_REF}"; then
-    echo "${HEAD_REF}"
-  elif [[ "${base}" == release/* ]] && ! branch_exists "${repo}" "${base}"; then
+  local repo="$1" base="$2" override="$3"
+  if [[ -n "${override}" ]]; then
+    if ! valid_branch_name "${override}"; then
+      echo "::error::'${override}' from the PR body is not a valid branch name" >&2
+      exit 1
+    fi
+    if ! lookup "${repo}" "${override}"; then
+      echo "::error::${repo} has no branch '${override}', which the PR body asks for" >&2
+      exit 1
+    fi
+    echo "${override} ${LOOKUP_SHA}"
+    return
+  fi
+
+  case "${HEAD_REF:-}" in
+    '' | main | master | release/*) ;;
+    *)
+      if lookup "${repo}" "${HEAD_REF}"; then
+        echo "${HEAD_REF} ${LOOKUP_SHA}"
+        return
+      fi
+      ;;
+  esac
+
+  if lookup "${repo}" "${base}"; then
+    echo "${base} ${LOOKUP_SHA}"
+  elif [[ "${base}" == release/* ]] && lookup "${repo}" master; then
     echo "::warning::${repo} has no branch '${base}', testing against master" >&2
-    echo master
+    echo "master ${LOOKUP_SHA}"
   else
-    echo "${base}"
+    echo "::error::${repo} has no branch '${base}'" >&2
+    exit 1
   fi
 }
 
@@ -85,13 +123,18 @@ resolve_branches() {
       ;;
   esac
 
-  local backend_branch e2e_branch
-  backend_branch="$(resolve_branch "${BACKEND_REPO}" "${base_branch}")"
-  e2e_branch="$(resolve_branch cplace-e2e "${base_branch}")"
+  local backend e2e backend_branch backend_sha e2e_branch e2e_sha
+  backend="$(resolve_branch "${BACKEND_REPO}" "${base_branch}" "${BACKEND_BRANCH_OVERRIDE:-}")"
+  e2e="$(resolve_branch cplace-e2e "${base_branch}" "${E2E_BRANCH_OVERRIDE:-}")"
+  read -r backend_branch backend_sha <<<"${backend}"
+  read -r e2e_branch e2e_sha <<<"${e2e}"
 
   {
+    echo "base_branch=${base_branch}"
     echo "backend_branch=${backend_branch}"
+    echo "backend_sha=${backend_sha}"
     echo "e2e_branch=${e2e_branch}"
+    echo "e2e_sha=${e2e_sha}"
   } >>"${GITHUB_OUTPUT}"
 }
 

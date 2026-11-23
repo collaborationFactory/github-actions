@@ -1,0 +1,28 @@
+{
+  "title": "2 fail, 1 errors, 9 pass",
+  "check_url": "https://github.com/collaborationFactory/cplace-fe/runs/2",
+  "stats": { "files": 3, "tests": 12, "tests_succ": 9, "tests_skip": 0, "tests_fail": 2, "tests_error": 1 },
+  "cases": [
+    {
+      "test_name": "TC01: renders the platform footer after login",
+      "states": {
+        "failure": [
+          { "test_file": "cypress/e2e/cplace-fe/platform/startPage.spec.ts", "test_name": "TC01", "message": "first" },
+          { "test_file": "cypress/e2e/cplace-fe/platform/startPage.spec.ts", "test_name": "TC01", "message": "retry" }
+        ]
+      }
+    },
+    {
+      "test_name": "TC02: opens the menu",
+      "states": {
+        "error": [{ "result_file": "test-results/backend-e2e-results-1/junit/cplace-e2e-results-menu.spec.ts.xml", "message": "boom" }]
+      }
+    },
+    {
+      "states": {
+        "failure": [{ "test_file": "cypress/e2e/cplace/specs/footer.spec.ts", "test_name": "TC03: from the result" }]
+      }
+    },
+    { "test_name": "TC04: passes", "states": { "success": [{ "test_file": "cypress/e2e/cplace/specs/ok.spec.ts" }] } }
+  ]
+}

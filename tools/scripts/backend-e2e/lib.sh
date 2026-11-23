@@ -31,21 +31,25 @@ git_with_token() {
     "$@"
 }
 
-# remote_branch_exists <repo> <branch>
+# remote_branch_sha <repo> <branch>
 #
-# Returns 0 when collaborationFactory/<repo> has exactly refs/heads/<branch>, 1
-# when it does not, and 2 when the remote stays unreachable after the retries.
-# Compares the listed refs itself instead of trusting `ls-remote --exit-code`,
-# whose pattern also matches refs that merely end in <branch> (PFM-ISSUE-34932).
+# Prints the commit of exactly refs/heads/<branch> in collaborationFactory/<repo>
+# and returns 0. Returns 1 when the branch does not exist, and 2 when the remote
+# stays unreachable after the retries. Compares the listed refs itself instead
+# of trusting `ls-remote --exit-code`, whose pattern also matches refs that
+# merely end in <branch> (PFM-ISSUE-34932).
 # RETRY_DELAYS holds the seconds to wait before each retry (default "5 10 20").
-remote_branch_exists() {
-  local repo="$1" branch="$2" heads delay ref
+remote_branch_sha() {
+  local repo="$1" branch="$2" heads delay sha ref
   local -a delays
   read -r -a delays <<<"${RETRY_DELAYS-5 10 20}"
   for delay in "${delays[@]}" ''; do
     if heads="$(git_with_token ls-remote --heads "https://github.com/collaborationFactory/${repo}.git" "refs/heads/${branch}")"; then
-      while IFS=$'\t' read -r _ ref; do
-        [[ "${ref}" == "refs/heads/${branch}" ]] && return 0
+      while IFS=$'\t' read -r sha ref; do
+        if [[ "${ref}" == "refs/heads/${branch}" ]]; then
+          echo "${sha}"
+          return 0
+        fi
       done <<<"${heads}"
       return 1
     fi

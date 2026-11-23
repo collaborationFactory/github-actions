@@ -214,3 +214,19 @@ Possible only partially: nx-affected published `*-e2e`/SDK packages → grep cpl
 10. **Multi-backend reach**: cplace-fe packages are built into cplace only; do cplace-fe PRs ever need paw-level specs (cplace-paw build pulls `../main` assets — would need bumping parent assets)?
 11. **Reporting**: JUnit check + PR comment (reuse marker/minimize pattern) — which App posts comments from FE repos (`SVA_ACTIONS_WRITE_PRODUCT_FE`)?
 12. **Unverified items**: whether cplace-gradle-plugin uses `npm ci` vs `npm install` for assets; whether JFrog virtual `cplace-npm` serves `cplace-npm-local` PR snapshots immediately; master vs release/2.0 script drift; `integration-e2e-reporter` internals.
+
+## Additional Research: Review hardening (Phase 9)
+
+*Added: 2026-11-23*
+
+- The PR snapshot version is `0.0.0-<slug>-<pr#>` for every push of a PR, and each publish deletes the version first
+  (`tools/scripts/artifacts/artifacts-handler.ts`, `deleteArtifact` before `publish`). A run that is still installing can therefore get a
+  newer push's content under the same version; the integrity check in Phase 9 §1 catches that.
+- `nx-project.ts` `publish()` runs a plain `npm publish`. `npm publish --json` prints the pack summary, including `integrity`, which the
+  handler can collect.
+- `cplace-gh-workflows@release/2.0` `clone-e2e-repo` clones with `git clone --depth 1 --branch "$E2E_REF"` (`src/scripts/clone_e2e_repo.sh`),
+  so it accepts a branch, not a SHA; pinning `cplace-e2e` to a commit needs a fetch and checkout after the clone.
+- Composites in `cplace-gh-workflows@release/2.0` call each other at `@release/2.0` (for example `load-env-variables` → `load-dotenv-file`,
+  `prepare-build-environment` → `build-cplace-cli`), so pinning the top-level refs to a SHA leaves the nested refs mutable.
+- The backend's FE package prefixes live in `<backend>/.github/.frontend-upmerge-env` (`FE_PACKAGE_PREFIXES`), and
+  `upmerge_and_bump_releases.sh` `version_spec_for` maps `master|main` → `snapshot` and `release/X.Y` → `X.Y` (see § 3 above).

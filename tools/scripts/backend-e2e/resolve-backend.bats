@@ -17,9 +17,10 @@ output_of() {
   sed -n "s/^$1=//p" "${GITHUB_OUTPUT}"
 }
 
-# branches <base> [<head>]: runs the branches step for the cplace backend
+# branches <base> [<head>]: runs the branches step for the cplace backend.
+# BACKEND_BRANCH_OVERRIDE and E2E_BRANCH_OVERRIDE pass through from the caller.
 branches() {
-  run env BACKEND_REPO=cplace BASE_REF="$1" HEAD_REF="${2:-}" "$SCRIPTS/resolve-backend.sh" branches
+  run env BACKEND_REPO=cplace BASE_REF="$1" HEAD_REF="${2:-}"     BACKEND_BRANCH_OVERRIDE="${BACKEND_BRANCH_OVERRIDE:-}" E2E_BRANCH_OVERRIDE="${E2E_BRANCH_OVERRIDE:-}"     "$SCRIPTS/resolve-backend.sh" branches
 }
 
 @test "cplace-fe maps to cplace, checked out as main" {
@@ -53,6 +54,9 @@ branches() {
 }
 
 @test "base main maps to master" {
+  remote_has cplace master
+  remote_has cplace-e2e master
+
   branches main
 
   [ "$status" -eq 0 ]
@@ -61,6 +65,9 @@ branches() {
 }
 
 @test "base master maps to master" {
+  remote_has cplace master
+  remote_has cplace-e2e master
+
   branches master
 
   [ "$status" -eq 0 ]
@@ -101,6 +108,9 @@ branches() {
 }
 
 @test "any other base maps to master with a warning" {
+  remote_has cplace master
+  remote_has cplace-e2e master
+
   branches feature/epic
 
   [ "$status" -eq 0 ]
@@ -131,14 +141,94 @@ branches() {
 }
 
 @test "a branch that only starts with the head ref is not a match" {
-  remote_has cplace feature/x-2
-  remote_has cplace-e2e other/feature/x
+  remote_has cplace master feature/x-2
+  remote_has cplace-e2e master other/feature/x
 
   branches main feature/x
 
   [ "$status" -eq 0 ]
   [ "$(output_of backend_branch)" = master ]
   [ "$(output_of e2e_branch)" = master ]
+}
+
+@test "both commits are written next to their branches" {
+  remote_has cplace master feature/x
+  remote_has cplace-e2e master
+
+  branches main feature/x
+
+  [ "$status" -eq 0 ]
+  [ "$(output_of base_branch)" = master ]
+  [ "$(output_of backend_sha)" = "$(sha_of cplace feature/x)" ]
+  [ "$(output_of e2e_sha)" = "$(sha_of cplace-e2e master)" ]
+}
+
+@test "an upmerge head is not used as the backend line" {
+  remote_has cplace release/26.1 release/26.2
+  remote_has cplace-e2e release/26.1 release/26.2
+
+  branches release/26.2 release/26.1
+
+  [ "$status" -eq 0 ]
+  [ "$(output_of backend_branch)" = release/26.2 ]
+  [ "$(output_of e2e_branch)" = release/26.2 ]
+}
+
+@test "a main head is ignored" {
+  remote_has cplace master main
+  remote_has cplace-e2e master main
+
+  branches main main
+
+  [ "$status" -eq 0 ]
+  [ "$(output_of backend_branch)" = master ]
+}
+
+@test "a missing base branch fails" {
+  remote_has cplace-e2e master
+
+  branches main
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"::error::cplace has no branch 'master'"* ]]
+  [ ! -s "${GITHUB_OUTPUT}" ]
+}
+
+@test "an existing override wins over a same-named branch" {
+  remote_has cplace master feature/x feature/backend
+  remote_has cplace-e2e master feature/x feature/specs
+
+  BACKEND_BRANCH_OVERRIDE=feature/backend E2E_BRANCH_OVERRIDE=feature/specs branches main feature/x
+
+  [ "$status" -eq 0 ]
+  [ "$(output_of backend_branch)" = feature/backend ]
+  [ "$(output_of backend_sha)" = "$(sha_of cplace feature/backend)" ]
+  [ "$(output_of e2e_branch)" = feature/specs ]
+}
+
+@test "a missing override fails instead of falling back" {
+  remote_has cplace master
+  remote_has cplace-e2e master
+
+  BACKEND_BRANCH_OVERRIDE=feature/gone branches main
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"::error::cplace has no branch 'feature/gone', which the PR body asks for"* ]]
+  [ ! -s "${GITHUB_OUTPUT}" ]
+}
+
+@test "an invalid override name fails before any lookup" {
+  remote_has cplace master
+  remote_has cplace-e2e master
+
+  local name
+  for name in 'feature..x' '-upload-pack=x' 'a b'; do
+    BACKEND_BRANCH_OVERRIDE="${name}" branches main
+
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"::error::'${name}' from the PR body is not a valid branch name"* ]]
+  done
+  ! grep -q ls-remote "${GIT_LOG}"
 }
 
 @test "an unreachable remote fails after the retries and writes nothing" {
@@ -154,6 +244,7 @@ branches() {
 
 @test "the token never appears in git's argv" {
   remote_has cplace feature/x
+  remote_has cplace-e2e master
 
   branches main feature/x
 

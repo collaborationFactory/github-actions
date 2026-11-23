@@ -40,6 +40,8 @@ export class NxProject {
   public hasPackageJson = false;
   // release flow: publish under release-X.Y-pending, promote() moves release-X.Y later
   public stageRelease = false;
+  // set by publish(): the sha512 integrity npm reported for the published tarball
+  public publishedIntegrity = '';
   private _pathToProject = '';
 
   constructor(
@@ -111,11 +113,11 @@ export class NxProject {
   public async publish() {
     if (this.isPublishable) {
       try {
-        console.log(
-          execSync(`npm publish`, {
-            cwd: `${this.getPathToProjectInDist()}`,
-          }).toString()
-        );
+        const summary = execSync(`npm publish --json`, {
+          cwd: `${this.getPathToProjectInDist()}`,
+        }).toString();
+        console.log(summary);
+        this.publishedIntegrity = NxProject.integrityOf(summary);
         Utils.writePublishedProjectToGithubCommentsFile(
           `${this.getMarkdownLink()}`
         );
@@ -125,6 +127,26 @@ export class NxProject {
         );
         if (error.status !== 0) process.exit(1);
       }
+    }
+  }
+
+  /**
+   * The `integrity` of an `npm publish --json` summary, or '' when the
+   * summary has none. Output that lifecycle scripts print before the JSON is
+   * skipped.
+   */
+  public static integrityOf(summary: string): string {
+    const start = summary.search(/^\{/m);
+    if (start < 0) return '';
+    try {
+      const parsed = JSON.parse(summary.slice(start));
+      if (typeof parsed?.integrity === 'string') return parsed.integrity;
+      const nested = Object.values(parsed ?? {}).find(
+        (value: any) => typeof value?.integrity === 'string'
+      ) as { integrity: string } | undefined;
+      return nested?.integrity ?? '';
+    } catch {
+      return '';
     }
   }
 

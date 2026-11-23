@@ -70,6 +70,47 @@ test('a PR snapshot with nothing affected outputs an empty packages list and sti
   expect(output).toHaveBeenCalledWith('packages', '[]');
 });
 
+test('integrities maps every published package to its integrity', async () => {
+  process.env.PR_NUMBER = '42';
+  mockHandlerDependencies([
+    project('cf-platform', NxProjectKind.Application, true, 'sha512-platform'),
+    project('cf-frontend-sdk', NxProjectKind.Library, true, 'sha512-sdk'),
+    project('cf-internal-utils', NxProjectKind.Library, false, 'sha512-x'),
+  ]);
+  const output = jest.spyOn(Utils, 'writeOutput').mockReturnValue();
+
+  await new ArtifactsHandler().handle();
+
+  expect(output).toHaveBeenCalledWith(
+    'integrities',
+    '{"@cplace-next/cf-platform":"sha512-platform","@cplace-next/cf-frontend-sdk":"sha512-sdk"}'
+  );
+});
+
+test('integrities is an empty object when nothing was published', async () => {
+  process.env.PR_NUMBER = '42';
+  mockHandlerDependencies([]);
+  const output = jest.spyOn(Utils, 'writeOutput').mockReturnValue();
+
+  await new ArtifactsHandler().handle();
+
+  expect(output).toHaveBeenCalledWith('integrities', '{}');
+});
+
+test.each([
+  ['a plain summary', '{"name":"x","integrity":"sha512-a"}', 'sha512-a'],
+  [
+    'script output before the summary',
+    '> prepublish\nbuilding\n{\n  "integrity": "sha512-b"\n}',
+    'sha512-b',
+  ],
+  ['a summary keyed by package', '{"@s/x":{"integrity":"sha512-c"}}', 'sha512-c'],
+  ['no JSON', 'npm notice published', ''],
+  ['a summary without integrity', '{"name":"x"}', ''],
+])('integrityOf reads %s', (_case, summary, expected) => {
+  expect(NxProject.integrityOf(summary)).toBe(expected);
+});
+
 test('a main snapshot writes neither output', async () => {
   mockHandlerDependencies([project('cf-platform', NxProjectKind.Application)]);
   const output = jest.spyOn(Utils, 'writeOutput').mockReturnValue();
@@ -93,11 +134,13 @@ test('deleting a PR snapshot on PR close writes neither output', async () => {
 function project(
   name: string,
   kind: NxProjectKind,
-  publishable = true
+  publishable = true,
+  integrity = ''
 ): NxProject {
   const nxProject = new NxProject(name, kind);
   nxProject.scope = SCOPE;
   nxProject.isPublishable = publishable;
+  nxProject.publishedIntegrity = integrity;
   return nxProject;
 }
 

@@ -51,6 +51,7 @@ Frontend PR checks only run Cypress against Storybook with mocked data. Whether 
    - `timeout-minutes` on every job; concurrency group per workflow + PR number with cancel-in-progress.
 9. **Skip with success when nothing relevant is published**: if the PR published no package consumed by the backend or `cplace-e2e`, the job succeeds with a summary saying so.
 10. **Reporting via JUnit check and marker comment**: JUnit results published as a check; a PR comment upserted with a marker, older comments minimized; the job fails on any failed test.
+    Amended 2026-11-23 (plan Phase 11): advisory mode (`ADVISORY: true`) suspends "the job fails on any failed test" until the exit criteria of the Phase 10 RCA are met. The check and the comment still report every failure, and a backend build failure still fails the job.
 
 This means:
 - Every cplace-fe and cplace-paw-fe PR gets real-backend verification as a normal blocking job, with no separate PR in another repo required.

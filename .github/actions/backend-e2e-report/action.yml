@@ -1,0 +1,90 @@
+name: 'Backend E2E: build the report'
+description: 'Classifies a backend E2E run and writes the PR comment body from the published test results'
+inputs:
+  results_json:
+    description: 'The json_file of EnricoMi/publish-unit-test-result-action'
+    required: true
+  body_file:
+    description: 'Where to write the comment body'
+    required: true
+  results_dir:
+    description: 'The dir the backend-e2e-results-* artifacts were downloaded to, one subdir per node that uploaded results'
+    required: true
+  nodes:
+    description: 'The number of e2e nodes'
+    required: true
+  advisory:
+    description: 'true when failures are reported as warnings only'
+    required: true
+  build_result:
+    description: 'The build job result'
+    required: true
+  e2e_result:
+    description: 'The e2e matrix result'
+    required: true
+  backend_repo:
+    description: 'The backend repository'
+    required: true
+  backend_branch:
+    description: 'The backend branch'
+    required: true
+  backend_sha:
+    description: 'The backend commit'
+    required: true
+  e2e_branch:
+    description: 'The cplace-e2e branch'
+    required: true
+  e2e_sha:
+    description: 'The cplace-e2e commit'
+    required: true
+  snapshot_version:
+    description: 'The published snapshot version'
+    required: false
+    default: ''
+  backend_packages:
+    description: 'JSON array of the packages pinned in the backend'
+    required: true
+  e2e_packages:
+    description: 'JSON array of the packages pinned in cplace-e2e'
+    required: true
+outputs:
+  outcome:
+    description: 'cancelled, build-failure, test-failure, infrastructure-failure or passed'
+    value: ${{ steps.report.outputs.outcome }}
+  message:
+    description: 'One sentence explaining the outcome'
+    value: ${{ steps.report.outputs.message }}
+  tests:
+    description: 'The number of test results'
+    value: ${{ steps.report.outputs.tests }}
+  failed:
+    description: 'The number of failed and errored tests'
+    value: ${{ steps.report.outputs.failed }}
+runs:
+  using: 'composite'
+  steps:
+    - id: report
+      shell: bash
+      env:
+        RESULTS_JSON: ${{ inputs.results_json }}
+        BODY_FILE: ${{ inputs.body_file }}
+        RESULTS_DIR: ${{ inputs.results_dir }}
+        NODES: ${{ inputs.nodes }}
+        ADVISORY: ${{ inputs.advisory }}
+        BUILD_RESULT: ${{ inputs.build_result }}
+        E2E_RESULT: ${{ inputs.e2e_result }}
+        BACKEND_REPO: ${{ inputs.backend_repo }}
+        BACKEND_BRANCH: ${{ inputs.backend_branch }}
+        BACKEND_SHA: ${{ inputs.backend_sha }}
+        E2E_BRANCH: ${{ inputs.e2e_branch }}
+        E2E_SHA: ${{ inputs.e2e_sha }}
+        SNAPSHOT_VERSION: ${{ inputs.snapshot_version }}
+        BACKEND_PACKAGES: ${{ inputs.backend_packages }}
+        E2E_PACKAGES: ${{ inputs.e2e_packages }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        set -euo pipefail
+        shopt -s nullglob
+        reported=("${RESULTS_DIR}"/backend-e2e-results-*/)
+        export NODES_REPORTED="${#reported[@]}"
+        "$GITHUB_ACTION_PATH/../../../tools/scripts/backend-e2e/build-report.sh" "${RESULTS_JSON}" "${BODY_FILE}"

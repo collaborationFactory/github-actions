@@ -9,20 +9,36 @@ SCRIPTS="${BATS_TEST_DIRNAME}"
 WORK="${BATS_TEST_TMPDIR}/work"
 NPM_LOG="${BATS_TEST_TMPDIR}/npm.log"
 
-# Puts an `npm` stub first on PATH. Each call appends "<cwd>|<argv>" to NPM_LOG,
-# prints a progress line to stdout like real npm, and exits with NPM_EXIT
-# (default 0).
+# Puts an `npm` stub first on PATH. Each call appends "<cwd>|<argv>" to NPM_LOG.
+# `npm view <pkg>@<spec> ...` prints what npm_view_returns recorded for
+# <pkg>@<spec>, or fails with E404. Any other call prints a progress line to
+# stdout like real npm, and exits with NPM_EXIT (default 0).
 stub_npm() {
-  mkdir -p "${BATS_TEST_TMPDIR}/bin"
+  NPM_VIEWS="${BATS_TEST_TMPDIR}/npm-views"
+  mkdir -p "${BATS_TEST_TMPDIR}/bin" "${NPM_VIEWS}"
   cat >"${BATS_TEST_TMPDIR}/bin/npm" <<'STUB'
 #!/usr/bin/env bash
 echo "${PWD}|$*" >>"${NPM_LOG}"
+if [[ "$1" == view ]]; then
+  file="${NPM_VIEWS}/${2//\//_}"
+  if [[ -f "${file}" ]]; then
+    cat "${file}"
+    exit 0
+  fi
+  echo "npm error code E404" >&2
+  exit 1
+fi
 echo "added 1 package, and audited 2 packages in 1s"
 exit "${NPM_EXIT:-0}"
 STUB
   chmod +x "${BATS_TEST_TMPDIR}/bin/npm"
-  export PATH="${BATS_TEST_TMPDIR}/bin:${PATH}" NPM_LOG
+  export PATH="${BATS_TEST_TMPDIR}/bin:${PATH}" NPM_LOG NPM_VIEWS
   : >"${NPM_LOG}"
+}
+
+# npm_view_returns <pkg>@<spec> <json>: what the stubbed `npm view` prints
+npm_view_returns() {
+  printf '%s\n' "$2" >"${NPM_VIEWS}/${1//\//_}"
 }
 
 # make_assets_dir <plugin> <package.json content>
@@ -52,16 +68,32 @@ npm_call_count() {
 # contains <branch>, which is looser than real git, so exact matching stays the
 # job of the script under test.
 #
-# Any other subcommand, such as clone, sparse-checkout or checkout, exits 0
-# without touching the filesystem, or exits 128 with a `fatal:` line on stderr
-# when its argv holds the URL of a repo marked unreachable.
+# Each listed branch points to the commit `sha_of <repo> <branch>` prints.
+#
+# A call whose argv holds the word STUB_FAIL exits 1. `check-ref-format` runs
+# the real git. `rev-parse` prints STUB_HEAD. Any other
+# subcommand, such as clone, fetch or checkout, exits 0 without touching the
+# filesystem, or exits 128 with a `fatal:` line on stderr when its argv holds
+# the URL of a repo marked unreachable.
 stub_git() {
   REMOTES="${BATS_TEST_TMPDIR}/remotes"
   GIT_LOG="${BATS_TEST_TMPDIR}/git.log"
+  REAL_GIT="$(command -v git)"
   mkdir -p "${BATS_TEST_TMPDIR}/bin" "${REMOTES}"
   cat >"${BATS_TEST_TMPDIR}/bin/git" <<'STUB'
 #!/usr/bin/env bash
 echo "$*" >>"${GIT_LOG}"
+if [[ -n "${STUB_FAIL:-}" && " $* " == *" ${STUB_FAIL} "* ]]; then
+  echo "fatal: ${STUB_FAIL} failed" >&2
+  exit 1
+fi
+if [[ "$1" == check-ref-format ]]; then
+  exec "${REAL_GIT}" "$@"
+fi
+if [[ " $* " == *" rev-parse "* ]]; then
+  echo "${STUB_HEAD:-}"
+  exit 0
+fi
 if [[ " $* " != *" ls-remote "* ]]; then
   for arg in "$@"; do
     repo="${arg##*/}"
@@ -84,13 +116,18 @@ fi
 [[ -f "${REMOTES}/${repo}" ]] || exit 0
 while read -r branch; do
   if [[ "${branch}" == *"${pattern}"* ]]; then
-    printf '0123abcd\trefs/heads/%s\n' "${branch}"
+    printf '%s\trefs/heads/%s\n' "$(printf '%s/%s' "${repo}" "${branch}" | sha1sum | cut -c1-40)" "${branch}"
   fi
 done <"${REMOTES}/${repo}"
 STUB
   chmod +x "${BATS_TEST_TMPDIR}/bin/git"
-  export PATH="${BATS_TEST_TMPDIR}/bin:${PATH}" REMOTES GIT_LOG
+  export PATH="${BATS_TEST_TMPDIR}/bin:${PATH}" REMOTES GIT_LOG REAL_GIT
   : >"${GIT_LOG}"
+}
+
+# sha_of <repo> <branch>: the commit the stubbed remote <repo> lists for <branch>
+sha_of() {
+  printf '%s/%s' "$1" "$2" | sha1sum | cut -c1-40
 }
 
 # remote_has <repo> <branch>...: the stubbed remote <repo> has these branches

@@ -17,6 +17,9 @@ on:
       packages:
         description: 'JSON array of the published package names; [] when no project was publishable, empty when the job was skipped or the tip is a branch-off commit'
         value: ${{ jobs.publish-pr-snapshot.outputs.packages }}
+      integrities:
+        description: 'JSON object mapping each published package name to its npm integrity; {} when nothing was published, empty when the job was skipped or the tip is a branch-off commit'
+        value: ${{ jobs.publish-pr-snapshot.outputs.integrities }}
     secrets:
       JFROG_BASE64_TOKEN:
         required: true
@@ -35,6 +38,7 @@ jobs:
     outputs:
       version: ${{ steps.artifacts.outputs.version }}
       packages: ${{ steps.artifacts.outputs.packages }}
+      integrities: ${{ steps.artifacts.outputs.integrities }}
     env:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:

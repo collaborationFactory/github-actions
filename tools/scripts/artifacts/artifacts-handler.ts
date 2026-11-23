@@ -149,11 +149,21 @@ export class ArtifactsHandler {
     if (this.task !== TASK.PR_SNAPSHOT || this.onlyDeleteArtifacts) {
       return;
     }
-    const packages = this.projects
-      .filter((project) => project.isPublishable)
-      .map((project) => `${project.scope}/${project.name}`);
+    const published = this.projects.filter((project) => project.isPublishable);
+    const packages = published.map(
+      (project) => `${project.scope}/${project.name}`
+    );
+    const integrities = Object.fromEntries(
+      published
+        .filter((project) => project.publishedIntegrity !== '')
+        .map((project) => [
+          `${project.scope}/${project.name}`,
+          project.publishedIntegrity,
+        ])
+    );
     Utils.writeOutput('version', this.currentVersion.toString());
     Utils.writeOutput('packages', JSON.stringify(packages));
+    Utils.writeOutput('integrities', JSON.stringify(integrities));
   }
 
   private async buildAndPublishProjects() {

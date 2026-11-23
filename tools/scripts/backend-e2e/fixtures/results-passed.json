@@ -1,0 +1,6 @@
+{
+  "title": "12 tests pass",
+  "check_url": "https://github.com/collaborationFactory/cplace-fe/runs/1",
+  "stats": { "files": 2, "tests": 12, "tests_succ": 12, "tests_skip": 0, "tests_fail": 0, "tests_error": 0 },
+  "cases": []
+}

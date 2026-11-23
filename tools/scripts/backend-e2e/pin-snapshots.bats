@@ -141,6 +141,65 @@ setup() {
     "i @cplace-next/cf-platform@0.0.0-feat-1-42 --save-exact --legacy-peer-deps"
 }
 
+# lock_has <assets-dir> <package> <integrity>: the package-lock.json npm leaves behind
+lock_has() {
+  jq -n --arg key "node_modules/$2" --arg integrity "$3" '{packages: {($key): {integrity: $integrity}}}' >"$1/package-lock.json"
+}
+
+@test "an installed integrity that matches the published one passes" {
+  make_assets_dir plugin.a '{"dependencies":{"@cplace-next/cf-platform":"1.0.0"}}'
+  lock_has "$WORK/plugin.a/assets" @cplace-next/cf-platform sha512-published
+
+  run env PACKAGES='["@cplace-next/cf-platform"]' INTEGRITIES='{"@cplace-next/cf-platform":"sha512-published"}' \
+    "$SCRIPTS/pin-snapshots.sh" 0.0.0-feat-1-42 "$WORK/plugin.a/assets"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" != *'::warning::'* ]]
+}
+
+@test "an installed integrity that differs fails and names the package" {
+  make_assets_dir plugin.a '{"dependencies":{"@cplace-next/cf-platform":"1.0.0"}}'
+  lock_has "$WORK/plugin.a/assets" @cplace-next/cf-platform sha512-newer-push
+
+  run env PACKAGES='["@cplace-next/cf-platform"]' INTEGRITIES='{"@cplace-next/cf-platform":"sha512-published"}' \
+    "$SCRIPTS/pin-snapshots.sh" 0.0.0-feat-1-42 "$WORK/plugin.a/assets"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"::error::@cplace-next/cf-platform@0.0.0-feat-1-42 changed since this run's snapshot job"* ]]
+}
+
+@test "a package without a published integrity is pinned with a warning" {
+  make_assets_dir plugin.a '{"dependencies":{"@cplace-next/cf-platform":"1.0.0","@cplace-next/cf-shell":"1.0.0"}}'
+  lock_has "$WORK/plugin.a/assets" @cplace-next/cf-platform sha512-published
+
+  run env PACKAGES='["@cplace-next/cf-platform","@cplace-next/cf-shell"]' INTEGRITIES='{"@cplace-next/cf-platform":"sha512-published"}' \
+    "$SCRIPTS/pin-snapshots.sh" 0.0.0-feat-1-42 "$WORK/plugin.a/assets"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'::warning::No published integrity for @cplace-next/cf-shell@0.0.0-feat-1-42'* ]]
+  [[ "$output" != *'No published integrity for @cplace-next/cf-platform'* ]]
+}
+
+@test "an empty INTEGRITIES warns once per package" {
+  make_assets_dir plugin.a '{"dependencies":{"@cplace-next/cf-platform":"1.0.0","@cplace-next/cf-shell":"1.0.0"}}'
+
+  run env PACKAGES='["@cplace-next/cf-platform","@cplace-next/cf-shell"]' INTEGRITIES='' \
+    "$SCRIPTS/pin-snapshots.sh" 0.0.0-feat-1-42 "$WORK/plugin.a/assets"
+
+  [ "$status" -eq 0 ]
+  [ "$(grep -c '::warning::No published integrity' <<<"$output")" -eq 2 ]
+}
+
+@test "an INTEGRITIES that is not a JSON object fails before any npm call" {
+  make_assets_dir plugin.a '{"dependencies":{"@cplace-next/cf-platform":"1.0.0"}}'
+
+  run env PACKAGES='["@cplace-next/cf-platform"]' INTEGRITIES='["x"]' \
+    "$SCRIPTS/pin-snapshots.sh" 0.0.0-feat-1-42 "$WORK/plugin.a/assets"
+
+  [ "$status" -eq 1 ]
+  [ "$(npm_call_count)" -eq 0 ]
+}
+
 @test "a missing version is a usage error" {
   run "$SCRIPTS/pin-snapshots.sh" '' "$WORK"
 

@@ -479,3 +479,175 @@ The sparse-clone step is the only one in the action whose YAML holds a function 
 - [plan.md:359](/specs/2026-11-19_fe-pr-e2e-reusable-workflow/plan.md#L359)
 
 The `build` job ends with an `always()` upload of `~/.npm/_logs` as `backend-e2e-npm-logs-build`. The plan's build steps stop at the bundle upload (step 14), and the Phase 2 "Changed during implementation" notes do not mention this upload. It looks like a sensible debugging aid for the pin step's `npm i`. If it is intended, add a line to those notes so the plan lists everything the workflow uploads.
+
+## Iteration 6 — 2026-11-23
+
+*Reviewed three repositories against `plan.md`. github-actions: `origin/master...HEAD` (20 files); cplace-fe: `origin/main...HEAD` (5 files); cplace-paw-fe: `origin/master...HEAD` (2 files). The uncommitted `plan.md`/`research.md` edits (Phases 9–10) and the untracked `dist/` in github-actions were not part of the diff. Agents: plan-conformance, correctness, craft, test, security in github-actions (no rule index there, so no best-practices); plan-conformance, correctness, craft, best-practices, test, security in cplace-fe (correctness, best-practices, test and security returned nothing); plan-conformance, correctness, craft, best-practices, security in cplace-paw-fe (correctness, craft, best-practices and security returned nothing). Several github-actions findings cited diff line numbers; they were re-anchored to the file lines of their verified quotes. 11 findings kept, 1 dropped in verification, 0 merged.*
+
+Dropped:
+- cplace-paw-fe / plan-conformance — "cplace-paw-fe gets a second trial consumer that the plan does not describe" — quote not in diff
+
+### [6.1] 💡 PR comment embeds spec and test names from PR-controlled results as unescaped markdown
+
+- [x] Resolved — Phase 11 §1: `build-report.sh` writes every spec and test name inside a code span, without backticks or line breaks and cut to 200 characters (bats-tested with a Markdown title).
+
+**Agent(s):** security
+
+**Repo:** github-actions
+
+**File(s):**
+- [fe-backend-e2e.yml:520](/.github/workflows/fe-backend-e2e.yml#L520)
+
+`failure.name` is written into the comment outside a code span. Test titles come from specs the PR can add through `e2e-tests/`, so a same-repo author can inject markdown, links or `@mentions` into a comment posted as github-actions[bot]. Impact is low (fork PRs get no secrets). Wrapping the name in a code span or escaping it, and truncating its length, would close it.
+
+### [6.2] 💡 Advisory mode reports a green result when one node crashes before Cypress runs
+
+- [x] Resolved — Phase 11 §2: `report` counts the nodes that uploaded results and `classify-outcome.sh` reports `infrastructure-failure` for a missing node, in advisory mode too; a node without specs uploads a marker so it is not counted as missing.
+
+**Agent(s):** correctness
+
+**Repo:** github-actions
+
+**File(s):**
+- [fe-backend-e2e.yml:491](/.github/workflows/fe-backend-e2e.yml#L491)
+- [fe-backend-e2e.yml:554](/.github/workflows/fe-backend-e2e.yml#L554)
+
+With `continue-on-error: ${{ inputs.ADVISORY }}` on `e2e`, a node that dies before producing JUnit output still leaves `needs.e2e.result` at `success`. If another node produced results, the comment shows ✅ with "N passed, 0 failed" and the advisory warning stays silent, hiding the untested share. Comparing the number of `backend-e2e-results-*` artifacts with `NODES`, and warning or marking the run not-ok when they differ, would surface it.
+
+### [6.3] 💡 Report-comment logic is inline workflow JS with no test
+
+- [x] Resolved — Phase 11 §1: the comment body is built by the bats-tested `build-report.sh` (via the `backend-e2e-report` action); the github-script step only posts it and minimizes older comments.
+
+**Agent(s):** test
+
+**Repo:** github-actions
+
+**File(s):**
+- [fe-backend-e2e.yml:491](/.github/workflows/fe-backend-e2e.yml#L491)
+- [fe-backend-e2e.yml:496](/.github/workflows/fe-backend-e2e.yml#L496)
+
+The comment's verdict, the failure extraction (`states.failure`/`error`, `slice(0, 1)`, the `specOf` filename fallback) and the 20-item cap branch on the EnricoMi JSON shape and are never exercised. Earlier iterations moved comparable inline logic into bats-tested scripts ([2.4], [5.3]). Moving the comment builder to a script under `tools/scripts/backend-e2e/` with a results-JSON fixture would cover it; otherwise accept the gap in the PR.
+
+### [6.4] 💡 In-repo specs checkout is duplicated in `resolve` and `e2e`
+
+- [x] Resolved — Phase 11 §3: `resolve` outputs `in_repo_specs`, both in-repo steps in `e2e` run only when it is true, and `resolve-specs.sh` adds the in-repo glob once.
+
+**Agent(s):** craft
+
+**Repo:** github-actions
+
+**File(s):**
+- [fe-backend-e2e.yml:78](/.github/workflows/fe-backend-e2e.yml#L78)
+- [fe-backend-e2e.yml:336](/.github/workflows/fe-backend-e2e.yml#L336)
+
+Both jobs run the same sparse checkout and decide "has `e2e-tests/`" separately: `resolve` with `hashFiles(...) != ''`, `e2e` with `[[ -d fe-repo/e2e-tests ]]`. The two can drift. Exposing `in_repo_specs` as a `resolve` job output and checking out in `e2e` only when it is `true` removes one copy and one decision.
+
+### [6.5] 💡 Advisory warning step re-parses the results JSON the comment script already parses
+
+- [x] Resolved — Phase 11 §1: the results JSON is parsed once in `build-report.sh`; the jq advisory step and its `|| echo "0 0"` fallback are gone, and a missing JSON fails instead of reporting zeros.
+
+**Agent(s):** craft
+
+**Repo:** github-actions
+
+**File(s):**
+- [fe-backend-e2e.yml:488](/.github/workflows/fe-backend-e2e.yml#L488)
+- [fe-backend-e2e.yml:554](/.github/workflows/fe-backend-e2e.yml#L554)
+
+`report` computes the tests and failed counts twice, in JavaScript for the comment and in jq for the advisory warning, so `tests_fail + tests_error` lives in two languages. The github-script step could emit `core.warning` itself when `ADVISORY` is set, dropping the jq step and its `2>/dev/null || echo "0 0"` fallback.
+
+### [6.6] ❓ Backend distribution is uploaded as an artifact under the FE repo's access control
+
+- [x] Resolved — No code change: cplace-fe, cplace-paw-fe, cplace, cplace-paw and cplace-e2e are all `internal` repositories, so the FE repos' read audience is the same as the backends'.
+
+**Agent(s):** security
+
+**Repo:** github-actions
+
+**File(s):**
+- [fe-backend-e2e.yml:243](/.github/workflows/fe-backend-e2e.yml#L243)
+
+The bundle holds the full backend `software.zip`, `main/docker` and the e2e configuration, and anyone with read access to the FE repo can download it for its 1-day retention. Backend source access is otherwise granted through a GitHub App token. Is the FE repos' audience no wider than the backend repos'? If it is wider, the bundle needs another transfer path or a restricted audience.
+
+### [6.7] ❓ `ADVISORY` input stops failed tests from failing the run, but no phase adds it
+
+- [x] Resolved — Phase 11 §5: plan.md Implementation Approach, Interface records `ADVISORY` and its effects; design.md decision 10 carries the matching amendment.
+
+**Agent(s):** plan-conformance
+
+**Repo:** github-actions
+
+**File(s):**
+- [fe-backend-e2e.yml:38](/.github/workflows/fe-backend-e2e.yml#L38)
+- [fe-backend-e2e.yml:263](/.github/workflows/fe-backend-e2e.yml#L263)
+- [fe-backend-e2e.yml:458](/.github/workflows/fe-backend-e2e.yml#L458)
+- [fe-backend-e2e.yml:541](/.github/workflows/fe-backend-e2e.yml#L541)
+
+**Reference(s):**
+- [design.md:53](/specs/2026-11-19_fe-pr-e2e-reusable-workflow/design.md#L53)
+- [plan.md:131](/specs/2026-11-19_fe-pr-e2e-reusable-workflow/plan.md#L131)
+
+With `ADVISORY` set, the nodes get `continue-on-error`, the check uses `fail_on: nothing`, and the final fail step is skipped. Design decision 10 says the job fails on any failed test, and the plan's input list has no `ADVISORY`. Phases 9 and 10 refer to advisory mode, so it was likely agreed informally. If so, record it as a plan update and a design amendment so the deviation from decision 10 is written down.
+
+### [6.8] 💡 Placeholder "Test document" comment left in the sample spec
+
+- [x] Resolved — Phase 11 §4: the placeholder line is removed, and `e2e-tests/README.md` says when to add a `// Test document: <url>` line.
+
+**Agent(s):** craft
+
+**Repo:** cplace-fe
+
+**File(s):**
+- [startPage.spec.ts:5](../cplace-fe/e2e-tests/platform/startPage.spec.ts#L5)
+
+The header carries a literal `<placeholder>` that points at nothing, in the spec meant to be the template for future in-repo specs. Fill in the real test document link or drop the line. If the `cplace-e2e` convention requires the line, the README should say so.
+
+### [6.9] ❓ Trial caller passes `ADVISORY: true`, which no plan phase introduces
+
+- [x] Resolved — Phase 11 §5: plan.md records that the trial caller runs with `ADVISORY: true` and the rollout callers start in advisory mode until Phase 10's exit criteria are met.
+
+**Agent(s):** plan-conformance
+
+**Repo:** cplace-fe
+
+**File(s):**
+- [pull_request.yaml:141](../cplace-fe/.github/workflows/pull_request.yaml#L141)
+
+**Reference(s):**
+- [plan.md:131](/specs/2026-11-19_fe-pr-e2e-reusable-workflow/plan.md#L131)
+- [design.md:5](/specs/2026-11-19_fe-pr-e2e-reusable-workflow/design.md#L5)
+
+The trial `backend-e2e` job runs in advisory mode, so failing tests do not fail it. Phase 2 §6's trial-caller instructions do not mention it, and the design says the check fails on any failing test. This is the caller-side counterpart of [6.7]: when recording the input, also say whether the Phase 6 rollout callers set it.
+
+### [6.10] ❓ Trial caller uses `NODES: '2'` where Phase 2 §6 specifies `'1'`
+
+- [x] Resolved — Phase 11 §5: plan.md records the trial caller's `NODES: '2'`, which keeps the run under the 60-minute job timeout.
+
+**Agent(s):** plan-conformance
+
+**Repo:** cplace-fe
+
+**File(s):**
+- [pull_request.yaml:140](../cplace-fe/.github/workflows/pull_request.yaml#L140)
+
+**Reference(s):**
+- [plan.md:428](/specs/2026-11-19_fe-pr-e2e-reusable-workflow/plan.md#L428)
+
+The plan's trial runs on one node, and the Phase 2 measurement notes suggest `'3'`. The branch uses 2, recorded only in the commit "Split the trial backend E2E over two nodes", probably to stay clear of the 60-minute timeout. If intended, add a line to Phase 2's implementation notes.
+
+### [6.11] ℹ️ Phase 6 §4 pieces for cplace-paw-fe are not in this diff
+
+- [x] Resolved — Acknowledged: Phase 6 has not started; the cplace-paw-fe `pr-checks` needs and the label caller's removal land with Phase 6 §4, and the `snapshot` label stays off the trial PR meanwhile.
+
+**Agent(s):** plan-conformance
+
+**Repo:** cplace-paw-fe
+
+**File(s):**
+- [fe-pr.yml:81](../cplace-paw-fe/.github/workflows/fe-pr.yml#L81)
+- [fe-pr-snapshot.yml](../cplace-paw-fe/.github/workflows/fe-pr-snapshot.yml)
+
+**Reference(s):**
+- [plan.md:780](/specs/2026-11-19_fe-pr-e2e-reusable-workflow/plan.md#L780)
+
+`pr-checks` still needs only `[build, code-quality, e2e]`, and the label-based `fe-pr-snapshot.yml` caller still exists. No Phase 6 criterion is ticked, so this is not a false check-off; it is recorded so nobody reads this trial branch as the Phase 6 §4 rollout. While both callers coexist, labeling the PR `snapshot` would publish the same version twice, as noted for cplace-fe in [2.7].

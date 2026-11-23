@@ -16,6 +16,9 @@ outputs:
   packages:
     description: 'JSON array of the published package names, [] when nothing was published (PR snapshot only)'
     value: ${{ steps.handler.outputs.packages }}
+  integrities:
+    description: 'JSON object mapping each published package name to its npm integrity, {} when nothing was published (PR snapshot only)'
+    value: ${{ steps.handler.outputs.integrities }}
 runs:
   using: 'composite'
   steps:

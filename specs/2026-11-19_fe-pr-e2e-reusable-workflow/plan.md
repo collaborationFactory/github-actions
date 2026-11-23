@@ -123,12 +123,18 @@ The planning-time choices below settle the "Deferred to planning" list in design
 - **Reuse vs local code.**
   - All backend steps reuse `cplace-gh-workflows/.github/actions/*@release/2.0`, pinned to the branch like every backend consumer. Their
     inner `uses:` are `@release/2.0` anyway.
+    Amended 2026-11-23 (Phase 9 §3): the top-level refs are pinned to a release/2.0 commit SHA; only the nested refs stay mutable.
   - New logic lives in bash under `tools/scripts/backend-e2e/`, with bats tests run by `pr-checks.yml`. It covers repo mapping, branch
     resolution, consumed-package detection and pin application.
   - Two composite actions wrap the scripts: `backend-e2e-resolve` and `backend-e2e-pin`. Copying the in-repo specs is a short inline step.
 - **Interface.**
   - Workflow inputs: `GHA_REF`, `GHA_BASE`, `SNAPSHOT_VERSION`, `SNAPSHOT_PACKAGES` (JSON array of `@scope/name`), `E2E_SPECS`,
     `NODES` (default `'2'`).
+    Amended 2026-11-23 (Phase 9): `SNAPSHOT_INTEGRITIES` (JSON object, default `'{}'`) and `SPEC_MAP` (JSON object, default `'{}'`).
+    Amended 2026-11-23 (Phase 11): `ADVISORY` (boolean, default `false`). When it is `true`, the e2e nodes get `continue-on-error`, the
+    JUnit check uses `fail_on: nothing`, and the final fail step is skipped; a backend build failure still fails the run, and the report
+    still shows the outcome. The trial caller runs with `ADVISORY: true` and `NODES: '2'` (two nodes keep the run under the 60-minute job
+    timeout). The Phase 6 rollout callers start with `ADVISORY: true` and switch to `false` once Phase 10's exit criteria are met.
   - Secrets: `ENV_CPLACE_ARTIFACTORY_ACTOR`, `ENV_CPLACE_ARTIFACTORY_TOKEN`, `SVA_ACTIONS_READ_PRODUCT_ID`, `SVA_ACTIONS_READ_PRODUCT_KEY`.
   - Snapshot outputs: `version` (string) and `packages` (JSON array, `[]` when nothing was published).
 - **Staging.**
@@ -624,12 +630,21 @@ describe('cplace-fe in-repo specs run against the PR backend', () => {
 **Changes**: make sure the `e2e-tests/` folder is not picked up by root lint, tsc or prettier. Add it to the ignore patterns (`.eslintignore`
 or `ignorePatterns`, plus `.prettierignore`) only if a check actually picks it up.
 
+Changed during implementation:
+- The resolve job checks out `e2e-tests` before the resolve composite and passes
+  `in_repo_specs: ${{ hashFiles('fe-repo/e2e-tests/**') != '' }}`, a new composite input that adds an "In-repo specs" row to the summary.
+- `run-e2e-test-suite-with-cypress` gets the same `specs` output as `calculate-e2e-specs-for-node` for `workflow_e2e_specs`.
+- No ignore change in cplace-fe: `e2e-tests/` belongs to no Nx project, the root `.eslintrc.json` ignores `**/*`, and no tsconfig
+  includes it. Prettier formats it, and the new files pass.
+
 ### Success Criteria:
 
 #### Automated Verification:
 
-- [ ] `actionlint .github/workflows/fe-backend-e2e.yml`
-- [ ] cplace-fe checks stay green with the new folder: `nx format:check` and `nx affected lint`
+- [x] `actionlint .github/workflows/fe-backend-e2e.yml` (docker `rhysd/actionlint:1.7.7`, with `pr-checks.yml`)
+- [x] cplace-fe checks stay green with the new folder: `nx format:check` and `nx affected lint` (no `node_modules` in the local
+      cplace-fe checkout: prettier 3.8.1 with the repo's options and `prettier-plugin-organize-imports` passes on `e2e-tests/`; lint
+      cannot reach the folder, see above)
 - [ ] On the trial PR, the "Test Results Backend E2E" check lists `TC01: renders the platform footer after login` as passed
 
 #### Manual Verification:
@@ -664,11 +679,18 @@ Post one PR comment per run with the outcome, resolved branches, pins and failin
 - The skip path posts no comment. The resolve summary is enough there, and docs-only PRs stay quiet.
 - The step runs `if: always()` before the final status step.
 
+Changed during implementation:
+- The new comment is created first and the older marker comments are minimized afterwards, so the PR always shows one.
+- The spec file of a failing test is the JUnit `test_file`, else the result file name with the `cplace-e2e-results-` prefix and
+  `.xml` stripped (`cplace-e2e` writes one `cplace-e2e-results-[suiteFilename].xml` per spec). Only the first failing attempt of a test
+  is listed.
+
 ### Success Criteria:
 
 #### Automated Verification:
 
-- [ ] `actionlint .github/workflows/fe-backend-e2e.yml`
+- [x] `actionlint .github/workflows/fe-backend-e2e.yml` (docker `rhysd/actionlint:1.7.7`; the script ran locally against stubbed
+      `github`/`context` and a sample results file: one comment, the older bot comment minimized, a foreign comment left alone)
 - [ ] On the trial PR, a run produces exactly one non-minimized comment starting with `<!-- fe-backend-e2e -->`
 
 #### Manual Verification:
@@ -920,6 +942,328 @@ function, the `source` of `lib.sh` and its `shellcheck source=/dev/null` directi
 
 ---
 
+## Phase 9: Review hardening
+
+### Overview
+
+Apply the decisions from the 2026-11-23 review of the branch:
+
+- the run verifies that it installs the exact snapshot its snapshot job published;
+- the backend and `cplace-e2e` are pinned to commits, not branch tips;
+- upmerge and backport PRs resolve to the base line;
+- a PR can choose the backend and `cplace-e2e` branch explicitly;
+- PRs that only change `e2e-tests/` run;
+- spec selection follows the consumed packages through a caller-provided map;
+- FE version drift between the backend's pins and the FE base is reported;
+- the report says whether a failure is a build, infrastructure or test failure.
+
+Like Phases 7 and 8, this phase lands on `feature/fe-backend-e2e` before Phase 6 merges github-actions. §3 amends the Implementation
+Approach line "pinned to the branch like every backend consumer". The nested `@release/2.0` refs inside the `cplace-gh-workflows`
+composites stay mutable; this phase cannot change them, and the README says so.
+
+**Research**: See [Additional Research: Review hardening (Phase 9)](./research.md#additional-research-review-hardening-phase-9)
+
+### Changes Required:
+
+#### 1. Snapshot integrity (review item 1)
+
+**File**: `tools/scripts/artifacts/nx-project.ts`, `tools/scripts/artifacts/artifacts-handler.ts`, `.github/actions/artifacts/action.yml`,
+`.github/workflows/fe-pr-snapshot.yml`, `tools/scripts/artifacts/artifacts-handler-pr-snapshot-outputs.test.ts`
+**Changes**:
+- `publish()` runs `npm publish --json`, keeps logging its stdout, and stores the `integrity` from the JSON in a public field
+  `publishedIntegrity`.
+- `writePrSnapshotOutputs()` also writes `integrities`, a JSON object mapping each published `@scope/name` to its integrity. The artifacts
+  action and `fe-pr-snapshot.yml` expose it as an output (`{}` when nothing was published).
+- jest: `integrities` lists exactly the published packages with their integrity; non-publishable projects are left out.
+
+**File**: `tools/scripts/backend-e2e/pin-snapshots.sh`, `tools/scripts/backend-e2e/pin-snapshots.bats`,
+`.github/actions/backend-e2e-pin/action.yml`, `.github/workflows/fe-backend-e2e.yml`
+**Changes**:
+- New workflow input `SNAPSHOT_INTEGRITIES` (JSON object, default `'{}'`), passed to the pin action as `integrities` and to the script as
+  env `INTEGRITIES`.
+- After each `npm i`, the script reads `.packages["node_modules/<name>"].integrity` from that dir's `package-lock.json`. A value that differs
+  from the expected one fails with `::error::<name>@<version> changed since this run's snapshot job (republished by a newer push); re-run on
+  the latest push`.
+- A package without an expected integrity (an older caller) is pinned with a `::warning::` and not checked.
+- bats: a match passes; a mismatch exits 1 and names the package; a missing entry warns; an empty `INTEGRITIES` warns once per package.
+
+#### 2. Branch and commit resolution (review items 3, 4, 9)
+
+**File**: `tools/scripts/backend-e2e/lib.sh`, `tools/scripts/backend-e2e/resolve-backend.sh`, `tools/scripts/backend-e2e/resolve-backend.bats`
+**Changes**:
+- `remote_branch_exists` becomes `remote_branch_sha <repo> <branch>`: it prints the commit of the exact `refs/heads/<branch>` line, with the
+  same retries and exit codes (0 found, 1 not found, 2 unreachable).
+- `resolve_branch` picks, in this order:
+  1. An explicit branch from env `BACKEND_BRANCH_OVERRIDE` / `E2E_BRANCH_OVERRIDE`, validated with `git check-ref-format --branch`. A missing
+     explicit branch fails with `::error::` (explicit missing is an error, PFM-ISSUE-34932).
+  2. `HEAD_REF`, only when it is not `main`, `master` or `release/*`. An upmerge or backport head is never used as the backend line.
+  3. The mapped base, with the existing release-to-master fallback.
+- New outputs `backend_sha` and `e2e_sha`.
+- bats: an upmerge head (`release/26.1` into `release/26.2`) resolves to `release/26.2`; a `main` head is ignored; an existing override wins
+  over a same-named branch; a missing override fails; an invalid override name fails; both SHAs are written.
+
+**File**: `tools/scripts/backend-e2e/pr-directives.sh` (new), `tools/scripts/backend-e2e/pr-directives.bats` (new)
+**Changes**: reads env `PR_BODY` (passed through env, never interpolated into a script). It prints `BACKEND_BRANCH_OVERRIDE=<branch>` and
+`E2E_BRANCH_OVERRIDE=<branch>` from lines matching `^backend-branch:[[:space:]]*(\S+)` and `^cplace-e2e-branch:[[:space:]]*(\S+)`; the
+last match wins and the rest of the body is ignored. bats: no directive; both directives; a CRLF body; a directive inside other text is
+ignored. Editing the PR body does not trigger a run; the README says to push or re-run.
+
+**File**: `.github/actions/backend-e2e-resolve/action.yml`, `tools/scripts/backend-e2e/fetch-manifests.sh`,
+`tools/scripts/backend-e2e/fetch-manifests.bats`, `.github/workflows/fe-backend-e2e.yml`
+**Changes**:
+- The resolve action gets input `pr_body` (`github.event.pull_request.body`) and runs `pr-directives.sh` before the `branches` step. It
+  outputs `backend_sha` and `e2e_sha`. The summary shows `<branch> @ <sha>` and "(PR body)" when an override was used.
+- `fetch-manifests.sh` takes `BACKEND_SHA` and `E2E_SHA` and fetches those commits (`git fetch --depth 1 origin <sha>`) instead of the
+  branch tips.
+- build: `actions/checkout` uses `ref: ${{ needs.resolve.outputs.backend_sha }}`.
+- e2e: after `clone-e2e-repo`, `tools/scripts/backend-e2e/checkout-commit.sh <dir> <sha>` (new, with bats) runs
+  `git fetch --depth 1 origin <sha>` and `git checkout --detach <sha>`, then fails unless `git rev-parse HEAD` equals `<sha>`.
+
+#### 3. SHA-pin the cplace-gh-workflows actions (review item 5)
+
+**File**: `.github/workflows/fe-backend-e2e.yml`, the `README.md` section from Phase 6
+**Changes**:
+- Every `collaborationFactory/cplace-gh-workflows/.github/actions/*@release/2.0` becomes `@<sha> # release/2.0`, at the release/2.0 commit
+  current when this phase is implemented (`f621b75326b963a5c4ffda6ff66b8ceba86259f6` on 2026-11-23).
+- The README documents how to bump that SHA, and that the actions' nested `uses:` stay at `@release/2.0`.
+
+#### 4. FE version drift report (review item 6)
+
+**File**: `tools/scripts/backend-e2e/report-drift.sh` (new), `tools/scripts/backend-e2e/report-drift.bats` (new),
+`tools/scripts/backend-e2e/fetch-manifests.sh`, `.github/actions/backend-e2e-resolve/action.yml`, `.github/workflows/fe-backend-e2e.yml`
+**Changes**:
+- `fetch-manifests.sh` also checks out `/.github/.frontend-upmerge-env` from the backend.
+- `report-drift.sh <backend-checkout>`, with env `PACKAGES` and `FE_BASE`:
+  - For every dependency in `*/assets/package.json` that matches `FE_PACKAGE_PREFIXES` and is not in `PACKAGES`, it looks up the latest FE
+    base version with `npm view <pkg>@<spec> version --json`. The spec is the `snapshot` dist-tag for `main`/`master` and `X.Y` for
+    `release/X.Y`, the mapping of `version_spec_for` in `upmerge_and_bump_releases.sh`.
+  - It writes a Markdown table (package, backend pin, FE base latest, `behind`/`current`) to the step summary and outputs `drift`, the
+    number of packages behind.
+  - Report only: a failed `npm view` gives a `::warning::` naming the package, and the script exits 0. Without a prefixes file it writes one
+    notice and no table.
+- The resolve action gets input `npm_token` (`ENV_CPLACE_ARTIFACTORY_TOKEN`) and writes a `chmod 600` `.npmrc` like the build job's auth
+  step.
+- bats: current and behind; the release spec; an npm failure warns and exits 0; no prefixes file; a published package is excluded.
+
+#### 5. Run when `e2e-tests/` changed (review item 7)
+
+**File**: `tools/scripts/backend-e2e/resolve-consumers.sh`, `tools/scripts/backend-e2e/resolve-consumers.bats`,
+`.github/actions/backend-e2e-resolve/action.yml`, `.github/workflows/fe-backend-e2e.yml`
+**Changes**:
+- The resolve action lists the PR's changed files with `gh api --paginate repos/<repo>/pulls/<n>/files --jq '.[].filename'` and
+  `GITHUB_TOKEN`; the resolve job gets `permissions: pull-requests: read`. A failure to list the files fails the job, so the run never
+  skips silently.
+- `resolve-consumers.sh` reads env `SPECS_CHANGED`; `true` (any path under `e2e-tests/`) sets `run=true` even when nothing consumed was
+  published.
+- The build job's pin step runs only `if: needs.resolve.outputs.backend_packages != '[]'`, so a specs-only run builds the base pins and the
+  pin script never sees an empty version.
+- bats: changed specs with nothing published give `run=true` with empty package arrays.
+
+#### 6. Package-to-spec map (review item 10)
+
+**File**: `tools/scripts/backend-e2e/resolve-specs.sh` (new), `tools/scripts/backend-e2e/resolve-specs.bats` (new),
+`.github/actions/backend-e2e-resolve/action.yml`, `.github/workflows/fe-backend-e2e.yml`, `cplace-fe: .github/workflows/pull_request.yaml`
+(trial branch only)
+**Changes**:
+- New workflow input `SPEC_MAP` (JSON object `{"@scope/pkg": "glob,glob"}`, default `'{}'`).
+- `resolve-specs.sh` (env `E2E_SPECS`, `SPEC_MAP`, `CONSUMED` = backend and e2e packages) outputs `specs`: `E2E_SPECS` followed by the mapped
+  globs of the consumed packages, comma-joined, duplicates removed in order. Invalid JSON fails.
+- Every use of `inputs.E2E_SPECS` in the workflow switches to `needs.resolve.outputs.specs`. Phase 4's copy step appends its `e2e-tests`
+  glob to that value. The summary lists the final filter.
+- The trial caller passes a sample map. Phase 6 sets the real map per FE repo.
+- bats: no map; a mapped package adds its globs; an unconsumed package is ignored; duplicate globs collapse; invalid JSON fails.
+
+#### 7. Classify the outcome (review item 14)
+
+**File**: `tools/scripts/backend-e2e/classify-outcome.sh` (new), `tools/scripts/backend-e2e/classify-outcome.bats` (new),
+`.github/workflows/fe-backend-e2e.yml`
+**Changes**:
+- `report` gets `needs: [resolve, build, e2e]`.
+- The script (env `BUILD_RESULT`, `E2E_RESULT`, `TESTS`, `FAILED`) writes `outcome` and a summary heading, one of:
+  - `build-failure`: build is not `success`. The text says the backend build failed, there is no test result, and names the backend branch
+    and SHA.
+  - `infrastructure-failure`: e2e is not `success` and `TESTS` is 0 (docker, startup or harness).
+  - `test-failure`: `FAILED` is above 0.
+  - `cancelled`.
+  - `passed`.
+- The advisory warning and the final fail step use the category text. Phase 5's comment shows the same `outcome`.
+- bats: one case per category; a build failure wins over a skipped e2e.
+
+### Success Criteria:
+
+#### Automated Verification:
+
+- [x] `bats tools/scripts/lockfile/ tools/scripts/backend-e2e/` passes, including the new and extended files
+- [x] `shellcheck tools/scripts/backend-e2e/*.sh tools/scripts/backend-e2e/test-helper.bash`
+- [x] `npx jest --config=./jest.config.js tools/scripts/artifacts/artifacts-handler-pr-snapshot-outputs.test.ts`
+- [x] `actionlint .github/workflows/fe-backend-e2e.yml .github/workflows/fe-pr-snapshot.yml .github/workflows/pr-checks.yml`
+- [x] `grep -n 'cplace-gh-workflows/.*@release/2.0' .github/workflows/fe-backend-e2e.yml` returns nothing
+- [x] `grep -n 'inputs.E2E_SPECS' .github/workflows/fe-backend-e2e.yml` matches only the resolve step's input
+
+#### Manual Verification:
+
+The trial-PR checks of this phase are listed under [After the Last Push](#after-the-last-push).
+
+#### Implementation notes (2026-11-23)
+
+- The lockfile bats suite fails on a Windows checkout with `core.autocrlf=true` (CRLF in `test-helper.bash`); it passes from an LF export
+  and in CI.
+- The e2e and report jobs do not check out github-actions, so the new scripts run through two composite actions next to
+  `backend-e2e-pin`: `backend-e2e-checkout-commit` (§2) and `backend-e2e-report` (§7, extended in Phase 11 §1).
+- `resolve-backend.sh` now fails when the mapped base branch itself is missing, instead of passing a branch that does not exist to the
+  build. It also outputs `base_branch`, which `report-drift.sh` uses as `FE_BASE`.
+- `report-drift.sh` reads `dependencies` only, like `discover_matching_deps` in `upmerge_and_bump_releases.sh`.
+- §6's "Phase 4's copy step appends its `e2e-tests` glob" was implemented directly as Phase 11 §3: `resolve-specs.sh` adds the glob.
+- §3: the README had no backend E2E section yet, so this phase adds "Backend E2E for FE PRs" with the PR-body directives and the SHA
+  bump; Phase 6 extends it.
+- A node without specs uploads a `no-specs` marker, so Phase 11 §2's node count does not take it for a crashed node.
+
+---
+
+## Phase 10: RCA of the advisory-mode failures
+
+### Overview
+
+Find the root cause of every spec that fails in the trial runs, so that `ADVISORY` is switched off on evidence. The output is a research
+note, not code.
+
+### Changes Required:
+
+#### 1. RCA note
+
+**File**: `specs/2026-11-19_fe-pr-e2e-reusable-workflow/rca-advisory-failures.md` (new)
+**Changes**:
+- Collect the failing tests of trial run 44777680475 and the later trial runs from their `backend-e2e-results-*` artifacts.
+- For each failing spec, compare it with the backend's own nightly E2E on the same branch (the same spec on the nearest nightly runs) and
+  classify it:
+  - fails on the nightly too (pre-existing);
+  - specific to this setup: a harness difference such as `config1`, the analytics strip, the node count, ordering under
+    `testIsolation: false`, or the SDK pins;
+  - caused by the PR;
+  - flaky: passes on a retry, or differs between runs.
+- Give each a root cause with evidence (log lines, screenshots, run links) and an owner or action.
+- End with the exit criteria for `ADVISORY: false`, for example no unexplained failure over N consecutive runs plus a quarantine list for
+  pre-existing failures, and the follow-up tasks.
+
+### Success Criteria:
+
+#### Manual Verification:
+
+- [ ] Every failing spec of the analysed runs has a category, evidence and an action.
+- [ ] The note states measurable exit criteria for advisory mode and links the follow-ups.
+
+---
+
+## Phase 11: Report script, crashed-node detection, advisory decisions
+
+### Overview
+
+Move the `report` job's comment logic into a tested script, detect nodes that crash before producing results, keep the in-repo specs
+decision in one place, and record the advisory-mode and node-count decisions taken during the trial. This phase runs after Phase 9: it
+extends `classify-outcome.sh` (Phase 9 §7) and `resolve-specs.sh` (Phase 9 §6). Like Phases 7–9, it lands on `feature/fe-backend-e2e`
+before Phase 6 merges github-actions.
+
+### Changes Required:
+
+#### 1. Report builder script (review items [6.1], [6.3], [6.5])
+
+**File**: `tools/scripts/backend-e2e/build-report.sh` (new), `tools/scripts/backend-e2e/build-report.bats` (new),
+`tools/scripts/backend-e2e/fixtures/` (results JSON fixtures)
+**Changes**:
+- Input: path to the EnricoMi results JSON, env `OUTCOME` (from `classify-outcome.sh`), `ADVISORY`, and the output path for the comment
+  body.
+- With jq it produces the Markdown body that the inline github-script builds today: the heading with verdict and `(advisory)`, the counts,
+  and the failure list (`states.failure` and `states.error`, the first message only, and the spec filename fallback when no spec is set),
+  capped at 20 items with an "and N more" line.
+- Each failure's spec and test name is written inside a code span. Backticks, CR and LF are removed, and the result is truncated to 200
+  characters with `…`. PR-controlled test titles therefore cannot inject links, Markdown or `@mentions`.
+- It writes `tests` and `failed` (`tests_fail + tests_error`) to `$GITHUB_OUTPUT`. A missing or unreadable JSON fails with `::error::`
+  instead of falling back to zeros.
+- bats, with fixtures: all passed; failures from both `failure` and `error`; the spec fallback; more than 20 failures; a title with
+  backticks, a newline, `@someone` and `[x](y)` comes out inside one code span; an over-long title is truncated; missing JSON fails.
+
+**File**: `.github/workflows/fe-backend-e2e.yml`
+**Changes**:
+- `report` runs `build-report.sh`. The github-script step only reads the body file and upserts the marker comment.
+- The jq "advisory warning" step and its `2>/dev/null || echo "0 0"` fallback are deleted. `classify-outcome.sh` receives `TESTS` and
+  `FAILED` from `build-report.sh`'s outputs, and the advisory warning uses the outcome text.
+
+#### 2. Crashed-node detection (review item [6.2])
+
+**File**: `tools/scripts/backend-e2e/classify-outcome.sh`, `tools/scripts/backend-e2e/classify-outcome.bats`,
+`.github/workflows/fe-backend-e2e.yml`
+**Changes**:
+- `report` counts the downloaded `backend-e2e-results-*` artifacts and passes `NODES` (the length of `needs.resolve.outputs.node_indexes`)
+  and `NODES_REPORTED` to the classifier.
+- `NODES_REPORTED < NODES` gives `infrastructure-failure`, with text naming how many nodes produced no results, even when the other nodes
+  passed. A test failure still wins when `FAILED > 0`, and both facts are shown.
+- This applies in advisory mode too, so `continue-on-error` cannot hide a crashed node.
+- bats: 2 of 2 reported and passing gives `passed`; 1 of 2 reported and passing gives `infrastructure-failure`; 1 of 2 reported with
+  failures gives `test-failure` with the missing-node line.
+
+#### 3. One in-repo specs decision (review item [6.4])
+
+**File**: `.github/workflows/fe-backend-e2e.yml`, `tools/scripts/backend-e2e/resolve-specs.sh`,
+`tools/scripts/backend-e2e/resolve-specs.bats`, `.github/actions/backend-e2e-resolve/action.yml`
+**Changes**:
+- The `resolve` job exposes `in_repo_specs` (the existing `hashFiles('fe-repo/e2e-tests/**') != ''`) as a job output.
+- In `e2e`, the "Check out the FE repo's in-repo specs" and "Add the in-repo specs" steps run only
+  `if: needs.resolve.outputs.in_repo_specs == 'true'`. The copy step only copies; its `[[ -d fe-repo/e2e-tests ]]` branch is removed.
+- `resolve-specs.sh` reads env `IN_REPO_SPECS` and `FE_REPO`. When `IN_REPO_SPECS` is `true`, it appends
+  `cypress/e2e/<FE_REPO>/**/*.spec.ts` to `specs`. This amends Phase 9 §6, where the copy step appended the glob.
+- bats: `IN_REPO_SPECS=true` appends the glob once; `false` leaves the filter unchanged.
+
+#### 4. Sample spec header (review item [6.8])
+
+**File**: `cplace-fe: e2e-tests/platform/startPage.spec.ts`, `cplace-fe: e2e-tests/README.md` (trial branch)
+**Changes**:
+- Remove the `// Test document: <placeholder>` line.
+- The README says to add `// Test document: <url>` under the copyright header when a cplace test document exists for the spec, following
+  the `cplace-e2e` convention.
+
+#### 5. Record advisory mode and the trial node count (review items [6.7], [6.9], [6.10])
+
+**File**: `specs/2026-11-19_fe-pr-e2e-reusable-workflow/plan.md`, `specs/2026-11-19_fe-pr-e2e-reusable-workflow/design.md`
+**Changes**:
+- plan.md Implementation Approach, Interface: add `ADVISORY` (boolean, default `false`) to the workflow inputs with an
+  "Amended 2026-11-23 (Phase 11)" line. When it is `true`, the e2e nodes get `continue-on-error`, the JUnit check uses `fail_on: nothing`,
+  and the final fail step is skipped. The report still shows the outcome.
+- The same amendment records that the trial caller runs with `ADVISORY: true` and `NODES: '2'` (two nodes keep the run under the
+  60-minute job timeout), and that the Phase 6 rollout callers start with `ADVISORY: true` and switch to `false` when Phase 10's exit
+  criteria are met.
+- design.md decision 10: add an amendment line saying advisory mode suspends "the job fails on any failed test" until Phase 10's exit
+  criteria are met.
+
+### Success Criteria:
+
+#### Automated Verification:
+
+- [x] `bats tools/scripts/lockfile/ tools/scripts/backend-e2e/` passes, including `build-report.bats` and the extended
+      `classify-outcome.bats` and `resolve-specs.bats`
+- [x] `shellcheck tools/scripts/backend-e2e/*.sh tools/scripts/backend-e2e/test-helper.bash`
+- [x] `actionlint .github/workflows/fe-backend-e2e.yml`
+- [x] `grep -n 'jq -r .\.stats' .github/workflows/fe-backend-e2e.yml` returns nothing
+- [x] `grep -n 'fe-repo/e2e-tests ]]' .github/workflows/fe-backend-e2e.yml` returns nothing
+- [x] `grep -n 'placeholder' ../cplace-fe/e2e-tests/platform/startPage.spec.ts` returns nothing
+- [x] Review findings [6.1], [6.2], [6.3], [6.4], [6.5], [6.7], [6.8], [6.9], [6.10] marked resolved in review.md. Ticking this item means
+      editing each finding's `- [ ] Resolved` line in review.md to `- [x] Resolved — <one sentence saying how>`.
+
+#### Manual Verification:
+
+The trial-PR checks of this phase are listed under [After the Last Push](#after-the-last-push).
+
+#### Implementation notes (2026-11-23)
+
+- §1 and §2 as written form a cycle: `build-report.sh` takes `OUTCOME` from `classify-outcome.sh`, which takes `TESTS` and `FAILED` from
+  `build-report.sh`. `build-report.sh` counts once and then runs `classify-outcome.sh` with those counts; both scripts keep their
+  documented env and outputs, and the `backend-e2e-report` action runs only `build-report.sh`.
+- §2 counts the `backend-e2e-results-*` subdirs that `download-artifact` writes without `merge-multiple`, and passes `inputs.NODES`
+  (validated by `node-indexes.sh`) as `NODES`. The JUnit glob became `test-results/*/junit/**/*.xml`.
+- The comment adds an `**<outcome>**: <message>` line and the resolved commits; table values go through the same code-span cleaning as
+  test names, since a branch from the PR body may contain a backtick.
+
+---
+
 ## Testing Strategy
 
 ### Unit Tests:
@@ -954,6 +1298,23 @@ On the trial cplace-fe PR:
 4. Break `TC01`. The check, the comment and `pr-checks` should fail. Revert.
 5. Push twice quickly. The first `backend-e2e` should be cancelled.
 
+## After the Last Push
+
+These checks need pushes to the trial PR (cplace-fe `feature/fe-backend-e2e-trial`). Record each outcome in the trial PR's description.
+
+- Phase 9: the resolve summary shows the backend and `cplace-e2e` `<branch> @ <sha>`, the drift table and the final spec filter, and the
+  snapshot job's outputs include `integrities`.
+- Phase 9: two quick pushes; a run that pins after the next push republished the snapshot fails with the integrity error instead of
+  testing mixed content.
+- Phase 9: a `backend-branch: <existing>` line in the PR body plus a re-run uses that branch; a missing branch fails `resolve`.
+- Phase 9: a push that changes only `e2e-tests/` runs build and e2e without pins.
+- Phase 9: a deliberately broken backend branch, chosen through the override, makes `report` show `build-failure`; a broken assertion
+  shows `test-failure`.
+- Phase 11: the marker comment matches the earlier format, and a failing test with Markdown in its title shows as plain code.
+- Phase 11: cancelling one e2e node mid-run makes `report` show `infrastructure-failure` naming the missing node, with `ADVISORY: true`
+  set.
+- Phase 11: a push without `e2e-tests/` changes in a repo that has no `e2e-tests/` skips both in-repo steps in `e2e`.
+
 ## Performance Considerations
 
 - One gradle build per run (~30 min measured in IAP on `ubicloud-standard-4`). Nodes skip gradle entirely, because the bundle replaces the
@@ -972,8 +1333,9 @@ On the trial cplace-fe PR:
   3. The cplace-fe and cplace-paw-fe rollout PRs.
   4. Branch protection: `PR Checks` is already the required check, so no ruleset change is needed.
 - Rollback: remove `backend-e2e` from `pr-checks.needs` in the FE repos. The workflow can stay in github-actions unused.
-- Upstream drift (risk 4): the workflow pins `cplace-gh-workflows` actions at `@release/2.0`, like every backend consumer. A breaking
-  change there shows up as a `backend-e2e` failure in FE PRs, and the README section names that dependency.
+- Upstream drift (risk 4): the workflow pins `cplace-gh-workflows` actions to a release/2.0 commit SHA (Phase 9 §3). The actions' own
+  nested `uses:` stay at `@release/2.0`, so a breaking change there can still show up as a `backend-e2e` failure in FE PRs. The README
+  section names that dependency and how to bump the SHA.
 
 ## References
 

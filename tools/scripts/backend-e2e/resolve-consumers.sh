@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 #
-# Decides whether a frontend PR's snapshot is worth a backend E2E run: only when
-# the backend or cplace-e2e consumes a package the PR published.
+# Decides whether a frontend PR is worth a backend E2E run: when the backend or
+# cplace-e2e consumes a package the PR published, or when the PR changed its
+# in-repo specs.
 #
-# Usage: PACKAGES='["@scope/name", ...]' resolve-consumers.sh <backend-checkout> <e2e-checkout>
+# Usage: PACKAGES='["@scope/name", ...]' SPECS_CHANGED=true|false #          resolve-consumers.sh <backend-checkout> <e2e-checkout>
 #
 # Reads <backend-checkout>/*/assets/package.json and <e2e-checkout>/package.json.
-# An empty or unset PACKAGES counts as `[]`.
+# An empty or unset PACKAGES counts as `[]`. SPECS_CHANGED is true when the PR
+# changed a file under e2e-tests/.
 #
 # Writes to GITHUB_OUTPUT:
 #   backend_packages  JSON array of the published packages the backend consumes
 #   e2e_packages      JSON array of the published packages cplace-e2e consumes
-#   run               true when either array is non-empty
+#   run               true when either array is non-empty or SPECS_CHANGED is true
 
 set -euo pipefail
 
@@ -54,7 +56,7 @@ main() {
   local backend_packages e2e_packages run=false
   backend_packages="$(consumed_json "${packages}" ${backend_manifests[@]+"${backend_manifests[@]}"})"
   e2e_packages="$(consumed_json "${packages}" ${e2e_manifests[@]+"${e2e_manifests[@]}"})"
-  if [[ "${backend_packages}" != '[]' || "${e2e_packages}" != '[]' ]]; then
+  if [[ "${backend_packages}" != '[]' || "${e2e_packages}" != '[]' || "${SPECS_CHANGED:-false}" == true ]]; then
     run=true
   fi
 
