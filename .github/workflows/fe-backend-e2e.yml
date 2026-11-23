@@ -75,11 +75,20 @@ jobs:
       run: ${{ steps.resolve.outputs.run }}
       node_indexes: ${{ steps.resolve.outputs.node_indexes }}
     steps:
+      - name: Check out the FE repo's in-repo specs
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ inputs.GHA_REF }}
+          path: fe-repo
+          sparse-checkout: e2e-tests
+          persist-credentials: false
+
       - name: Resolve backend and branches
         id: resolve
         uses: collaborationFactory/github-actions/.github/actions/backend-e2e-resolve@feature/fe-backend-e2e # FIXME remove before merging
         with:
           fe_repo: ${{ github.event.repository.name }}
+          in_repo_specs: ${{ hashFiles('fe-repo/e2e-tests/**') != '' }}
           base_ref: ${{ inputs.GHA_BASE }}
           head_ref: ${{ inputs.GHA_REF }}
           snapshot_version: ${{ inputs.SNAPSHOT_VERSION }}
@@ -324,6 +333,32 @@ jobs:
           packages: ${{ needs.resolve.outputs.e2e_packages }}
           dirs: ${{ env.REPO_NAME }}/${{ env.CB_E2E_REPO_NAME }}
 
+      - name: Check out the FE repo's in-repo specs
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ inputs.GHA_REF }}
+          path: fe-repo
+          sparse-checkout: e2e-tests
+          persist-credentials: false
+
+      # The FE repo's e2e-tests/ run inside cplace-e2e, under cypress/e2e/<fe-repo>/.
+      - name: Add the in-repo specs
+        id: specs
+        shell: bash
+        env:
+          FE_REPO: ${{ github.event.repository.name }}
+          E2E_SPECS: ${{ inputs.E2E_SPECS }}
+        run: |
+          set -euo pipefail
+          target="${REPO_NAME}/${CB_E2E_REPO_NAME}/cypress/e2e/${FE_REPO}"
+          if [[ -d fe-repo/e2e-tests ]]; then
+            mkdir -p "${target}"
+            cp -R fe-repo/e2e-tests/. "${target}/"
+            echo "specs=${E2E_SPECS},cypress/e2e/${FE_REPO}/**/*.spec.ts" >>"$GITHUB_OUTPUT"
+          else
+            echo "specs=${E2E_SPECS}" >>"$GITHUB_OUTPUT"
+          fi
+
       - name: Calculate node specs
         id: calc-specs
         uses: collaborationFactory/cplace-gh-workflows/.github/actions/calculate-e2e-specs-for-node@release/2.0
@@ -331,7 +366,7 @@ jobs:
           working_directory: ${{ env.REPO_NAME }}/${{ env.CB_E2E_REPO_NAME }}
           node_index: ${{ matrix.node_index }}
           nodes_total: ${{ inputs.NODES }}
-          e2e_specs: ${{ inputs.E2E_SPECS }}
+          e2e_specs: ${{ steps.specs.outputs.specs }}
 
       - name: Create and run cplace docker image
         if: ${{ steps.calc-specs.outputs.has_specs == 'true' }}
@@ -357,7 +392,7 @@ jobs:
         with:
           repo_name: ${{ env.REPO_NAME }}
           base_url: ${{ env.CB_E2E_CPLACE_BASE_URL }}
-          workflow_e2e_specs: ${{ inputs.E2E_SPECS }}
+          workflow_e2e_specs: ${{ steps.specs.outputs.specs }}
           workflow_e2e_browser: ${{ env.CB_E2E_WORKFLOW_BROWSER }}
           node_index: ${{ matrix.node_index }}
           nodes_total: ${{ inputs.NODES }}
@@ -419,7 +454,86 @@ jobs:
           check_name: 'Test Results Backend E2E'
           files: test-results/junit/**/*.xml
           json_file: backend-e2e-results.json
+          json_test_case_results: true
           fail_on: ${{ inputs.ADVISORY && 'nothing' || 'test failures' }}
+
+      # One comment per run; earlier ones from this workflow are minimized as outdated.
+      - name: Comment on the PR
+        if: ${{ always() }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          E2E_RESULT: ${{ needs.e2e.result }}
+          ADVISORY: ${{ inputs.ADVISORY }}
+          BACKEND_REPO: ${{ needs.resolve.outputs.backend_repo }}
+          BACKEND_BRANCH: ${{ needs.resolve.outputs.backend_branch }}
+          E2E_BRANCH: ${{ needs.resolve.outputs.e2e_branch }}
+          SNAPSHOT_VERSION: ${{ inputs.SNAPSHOT_VERSION }}
+          BACKEND_PACKAGES: ${{ needs.resolve.outputs.backend_packages }}
+          E2E_PACKAGES: ${{ needs.resolve.outputs.e2e_packages }}
+        with:
+          script: |
+            const fs = require('fs');
+            const MARKER = '<!-- fe-backend-e2e -->';
+            const MAX_FAILURES = 20;
+            const env = process.env;
+
+            let results = {};
+            try {
+              results = JSON.parse(fs.readFileSync('backend-e2e-results.json', 'utf8'));
+            } catch (error) {
+              core.warning(`No readable backend-e2e-results.json: ${error.message}`);
+            }
+            const stats = results.stats || {};
+            const tests = stats.tests || 0;
+            const failed = (stats.tests_fail || 0) + (stats.tests_error || 0);
+            const passed = stats.tests_succ || 0;
+            const skipped = stats.tests_skip || 0;
+            const ok = tests > 0 && failed === 0 && env.E2E_RESULT === 'success';
+
+            const specOf = (result) =>
+              result.test_file || (result.result_file || '').split('/').pop().replace(/^cplace-e2e-results-/, '').replace(/\.xml$/, '');
+            const failures = (results.cases || []).flatMap((testCase) =>
+              [...(testCase.states?.failure || []), ...(testCase.states?.error || [])].slice(0, 1).map((result) => ({
+                name: testCase.test_name || result.test_name,
+                spec: specOf(result),
+              })),
+            );
+
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const lines = [
+              MARKER,
+              `### ${ok ? '✅' : '❌'} Backend E2E${env.ADVISORY === 'true' ? ' (advisory)' : ''}`,
+              '',
+              tests > 0 ? `${passed} passed, ${failed} failed, ${skipped} skipped` : `No test results (E2E nodes: \`${env.E2E_RESULT}\`).`,
+              '',
+              '| | |',
+              '|---|---|',
+              `| Backend | \`${env.BACKEND_REPO}\` @ \`${env.BACKEND_BRANCH}\` |`,
+              `| cplace-e2e | \`${env.E2E_BRANCH}\` |`,
+              `| Snapshot version | \`${env.SNAPSHOT_VERSION || 'none'}\` |`,
+              `| Pinned in the backend | \`${env.BACKEND_PACKAGES}\` |`,
+              `| Pinned in cplace-e2e | \`${env.E2E_PACKAGES}\` |`,
+            ];
+            if (failures.length > 0) {
+              lines.push('', `**Failing tests**${failures.length > MAX_FAILURES ? ` (first ${MAX_FAILURES} of ${failures.length})` : ''}:`, '');
+              for (const failure of failures.slice(0, MAX_FAILURES)) {
+                lines.push(`- \`${failure.spec}\`: ${failure.name}`);
+              }
+            }
+            lines.push('', `[Workflow run](${runUrl})${results.check_url ? ` · [Test Results Backend E2E](${results.check_url})` : ''}`);
+
+            const issue = { owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number };
+            const { data: created } = await github.rest.issues.createComment({ ...issue, body: lines.join('\n') });
+
+            const comments = await github.paginate(github.rest.issues.listComments, { ...issue, per_page: 100 });
+            const outdated = comments.filter(
+              (comment) => comment.id !== created.id && comment.user?.login === 'github-actions[bot]' && comment.body?.startsWith(MARKER),
+            );
+            for (const comment of outdated) {
+              await github.graphql('mutation($id: ID!) { minimizeComment(input: {subjectId: $id, classifier: OUTDATED}) { clientMutationId } }', {
+                id: comment.node_id,
+              });
+            }
 
       # needs.e2e.result is not relied on in advisory mode: continue-on-error
       # may report a failed node as 'success'.

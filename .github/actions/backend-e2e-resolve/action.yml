@@ -10,6 +10,10 @@ inputs:
   head_ref:
     description: 'The PR head branch; used in the backend and cplace-e2e when they have a branch of that name'
     required: true
+  in_repo_specs:
+    description: 'true when the FE repo has an e2e-tests/ folder, shown in the summary'
+    required: false
+    default: 'false'
   snapshot_version:
     description: 'The published snapshot version, shown in the summary'
     required: false
@@ -119,6 +123,7 @@ runs:
         BACKEND_PACKAGES: ${{ steps.consumers.outputs.backend_packages }}
         E2E_PACKAGES: ${{ steps.consumers.outputs.e2e_packages }}
         RUN: ${{ steps.consumers.outputs.run }}
+        IN_REPO_SPECS: ${{ inputs.in_repo_specs }}
       run: |
         {
           echo '### Backend E2E'
@@ -136,4 +141,9 @@ runs:
           echo "| Published packages | \`${PACKAGES:-[]}\` |"
           echo "| Consumed by the backend | \`${BACKEND_PACKAGES}\` |"
           echo "| Consumed by cplace-e2e | \`${E2E_PACKAGES}\` |"
+          if [[ "${IN_REPO_SPECS}" == 'true' ]]; then
+            echo "| In-repo specs | \`e2e-tests/\` → \`cypress/e2e/${FE_REPO}/\` |"
+          else
+            echo '| In-repo specs | none |'
+          fi
         } >>"$GITHUB_STEP_SUMMARY"
