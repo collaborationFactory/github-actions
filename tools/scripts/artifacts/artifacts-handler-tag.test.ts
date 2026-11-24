@@ -20,6 +20,8 @@ afterEach(() => {
   process.env.TAG = '';
   process.env.BASE = '';
   process.env.PR_NUMBER = '';
+  delete process.env.JFROG_TOKEN;
+  process.env.JFROG_BASE64_TOKEN = 'jfrog_base64_token';
 });
 
 test('can find latest version Tag of a given branch and bump the version', async () => {
@@ -45,6 +47,31 @@ test('can find latest version Tag of a given branch and bump the version', async
   expect(artifactHandler.calculatedNewVersion.getGitTag()).toBe(
     'version/5.18.121'
   );
+});
+
+test('bumps the version on a release branch without JFrog credentials', async () => {
+  process.env.ONLY_BUMP_VERSION = 'true';
+  process.env.JFROG_BASE64_TOKEN = '';
+  process.env.JFROG_TOKEN = '';
+  mockProjects();
+  const execMock = jest
+    .spyOn(child_process, 'execSync')
+    .mockReturnValueOnce(Buffer.from(gitLs))
+    .mockReturnValue(Buffer.from(''));
+  jest
+    .spyOn(Utils, 'getCurrentBranchNameFromGithubEnv')
+    .mockReturnValueOnce('release/5.18');
+  jest
+    .spyOn(Utils, 'parseScopeFromPackageJson')
+    .mockReturnValueOnce('@cplace-frontend-applications');
+
+  const artifactHandler = new ArtifactsHandler();
+  await artifactHandler.handle();
+
+  expect(artifactHandler.calculatedNewVersion.getGitTag()).toBe(
+    'version/5.18.121'
+  );
+  expect(execMock).toHaveBeenCalledWith('git push origin version/5.18.121');
 });
 
 test('can create a release tag in case release branch is pushed for the first time', async () => {

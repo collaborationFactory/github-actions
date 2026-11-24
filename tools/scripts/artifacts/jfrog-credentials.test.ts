@@ -66,3 +66,35 @@ test('JfrogCredentials does not serialize its secrets', () => {
   expect(json).toContain('"authMode":"TOKEN"');
   expect(json).toContain('"user":"jfrog_user"');
 });
+
+test('JfrogCredentials requires nothing more in token mode', () => {
+  process.env.JFROG_TOKEN = 'jfrog_token';
+  const log = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+
+  new JfrogCredentials().requireForPublishing();
+
+  expect(log).not.toHaveBeenCalled();
+});
+
+test('JfrogCredentials warns once that JFROG_BASE64_TOKEN is deprecated in legacy mode', () => {
+  process.env.JFROG_BASE64_TOKEN = 'jfrog_base64_token';
+  const log = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+
+  new JfrogCredentials().requireForPublishing();
+
+  expect(log).toHaveBeenCalledTimes(1);
+  expect(log).toHaveBeenCalledWith(
+    `::warning::${JfrogCredentials.LEGACY_WARNING}`
+  );
+});
+
+test('JfrogCredentials fails with an error annotation when neither secret is set', () => {
+  const log = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+
+  expect(() => new JfrogCredentials().requireForPublishing()).toThrow(
+    JfrogCredentials.MISSING_ERROR
+  );
+  expect(log).toHaveBeenCalledWith(
+    `::error::${JfrogCredentials.MISSING_ERROR}`
+  );
+});

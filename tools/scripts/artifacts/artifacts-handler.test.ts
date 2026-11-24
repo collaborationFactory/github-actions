@@ -44,6 +44,7 @@ afterEach(() => {
   process.env.GITHUB_HEAD_REF = '';
   process.env.GITHUB_REF_NAME = '';
   delete process.env.JFROG_TOKEN;
+  process.env.JFROG_BASE64_TOKEN = 'jfrog_base64_token';
 });
 
 beforeEach(() => {
@@ -103,6 +104,19 @@ test('can delete artifacts when a Pull Request is closed', async () => {
   expect(artifactHandler.projects[1].npmrcContent).toBe('');
   expect(artifactHandler.projects[0].getPrettyPackageJson()).toBe('{}');
   expect(artifactHandler.projects[1].getPrettyPackageJson()).toBe('{}');
+});
+
+test('refuses to delete artifacts when a Pull Request is closed without JFrog credentials', async () => {
+  process.env.BASE = 'main';
+  process.env.PR_NUMBER = '222';
+  process.env.ONLY_DELETE_ARTIFACTS = 'true';
+  process.env.GITHUB_EVENT_NAME = Utils.PULL_REQUEST;
+  process.env.GITHUB_HEAD_REF = 'feat/PFM-ISSUE-543-another-feature';
+  process.env.JFROG_BASE64_TOKEN = '';
+
+  await expect(exec()).rejects.toThrow('No JFrog credentials');
+
+  expect(deleteArtifactSpy).not.toHaveBeenCalled();
 });
 
 test('can remove unallowed characters from branch name ', async () => {

@@ -7,6 +7,12 @@ export enum JfrogAuthMode {
 export class JfrogCredentials {
   /** written literally into the dist .npmrc; npm expands it from the step env */
   public static readonly TOKEN_PLACEHOLDER = '${JFROG_TOKEN}';
+  public static readonly LEGACY_WARNING =
+    'JFROG_BASE64_TOKEN is deprecated: set the JFROG_TOKEN repository secret and pass ' +
+    'JFROG_TOKEN instead of JFROG_BASE64_TOKEN to the github-actions FE workflows (PFM-ISSUE-34293).';
+  public static readonly MISSING_ERROR =
+    'No JFrog credentials: pass the JFROG_TOKEN secret (or the deprecated JFROG_BASE64_TOKEN) ' +
+    'to this workflow. Publishing and deleting npm artifacts needs one of them.';
   public url = '';
   public user = '';
   public base64Token = '';
@@ -29,6 +35,20 @@ export class JfrogCredentials {
     if (this.token) return JfrogAuthMode.TOKEN;
     if (this.base64Token) return JfrogAuthMode.LEGACY;
     return JfrogAuthMode.NONE;
+  }
+
+  /** call once per run, before anything is published or deleted */
+  public requireForPublishing(): void {
+    switch (this.authMode) {
+      case JfrogAuthMode.TOKEN:
+        return;
+      case JfrogAuthMode.LEGACY:
+        console.log(`::warning::${JfrogCredentials.LEGACY_WARNING}`);
+        return;
+      default:
+        console.log(`::error::${JfrogCredentials.MISSING_ERROR}`);
+        throw new Error(JfrogCredentials.MISSING_ERROR);
+    }
   }
 
   public getJfrogUrlNoHttp(): string {
