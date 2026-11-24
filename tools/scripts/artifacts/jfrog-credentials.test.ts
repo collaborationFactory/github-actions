@@ -1,0 +1,68 @@
+import { expect } from '@jest/globals';
+import { JfrogAuthMode, JfrogCredentials } from './jfrog-credentials';
+
+const JFROG_ENV = [
+  'JFROG_URL',
+  'JFROG_USER',
+  'JFROG_TOKEN',
+  'JFROG_BASE64_TOKEN',
+];
+
+afterEach(() => {
+  JFROG_ENV.forEach((name) => delete process.env[name]);
+  jest.restoreAllMocks();
+});
+
+test('JfrogCredentials uses the token when JFROG_TOKEN and JFROG_BASE64_TOKEN are both set', () => {
+  process.env.JFROG_TOKEN = 'jfrog_token';
+  process.env.JFROG_BASE64_TOKEN = 'jfrog_base64_token';
+
+  expect(new JfrogCredentials().authMode).toBe(JfrogAuthMode.TOKEN);
+});
+
+test('JfrogCredentials falls back to the legacy mode when only JFROG_BASE64_TOKEN is set', () => {
+  process.env.JFROG_BASE64_TOKEN = 'jfrog_base64_token';
+
+  expect(new JfrogCredentials().authMode).toBe(JfrogAuthMode.LEGACY);
+});
+
+test('JfrogCredentials has no auth mode when neither secret is set', () => {
+  expect(new JfrogCredentials().authMode).toBe(JfrogAuthMode.NONE);
+});
+
+test('JfrogCredentials treats empty secrets as absent, the way workflows pass unset optional secrets', () => {
+  process.env.JFROG_TOKEN = '';
+  process.env.JFROG_BASE64_TOKEN = '';
+
+  expect(new JfrogCredentials().authMode).toBe(JfrogAuthMode.NONE);
+});
+
+test.each([
+  'https://cplace.jfrog.io/artifactory/cplace-npm-test',
+  'https://cplace.jfrog.io/artifactory/cplace-npm-test/',
+  'https://cplace.jfrog.io/artifactory/cplace-npm-test//',
+])(
+  'JfrogCredentials builds an auth key with exactly one trailing slash from %s',
+  (url) => {
+    process.env.JFROG_URL = url;
+
+    expect(new JfrogCredentials().getAuthKey()).toBe(
+      '//cplace.jfrog.io/artifactory/cplace-npm-test/'
+    );
+  }
+);
+
+test('JfrogCredentials does not serialize its secrets', () => {
+  process.env.JFROG_URL =
+    'https://cplace.jfrog.io/artifactory/cplace-npm-test/';
+  process.env.JFROG_USER = 'jfrog_user';
+  process.env.JFROG_TOKEN = 'secret_token_value';
+  process.env.JFROG_BASE64_TOKEN = 'secret_base64_value';
+
+  const json = JSON.stringify({ jfrogCredentials: new JfrogCredentials() });
+
+  expect(json).not.toContain('secret_token_value');
+  expect(json).not.toContain('secret_base64_value');
+  expect(json).toContain('"authMode":"TOKEN"');
+  expect(json).toContain('"user":"jfrog_user"');
+});

@@ -4,7 +4,7 @@ import * as path from 'path';
 
 import { Utils } from './utils';
 import { TASK } from './artifacts-handler';
-import { JfrogCredentials } from './jfrog-credentials';
+import { JfrogAuthMode, JfrogCredentials } from './jfrog-credentials';
 import { Version } from './version';
 import { getJfrogUrl } from './configuration';
 import { NpmPackage } from './types';
@@ -291,18 +291,29 @@ export class NxProject {
   }
 
   public writeNPMRCInDist(jfrogCredentials: JfrogCredentials, scope: string) {
-    this.npmrcContent = `${scope}:registry=${jfrogCredentials.url} \n`;
-    this.npmrcContent =
-      this.npmrcContent +
-      `${jfrogCredentials.getJfrogUrlNoHttp()}:_auth=${
-        jfrogCredentials.base64Token
-      } \n`;
-    this.npmrcContent =
-      this.npmrcContent +
-      `${jfrogCredentials.getJfrogUrlNoHttp()}:always-auth=true \n`;
-    this.npmrcContent =
-      this.npmrcContent +
-      `${jfrogCredentials.getJfrogUrlNoHttp()}:email=${jfrogCredentials.user}`;
+    if (jfrogCredentials.authMode === JfrogAuthMode.TOKEN) {
+      this.npmrcContent =
+        `${scope}:registry=${jfrogCredentials.url}\n` +
+        `${jfrogCredentials.getAuthKey()}:_authToken=${
+          JfrogCredentials.TOKEN_PLACEHOLDER
+        }`;
+      console.log(
+        `Publishing as JFrog user ${jfrogCredentials.user} with JFROG_TOKEN`
+      );
+    } else {
+      this.npmrcContent = `${scope}:registry=${jfrogCredentials.url} \n`;
+      this.npmrcContent =
+        this.npmrcContent +
+        `${jfrogCredentials.getJfrogUrlNoHttp()}:_auth=${
+          jfrogCredentials.base64Token
+        } \n`;
+      this.npmrcContent =
+        this.npmrcContent +
+        `${jfrogCredentials.getJfrogUrlNoHttp()}:always-auth=true \n`;
+      this.npmrcContent =
+        this.npmrcContent +
+        `${jfrogCredentials.getJfrogUrlNoHttp()}:email=${jfrogCredentials.user}`;
+    }
     console.log(this.npmrcContent + '\n\n');
     const npmrcPathInDist = this.getNpmrcPathInDist();
     if (!fs.existsSync(npmrcPathInDist)) {

@@ -86,3 +86,6 @@ export const npmrc =
   'jfrog_url:_auth=jfrog_base64_token \n' +
   'jfrog_url:always-auth=true \n' +
   'jfrog_url:email=jfrog_user';
+export const npmrcToken =
+  '@cplace-frontend-applications:registry=jfrog_url\n' +
+  'jfrog_url/:_authToken=${JFROG_TOKEN}';

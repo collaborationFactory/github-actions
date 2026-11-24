@@ -17,6 +17,7 @@ import {
   lib2,
   libsDir,
   npmrc,
+  npmrcToken,
   packageJsonLib1,
   packageJsonLib2,
 } from './test-data';
@@ -42,6 +43,7 @@ afterEach(() => {
   process.env.GITHUB_EVENT_NAME = '';
   process.env.GITHUB_HEAD_REF = '';
   process.env.GITHUB_REF_NAME = '';
+  delete process.env.JFROG_TOKEN;
 });
 
 beforeEach(() => {
@@ -165,6 +167,22 @@ test('can create and overwrite Snapshots in main branch', async () => {
     JSON.parse(artifactHandler.projects[2].getPrettyPackageJson()).publishConfig
       .tag
   ).toBe('snapshot');
+});
+
+test('can write the token .npmrc for Snapshots in main branch', async () => {
+  jest
+    .spyOn(Utils, 'getCurrentBranchNameFromGithubEnv')
+    .mockReturnValueOnce('main');
+  process.env.SNAPSHOT = 'true';
+  process.env.BASE = base;
+  process.env.GITHUB_REF_NAME = 'main';
+  process.env.JFROG_TOKEN = 'jfrog_token';
+
+  const artifactHandler = await exec();
+
+  expect(artifactHandler.projects).toHaveLength(3);
+  expect(artifactHandler.projects[0].npmrcContent).toBe(npmrcToken);
+  expect(artifactHandler.projects[1].npmrcContent).toBe(npmrcToken);
 });
 
 async function exec() {
