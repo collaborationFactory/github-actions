@@ -3,8 +3,11 @@ name: Cleanup Snapshot Artifacts on a CRON Schedule
 on:
   workflow_call:
     secrets:
+      JFROG_TOKEN:
+        required: false
+      # deprecated, replaced by JFROG_TOKEN; used only when JFROG_TOKEN is not passed
       JFROG_BASE64_TOKEN:
-        required: true
+        required: false
       JFROG_URL:
         required: true
       JFROG_USER:
@@ -41,6 +44,7 @@ jobs:
       - name: Cleanup Snapshot Artifacts
         uses: collaborationFactory/github-actions/.github/actions/snapshots@master
         env:
+          JFROG_TOKEN: ${{ secrets.JFROG_TOKEN }}
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}
           JFROG_USER: ${{ secrets.JFROG_USER }}
