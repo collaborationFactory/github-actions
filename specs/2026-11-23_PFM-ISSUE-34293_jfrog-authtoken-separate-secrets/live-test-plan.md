@@ -278,14 +278,36 @@ Any failed row stops the series (LT 2.1). Record it, fix it on `FB`, recreate th
 
 To be filled in Phase 5. One row per case; the verdict is `pass`, `fail` or `skipped`.
 
+Executed 2026-11-24/25 against `TEST_BRANCH` recreated from the final `FB` (P2, P3 empty). Run ids are `clone-cplace-fe` Actions runs (`https://github.com/collaborationFactory/clone-cplace-fe/actions/runs/<id>`). Captures, `verdict` evidence and the ledger are in `$OUT` (scratchpad, not kept).
+
 | Case | Run(s) | Evidence | Versions touched in `cplace-npm-test` (state) | Verdict | Note |
 |---|---|---|---|---|---|
+| T1 | 45565826065 | 21× two-line token `.npmrc` + `Publishing as JFrog user`; `"authMode":"TOKEN"`; 0 auth errors, 0 leaks; no annotation; 21 `+ @cplace-next/` lines = 21 tarballs; `snapshot` moved on 21 packages | `0.0.0-SNAPSHOT-mwvskjk3-20261125` ×21 (kept) | pass | replay upstream #3002 |
+| T2 | 45572898174, 45575520373 | run 1: 16× `does not exist … Skipping deletion` (authenticated `npm show`), 16 published; run 2: 16× `exists in registry`, 16 `npm unpublish`, 16 `Deleted artifact`, 16 republished, all 16 tarballs re-created in run 2's window; token `.npmrc` throughout | `0.0.0-test-34293-pr-token-2` ×16 (deleted by T3) | pass | PR #2; replay upstream #3028 on the PR branch |
+| T3 | 45576981303 | 16× `Path to project in dist does not exist` (dist-missing path), token `.npmrc`, 16 unpublished; AQL 0 left; `latest-pr-snapshot` gone | as T2 (deleted) | pass | PR #2 closed unmerged |
+| T4 | 45577536910 | 27× token `.npmrc`; publish under `release-26.4-pending`; promote: `release-26.4` → `26.4.11` on all 27, no `-pending` left; tag `version/26.4.11`, no canary run; 0 auth errors, 0 leaks | `26.4.11` ×27 (kept) | pass | deviation D1: `github-release` skipped, GitHub release created by hand. Replay `d9d83f5a6ee` (spare), because `4b83e9883e5` conflicts in `.github/workflows` |
+| T5 | 45587848793 | failed in the `CleanupSnapshots` constructor before the gate: `npm view @cplace-next/example --json` → E404 via `DOT_NPMRC`; registry unchanged (438 tarballs before and after) | none | fail | deviation D2 (pre-existing, blocked); unpublish covered by T3/L2, cleanup gate by unit tests |
+| T6 | – | – | – | skipped | optional; skipped by user decision |
+| L1 | 45589586654 | 21× four-line legacy `.npmrc` (`:_auth=***`, `always-auth`, `email`); `"authMode":"LEGACY"`; exactly one `warning` annotation `JFROG_BASE64_TOKEN is deprecated …` on the snapshot job | `0.0.0-SNAPSHOT-mwvyga89-20261125` ×21 (kept) | pass | replay upstream #3012 |
+| L2 | 45596280138, 45597704246 | `"authMode":"LEGACY"` + one warning on both jobs; 16 published, then 16 unpublished on close; AQL 0 left | `0.0.0-test-34293-pr-legacy-3` ×16 (deleted by close) | pass | PR #3; the printout is fully masked by `DOT_NPMRC` (four-line structure visible) |
+| L3 | 45600638756 | explicit-secrets caller without `JFROG_TOKEN`: `"authMode":"LEGACY"` + warning; forced release, 27 published, promote `release-26.4` → `26.4.12` on all 27, no pending; tag `version/26.4.12` | `26.4.12` ×27 (kept) | pass | deviation D1 again; GitHub release created by hand. L3a: 45598622491 (NO-RELEASE, warning) |
+| N1 | 45592796748 | run started (no startup failure); `snapshot` `failure`; `"authMode":"NONE"`; `failure` annotation `No JFrog credentials: …`; no `About to build`, no publish; 0 new tarballs | none | pass | caller without either line |
+| N2 | 45598268998 | artifacts step `failure` at the gate; `"authMode":"NONE"`; `No JFrog credentials` annotation; no dist, `npm show` or `unpublish` line | none | pass | PR #4 without label, closed |
+
+Additional observations (all `pass`): S2 caller switch 45483321535, T4a 45485152799, N1 restore 45594470871, L3 restore 45604293438. Each ran in the expected mode (token or legacy), had nothing affected and published nothing.
+
+**Summary:** 9 pass (T4 and L3 with deviation D1), 1 fail (T5, blocked by pre-existing D2), 1 skipped (T6). Every dist-`.npmrc` npm command ran with the token: publish (T1, T2, T4), `show` (T2, T3), `unpublish` (T2, T3), `dist-tag add`/`rm` (T4). No `Failed to replace env in config`, no `"token":`/`"base64Token":` key and no auth error in any run.
 
 Deviations, each with its evidence file:
+- **D1, pre-existing on `master`, not 34293: `github-release` skipped when `RUN_E2E: false`** (T4, L3; `$OUT/T4/run-45577536910`, `$OUT/L3/run-45600638756`). `release` needs `[build, e2e]`; a skipped `e2e` makes the implicit `success()` in `github-release`'s `if: needs.release.outputs.tag != ''` false, so the job is skipped although `release` succeeded and output the tag. Any repo that sets `RUN_E2E: false` gets no GitHub release. The 34282 test branch had no `e2e` job, so its runs did not show this. User decision: separate ticket; the releases `version/26.4.11` and `version/26.4.12` were created by hand with the job's arguments (author is therefore the user, not `github-actions[bot]`).
+- **D2, pre-existing, not 34293: snapshot cleanup crashes in its search step** (T5; `$OUT/T5/run-45587848793`). `npm search @cplace-next` via `DOT_NPMRC` lists a package that `npm view` then cannot find (E404), and the uncaught error ends the run before any deletion. Upstream `cplace-fe`'s scheduled cleanup on `@master` failed in the same way on 2026-10-28 (run 40607202349, `@cplace-next/cf-fe-cdn-not-allowed`); it also failed on 2026-07-28 (30317288167). T5 therefore cannot reach the gate. Accepted by the user on 2026-11-25 as a pre-existing deviation; separate ticket.
+- Process notes: the T4 replay `4b83e9883e5` was replaced by the spare `d9d83f5a6ee`, because it conflicts in fork-setup workflow files. JFrog AQL failed transiently a few times (`exit status 3`); every count above comes from a valid response.
 
 ---
 
 ## 7. Teardown
+
+**Status 2026-11-25:** deferred by user decision until `FB` is merged. Until then the clone's `main` callers (`push_main.yaml` snapshot, `pull_request_snapshot.yaml`, `pull_request_close.yaml`, `cron_cleanup_snapshots.yaml`) and `release/26.4`'s `fe-release.yml` (`RUN_E2E: false`, `secrets: inherit`) call `TEST_BRANCH` in token mode, and `TEST_BRANCH` stays. Throwaway branches `test/34293-pr-*` are already deleted; PRs #2–#4 are closed.
 
 Stop before each step (LT 4.3). `clone-cplace-fe` and `cplace-npm-test` are test-only: tags, releases and release tarballs created here stay unless the user decides otherwise. PR-snapshot versions are already deleted by T3/L2.
 

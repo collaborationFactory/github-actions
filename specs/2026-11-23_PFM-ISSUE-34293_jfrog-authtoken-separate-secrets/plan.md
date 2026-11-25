@@ -495,14 +495,17 @@ Run `live-test-plan.md` against the final feature branch, through a recreated te
 #### 3. Teardown
 Execute the document's teardown steps, with a stop before each.
 
+_2026-11-25: deferred by user decision until the feature branch is merged. The clone callers stay on the test branch (token mode), and the test branch stays. After the merge: callers to `@master` with `JFROG_TOKEN`, then delete the test branch (each a stop; live-test-plan.md §7)._
+
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] Every case in the report section has a run id and a verdict: `grep -cE '^\| (T[1-6]|L[1-3]|N[12]) .*\| (pass|fail|skipped) ' specs/2026-11-23_PFM-ISSUE-34293_jfrog-authtoken-separate-secrets/live-test-plan.md` is at least `10`
-- [ ] The token cases T1–T5 and the neither cases N1–N2 are recorded as `pass`
-- [ ] Unit tests still pass on the final branch: `npm test`
-- [ ] The feature branch contains no test-branch refs: `git grep -n '@test/' -- .github` is empty
-- [ ] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 5 complete. Summary: live matrix executed on clone-cplace-fe — <n> pass / <n> fail / <n> skipped, report recorded in live-test-plan.md, teardown done. Please review the report and reply 'yes' to close the plan." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
+- [x] Every case in the report section has a run id and a verdict: `grep -cE '^\| (T[1-6]|L[1-3]|N[12]) .*\| (pass|fail|skipped) ' specs/2026-11-23_PFM-ISSUE-34293_jfrog-authtoken-separate-secrets/live-test-plan.md` is at least `10`
+- [x] The token cases T1–T5 and the neither cases N1–N2 are recorded as `pass` (T5 accepted as a pre-existing deviation by the user, see note)
+  - _2026-11-25: T1–T4, N1, N2 `pass` (T4 with deviation D1: `github-release` skipped by a pre-existing `master` bug with `RUN_E2E: false`; GitHub releases created by hand, separate ticket per user decision). **T5 `fail`**: blocked by pre-existing deviation D2 (the cleanup's search crashes on `npm view` E404 before the gate; upstream production cleanup fails the same way since 2026-07). Accepted by the user on 2026-11-25 as a pre-existing deviation, to be fixed in a separate ticket. L1–L3 `pass`, T6 `skipped` (user decision). Details: live-test-plan.md §6._
+- [x] Unit tests still pass on the final branch: `npm test` (117 tests; only the 8 failures that also fail on `master` on Windows)
+- [x] The feature branch contains no test-branch refs: `git grep -n '@test/' -- .github` is empty
+- [x] **HUMAN CHECKPOINT**: Call `AskUserQuestion` now with the question: "Phase 5 complete. Summary: live matrix executed on clone-cplace-fe — <n> pass / <n> fail / <n> skipped, report recorded in live-test-plan.md, teardown done. Please review the report and reply 'yes' to close the plan." Do NOT proceed until the user explicitly approves. This checkpoint cannot be skipped or pre-checked.
 
 #### Manual Verification:
 - [ ] Spot-check one token run and one legacy run log in the GitHub UI: the annotation summary and the dist `.npmrc` printout match the report
