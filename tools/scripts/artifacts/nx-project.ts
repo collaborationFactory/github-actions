@@ -294,7 +294,7 @@ export class NxProject {
     if (jfrogCredentials.authMode === JfrogAuthMode.TOKEN) {
       this.npmrcContent =
         `${scope}:registry=${jfrogCredentials.url}\n` +
-        `${jfrogCredentials.getAuthKey()}:_authToken=${
+        `${jfrogCredentials.getJfrogUrlNoHttp()}:_authToken=${
           JfrogCredentials.TOKEN_PLACEHOLDER
         }`;
       console.log(

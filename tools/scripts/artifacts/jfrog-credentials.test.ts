@@ -37,21 +37,6 @@ test('JfrogCredentials treats empty secrets as absent, the way workflows pass un
   expect(new JfrogCredentials().authMode).toBe(JfrogAuthMode.NONE);
 });
 
-test.each([
-  'https://cplace.jfrog.io/artifactory/cplace-npm-test',
-  'https://cplace.jfrog.io/artifactory/cplace-npm-test/',
-  'https://cplace.jfrog.io/artifactory/cplace-npm-test//',
-])(
-  'JfrogCredentials builds an auth key with exactly one trailing slash from %s',
-  (url) => {
-    process.env.JFROG_URL = url;
-
-    expect(new JfrogCredentials().getAuthKey()).toBe(
-      '//cplace.jfrog.io/artifactory/cplace-npm-test/'
-    );
-  }
-);
-
 test('JfrogCredentials does not serialize its secrets', () => {
   process.env.JFROG_URL =
     'https://cplace.jfrog.io/artifactory/cplace-npm-test/';

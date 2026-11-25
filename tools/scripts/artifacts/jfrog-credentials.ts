@@ -9,7 +9,7 @@ export class JfrogCredentials {
   public static readonly TOKEN_PLACEHOLDER = '${JFROG_TOKEN}';
   public static readonly LEGACY_WARNING =
     'JFROG_BASE64_TOKEN is deprecated: set the JFROG_TOKEN repository secret and pass ' +
-    'JFROG_TOKEN instead of JFROG_BASE64_TOKEN to the github-actions FE workflows (PFM-ISSUE-34293).';
+    'JFROG_TOKEN instead of JFROG_BASE64_TOKEN to the github-actions FE workflows.';
   public static readonly MISSING_ERROR =
     'No JFrog credentials: pass the JFROG_TOKEN secret (or the deprecated JFROG_BASE64_TOKEN) ' +
     'to this workflow. Publishing and deleting npm artifacts needs one of them.';
@@ -53,11 +53,6 @@ export class JfrogCredentials {
 
   public getJfrogUrlNoHttp(): string {
     return this.url.replace('https:', '');
-  }
-
-  /** npm looks credentials up by the registry's nerf-dart, which ends in exactly one '/' */
-  public getAuthKey(): string {
-    return this.getJfrogUrlNoHttp().replace(/\/+$/, '') + '/';
   }
 
   /** keeps secrets out of JSON.stringify, e.g. the handler's "Configuration" log line */
