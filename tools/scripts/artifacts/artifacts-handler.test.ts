@@ -17,6 +17,7 @@ import {
   lib2,
   libsDir,
   npmrc,
+  npmrcToken,
   packageJsonLib1,
   packageJsonLib2,
 } from './test-data';
@@ -42,6 +43,8 @@ afterEach(() => {
   process.env.GITHUB_EVENT_NAME = '';
   process.env.GITHUB_HEAD_REF = '';
   process.env.GITHUB_REF_NAME = '';
+  delete process.env.JFROG_TOKEN;
+  process.env.JFROG_BASE64_TOKEN = 'jfrog_base64_token';
 });
 
 beforeEach(() => {
@@ -101,6 +104,19 @@ test('can delete artifacts when a Pull Request is closed', async () => {
   expect(artifactHandler.projects[1].npmrcContent).toBe('');
   expect(artifactHandler.projects[0].getPrettyPackageJson()).toBe('{}');
   expect(artifactHandler.projects[1].getPrettyPackageJson()).toBe('{}');
+});
+
+test('refuses to delete artifacts when a Pull Request is closed without JFrog credentials', async () => {
+  process.env.BASE = 'main';
+  process.env.PR_NUMBER = '222';
+  process.env.ONLY_DELETE_ARTIFACTS = 'true';
+  process.env.GITHUB_EVENT_NAME = Utils.PULL_REQUEST;
+  process.env.GITHUB_HEAD_REF = 'feat/PFM-ISSUE-543-another-feature';
+  process.env.JFROG_BASE64_TOKEN = '';
+
+  await expect(exec()).rejects.toThrow('No JFrog credentials');
+
+  expect(deleteArtifactSpy).not.toHaveBeenCalled();
 });
 
 test('can remove unallowed characters from branch name ', async () => {
@@ -165,6 +181,22 @@ test('can create and overwrite Snapshots in main branch', async () => {
     JSON.parse(artifactHandler.projects[2].getPrettyPackageJson()).publishConfig
       .tag
   ).toBe('snapshot');
+});
+
+test('can write the token .npmrc for Snapshots in main branch', async () => {
+  jest
+    .spyOn(Utils, 'getCurrentBranchNameFromGithubEnv')
+    .mockReturnValueOnce('main');
+  process.env.SNAPSHOT = 'true';
+  process.env.BASE = base;
+  process.env.GITHUB_REF_NAME = 'main';
+  process.env.JFROG_TOKEN = 'jfrog_token';
+
+  const artifactHandler = await exec();
+
+  expect(artifactHandler.projects).toHaveLength(3);
+  expect(artifactHandler.projects[0].npmrcContent).toBe(npmrcToken);
+  expect(artifactHandler.projects[1].npmrcContent).toBe(npmrcToken);
 });
 
 async function exec() {

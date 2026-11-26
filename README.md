@@ -82,13 +82,31 @@ run ends green with the warning "FORCE is ignored".
 
 ### Required secrets
 
-Passed with `secrets: inherit`: `JFROG_BASE64_TOKEN`, `JFROG_URL`, `JFROG_USER`, `DOT_NPMRC`,
+Passed with `secrets: inherit`: `JFROG_TOKEN`, `JFROG_URL`, `JFROG_USER`, `DOT_NPMRC`,
 `GIT_USER`, `GIT_USER_EMAIL`, and optionally `PERCY_TOKEN`. The caller needs
 `permissions: contents: write`; the flow grants it only to the `release` and `github-release` jobs.
 
 The tag is pushed with `GITHUB_TOKEN`; the flow does not use `GIT_USER_TOKEN`. The deprecated
 `fe-tag.yml` and `workflows/fe-release.yml` still need it: remove it from a repo only once none of
 its branches calls them.
+
+#### JFrog and npm secrets (all FE workflows)
+
+| Secret               | Content                                                                                                                             | Used for                                                                                                                                              |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `JFROG_URL`          | URL of the npm repository artifacts are published to (`cplace-npm-local`); must end with `/`, or `npm publish` fails with ENEEDAUTH | `<scope>:registry=`, `publishConfig.registry`, `--registry=` and the credential key of the generated dist `.npmrc`                                    |
+| `JFROG_USER`         | JFrog user that owns `JFROG_TOKEN`                                                                                                  | logged as the publishing identity; not used for authentication                                                                                        |
+| `JFROG_TOKEN`        | JFrog reference token of `JFROG_USER` with deploy, delete and annotate rights on `cplace-npm-local`                                 | publish, unpublish, `npm show` and `dist-tag`: written literally as `_authToken=${JFROG_TOKEN}` into the dist `.npmrc` and expanded by npm at runtime |
+| `JFROG_BASE64_TOKEN` | **Deprecated.** `base64(user:secret)`                                                                                               | `_auth` in the dist `.npmrc`, only when `JFROG_TOKEN` is not passed; the run shows a deprecation warning                                              |
+| `DOT_NPMRC`          | a complete `.npmrc`                                                                                                                 | installs (`npm ci`), `npm search`/`npm view` in snapshot cleanup, third-party registries; never used for publishing                                   |
+
+To migrate a repository: set the `JFROG_TOKEN` secret (and make `JFROG_USER` its owner), then replace the
+`JFROG_BASE64_TOKEN:` line with `JFROG_TOKEN: ${{ secrets.JFROG_TOKEN }}` in every caller that references the
+reusables `@master` or `@release/27.1` and later. Callers that reference `@release/26.4` or older stay unchanged:
+those reusables do not declare `JFROG_TOKEN` and still require `JFROG_BASE64_TOKEN`. Workflows called with
+`secrets: inherit` pick it up without an edit. Keep the `JFROG_BASE64_TOKEN` repository secret while a
+release branch still passes it. A publishing or deleting run without either secret fails with "No JFrog
+credentials".
 
 ### Tag rulesets
 

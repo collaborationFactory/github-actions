@@ -27,6 +27,8 @@ afterEach(() => {
   process.env.ONLY_BUMP_VERSION = 'false';
   process.env.ONLY_DELETE_ARTIFACTS = 'false';
   process.env.PR_NUMBER = '';
+  delete process.env.JFROG_TOKEN;
+  process.env.JFROG_BASE64_TOKEN = 'jfrog_base64_token';
 });
 
 test('a push to a release branch with affected projects publishes all projects at the new version, then tags', async () => {
@@ -284,6 +286,66 @@ test('a run on the default branch without force does nothing', async () => {
   expect(affected).not.toHaveBeenCalled();
   expect(allProjects).not.toHaveBeenCalled();
   expect(output).not.toHaveBeenCalled();
+});
+
+test('a release without JFrog credentials fails before the version file is written', async () => {
+  process.env.RELEASE_FLOW = 'true';
+  process.env.JFROG_BASE64_TOKEN = '';
+  const execMock = mockGit();
+  mockBranch('release/26.4');
+  const publish = mockPublish();
+
+  await expect(new ArtifactsHandler().handle()).rejects.toThrow(
+    'No JFrog credentials'
+  );
+
+  expect(publish).not.toHaveBeenCalled();
+  expect(Utils.writeReleaseVersionFile).not.toHaveBeenCalled();
+  expect(gitTagOrPushCalls(execMock)).toEqual([]);
+});
+
+test('a run on the default branch without force needs no JFrog credentials', async () => {
+  process.env.RELEASE_FLOW = 'true';
+  process.env.JFROG_BASE64_TOKEN = '';
+  mockGit();
+  mockBranch('master');
+  const publish = mockPublish();
+
+  await expect(new ArtifactsHandler().handle()).resolves.toBeUndefined();
+
+  expect(publish).not.toHaveBeenCalled();
+});
+
+test('a forced run on the default branch without JFrog credentials fails before publishing', async () => {
+  process.env.RELEASE_FLOW = 'true';
+  process.env.FORCE = 'true';
+  process.env.JFROG_BASE64_TOKEN = '';
+  mockGit();
+  mockBranch('master');
+  const allProjects = jest.spyOn(Utils, 'getAllNxProjects');
+  const publish = mockPublish();
+
+  await expect(new ArtifactsHandler().handle()).rejects.toThrow(
+    'No JFrog credentials'
+  );
+
+  expect(allProjects).not.toHaveBeenCalled();
+  expect(publish).not.toHaveBeenCalled();
+});
+
+test('the old version bump mode off a release branch without JFrog credentials fails before publishing', async () => {
+  process.env.ONLY_BUMP_VERSION = 'true';
+  process.env.JFROG_BASE64_TOKEN = '';
+  const execMock = mockGit();
+  mockBranch('master');
+  const publish = mockPublish();
+
+  await expect(new ArtifactsHandler().handle()).rejects.toThrow(
+    'No JFrog credentials'
+  );
+
+  expect(publish).not.toHaveBeenCalled();
+  expect(gitTagOrPushCalls(execMock)).toEqual([]);
 });
 
 test('the old version bump mode writes no outputs', async () => {

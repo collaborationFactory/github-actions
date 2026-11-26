@@ -7,6 +7,7 @@ import { Utils } from './utils';
 import { sep } from 'node:path';
 import { Version } from './version';
 import { TASK } from './artifacts-handler';
+import { JfrogCredentials } from './jfrog-credentials';
 
 jest.mock('child_process');
 
@@ -14,6 +15,9 @@ afterEach(() => {
   jest.resetAllMocks();
   jest.clearAllMocks();
   jest.restoreAllMocks();
+  delete process.env.JFROG_URL;
+  delete process.env.JFROG_USER;
+  delete process.env.JFROG_TOKEN;
 });
 
 beforeEach(() => {
@@ -117,6 +121,36 @@ test('regular app is always publishable regardless of public_api.ts', async () =
   );
 
   expect(nxProject.isPublishable).toBe(true);
+});
+
+test('NxProject writes a token .npmrc when JFROG_TOKEN is set', () => {
+  jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+  const writeFileSync = jest.spyOn(fs, 'writeFileSync').mockReturnValue();
+  process.env.JFROG_URL =
+    'https://cplace.jfrog.io/artifactory/cplace-npm-test/';
+  process.env.JFROG_USER = 'jfrog_user';
+  process.env.JFROG_TOKEN = 'secret_value';
+  const nxProject = new NxProject(
+    'my-app',
+    NxProjectKind.Application,
+    undefined,
+    undefined,
+    '@cplace-next'
+  );
+
+  nxProject.writeNPMRCInDist(new JfrogCredentials(), '@cplace-next');
+
+  expect(nxProject.npmrcContent).toBe(
+    '@cplace-next:registry=https://cplace.jfrog.io/artifactory/cplace-npm-test/\n' +
+      '//cplace.jfrog.io/artifactory/cplace-npm-test/:_authToken=${JFROG_TOKEN}'
+  );
+  expect(nxProject.npmrcContent).not.toContain('secret_value');
+  expect(nxProject.npmrcContent).not.toContain('always-auth');
+  expect(nxProject.npmrcContent).not.toContain('email');
+  expect(writeFileSync).toHaveBeenCalledWith(
+    expect.anything(),
+    nxProject.npmrcContent
+  );
 });
 
 describe('NxProject.deleteArtifact', () => {

@@ -11,6 +11,7 @@ export class CleanupSnapshots {
   private _npmSearchResults: NpmPackage[] = [];
   private scope = '';
   private static readonly RELEASE_CADENCE = 4;
+  private readonly jfrogCredentials = new JfrogCredentials();
 
   constructor() {
     this.initPackagesAndVersions();
@@ -75,6 +76,7 @@ export class CleanupSnapshots {
   }
 
   public async deleteSuperfluousArtifacts() {
+    this.jfrogCredentials.requireForPublishing();
     for (const npmPackage of this._npmSearchResults) {
       if (npmPackage.versions.length) {
         await this.removeSnapshotArtifacts(npmPackage);
@@ -85,7 +87,6 @@ export class CleanupSnapshots {
   private async removeSnapshotArtifacts(npmPackage: NpmPackage) {
     npmPackage.scope = npmPackage.name.split('/')[0];
     npmPackage.name = npmPackage.name.split('/')[1];
-    const jfrogCredentials = new JfrogCredentials();
     for (const sortedVersion of npmPackage.versions) {
       const currentVersion = sortedVersion.replace(
         `${ArtifactsHandler.SNAPSHOT_VERSION}`,
@@ -98,7 +99,7 @@ export class CleanupSnapshots {
         new Version(ArtifactsHandler.SNAPSHOT_VERSION, currentVersion),
         npmPackage.scope
       );
-      await project.deleteArtifact(project.version, jfrogCredentials);
+      await project.deleteArtifact(project.version, this.jfrogCredentials);
     }
   }
 }

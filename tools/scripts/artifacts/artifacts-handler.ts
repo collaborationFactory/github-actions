@@ -126,6 +126,8 @@ export class ArtifactsHandler {
       }
       return Promise.resolve();
     }
+    if (this.requiresPublishCredentials())
+      this.jfrogCredentials.requireForPublishing();
     if (this.releaseFlow) {
       await this.tagAndPublishRelease();
     } else if (
@@ -140,6 +142,16 @@ export class ArtifactsHandler {
       await this.buildAndPublishProjects();
     }
     return Promise.resolve();
+  }
+
+  /** mirrors the dispatch in handle(): only bump-only and the release flow's no-op path need no credentials */
+  private requiresPublishCredentials(): boolean {
+    const onReleaseBranch = this.currentBranch.startsWith(
+      ArtifactsHandler.RELEASE_BRANCH_PREFIX
+    );
+    if (this.releaseFlow) return onReleaseBranch || this.force;
+    if (this.onlyBumpVersion && onReleaseBranch) return false;
+    return true;
   }
 
   private async buildAndPublishProjects() {

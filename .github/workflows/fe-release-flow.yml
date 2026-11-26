@@ -13,8 +13,11 @@ on:
         required: false
         default: true
     secrets:
+      JFROG_TOKEN:
+        required: false
+      # deprecated, replaced by JFROG_TOKEN; used only when JFROG_TOKEN is not passed
       JFROG_BASE64_TOKEN:
-        required: true
+        required: false
       JFROG_URL:
         required: true
       JFROG_USER:
@@ -149,6 +152,7 @@ jobs:
         id: release
         uses: collaborationFactory/github-actions/.github/actions/artifacts@master
         env:
+          JFROG_TOKEN: ${{ secrets.JFROG_TOKEN }}
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}
           JFROG_USER: ${{ secrets.JFROG_USER }}
@@ -186,6 +190,7 @@ jobs:
         if: (failure() || cancelled()) && steps.incomplete.outputs.tag != ''
         uses: collaborationFactory/github-actions/.github/actions/artifacts@master
         env:
+          JFROG_TOKEN: ${{ secrets.JFROG_TOKEN }}
           JFROG_BASE64_TOKEN: ${{ secrets.JFROG_BASE64_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}
           JFROG_USER: ${{ secrets.JFROG_USER }}
