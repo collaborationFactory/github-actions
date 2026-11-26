@@ -101,8 +101,10 @@ its branches calls them.
 | `DOT_NPMRC`          | a complete `.npmrc`                                                                                                                 | installs (`npm ci`), `npm search`/`npm view` in snapshot cleanup, third-party registries; never used for publishing                                   |
 
 To migrate a repository: set the `JFROG_TOKEN` secret (and make `JFROG_USER` its owner), then replace the
-`JFROG_BASE64_TOKEN:` line with `JFROG_TOKEN: ${{ secrets.JFROG_TOKEN }}` in every caller. Workflows called
-with `secrets: inherit` pick it up without an edit. Keep the `JFROG_BASE64_TOKEN` repository secret while a
+`JFROG_BASE64_TOKEN:` line with `JFROG_TOKEN: ${{ secrets.JFROG_TOKEN }}` in every caller that references the
+reusables `@master` or `@release/27.1` and later. Callers that reference `@release/26.4` or older stay unchanged:
+those reusables do not declare `JFROG_TOKEN` and still require `JFROG_BASE64_TOKEN`. Workflows called with
+`secrets: inherit` pick it up without an edit. Keep the `JFROG_BASE64_TOKEN` repository secret while a
 release branch still passes it. A publishing or deleting run without either secret fails with "No JFrog
 credentials".
 
