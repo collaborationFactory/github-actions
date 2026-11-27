@@ -62,3 +62,27 @@ test('returns error message with correct repo name in link', async () => {
     'There was an error running cplace-cli in repo https://github.com/collaborationFactory/cplace-paw-fe.git:\n\nhttps://github.com/collaborationFactory/cplace-paw-fe/actions/runs/123456'
   );
 });
+
+test('does not configure a git identity', async () => {
+  const execSpy = jest
+    .spyOn(child_process, 'execSync')
+    // cast: execSync is overloaded; ts-jest type-checks the test
+    .mockImplementation(((cmd: string) =>
+      cmd.startsWith('git config --get remote.origin.url')
+        ? 'https://github.com/collaborationFactory/cplace-fe.git'
+        : 'Merging upmerge-x/release/24.1 into origin/main\n') as any);
+  const handler = new UpmergeHandler();
+  const slackSpy = jest
+    .spyOn(handler, 'postToSlack')
+    .mockResolvedValue(undefined);
+
+  await handler.checkUpmergeAndNotifiy();
+
+  const commands = execSpy.mock.calls.map(([cmd]) => String(cmd));
+  expect(
+    commands.some((c) => c.includes('user.name') || c.includes('user.email'))
+  ).toBe(false);
+  expect(slackSpy).toHaveBeenCalledWith({ message: '' });
+  execSpy.mockRestore();
+  slackSpy.mockRestore();
+});

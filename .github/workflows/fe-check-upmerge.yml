@@ -5,10 +5,12 @@ on:
     secrets:
       SLACK_TOKEN_UPMERGE:
         required: true
+      # Unused since PFM-ISSUE-33676 (the git identity is the github-actions bot). Kept optional so
+      # callers that still pass them keep working; removed by the FE migration/cleanup ticket.
       GIT_USER_EMAIL:
-        required: true
+        required: false
       GIT_USER:
-        required: true
+        required: false
 
 jobs:
   check-upmerge:
@@ -17,8 +19,14 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
-          ref: ${{ inputs.GHA_REF }}
           fetch-depth: 0
+
+      # cplace-cli makes local merge commits (--no-push), which need an author. --global, as before,
+      # in case the CLI merges outside the checkout.
+      - name: Configure git identity
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
 
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
@@ -35,5 +43,3 @@ jobs:
         uses: collaborationFactory/github-actions/.github/actions/upmerge@master
         env:
           SLACK_TOKEN_UPMERGE: ${{ secrets.SLACK_TOKEN_UPMERGE }}
-          GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
-          GIT_USER: ${{ secrets.GIT_USER }}

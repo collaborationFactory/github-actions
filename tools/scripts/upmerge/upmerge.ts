@@ -9,16 +9,6 @@ interface SlackPost {
 
 export class UpmergeHandler {
   public async checkUpmergeAndNotifiy() {
-    console.log(
-      execSync(
-        `git config --global user.email ${process.env.GIT_USER_EMAIL}`
-      ).toString()
-    );
-    console.log(
-      execSync(
-        `git config --global user.name ${process.env.GIT_USER}`
-      ).toString()
-    );
     const slackMessage = this.isUpmergeNeeded();
     await this.postToSlack(slackMessage);
   }

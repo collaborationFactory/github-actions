@@ -21,10 +21,12 @@ on:
         required: true
       DOT_NPMRC:
         required: true
+      # Unused since PFM-ISSUE-33676 (the git identity is the github-actions bot). Kept optional so
+      # callers that still pass them keep working; removed by the FE migration/cleanup ticket.
       GIT_USER:
-        required: true
+        required: false
       GIT_USER_EMAIL:
-        required: true
+        required: false
       PERCY_TOKEN:
         required: false
 
@@ -138,12 +140,9 @@ jobs:
         run: npm ci
 
       - name: Configure git user
-        env:
-          GIT_USER: ${{ secrets.GIT_USER }}
-          GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
         run: |
-          git config user.name "$GIT_USER"
-          git config user.email "$GIT_USER_EMAIL"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
 
       - name: Publish to Jfrog NPM Registry and Tag
         id: release

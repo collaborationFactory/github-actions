@@ -83,12 +83,17 @@ run ends green with the warning "FORCE is ignored".
 ### Required secrets
 
 Passed with `secrets: inherit`: `JFROG_BASE64_TOKEN`, `JFROG_URL`, `JFROG_USER`, `DOT_NPMRC`,
-`GIT_USER`, `GIT_USER_EMAIL`, and optionally `PERCY_TOKEN`. The caller needs
-`permissions: contents: write`; the flow grants it only to the `release` and `github-release` jobs.
+and optionally `PERCY_TOKEN`. The caller needs `permissions: contents: write`; the flow grants it
+only to the `release` and `github-release` jobs. The flow sets the `github-actions[bot]` git
+identity itself; `GIT_USER` and `GIT_USER_EMAIL` are still accepted but unused. The upmerge check
+(`fe-check-upmerge.yml`) needs only `SLACK_TOKEN_UPMERGE`.
 
 The tag is pushed with `GITHUB_TOKEN`; the flow does not use `GIT_USER_TOKEN`. The deprecated
 `fe-tag.yml` and `workflows/fe-release.yml` still need it: remove it from a repo only once none of
 its branches calls them.
+
+A repo can delete `GIT_USER` and `GIT_USER_EMAIL` once no caller passes them explicitly, and
+`GIT_USER_TOKEN` once none of its branches calls `fe-tag.yml` or `workflows/fe-release.yml`.
 
 ### Tag rulesets
 
